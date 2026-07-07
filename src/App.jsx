@@ -559,9 +559,88 @@ function VintageMapDecorations() {
   return null;
 }
 
-function SmallCountryMarkers({ geojson, onSelectCountry, selectedCountry }) {
+function SmallCountryMarkers({
+  geojson,
+  onSelectCountry,
+  selectedCountry,
+  hoveredCountry,
+  activatedCountryName,
+  isPanelOpen,
+  onCountryHover,
+}) {
   const map = useMap();
   const markersRef = useRef(null);
+  const markerDataRef = useRef(new Map());
+
+  const commonwealthNames = new Set(countries.map((c) => normalizeName(c.name)));
+  const hoveredCountryNormalized = normalizeName(hoveredCountry || "");
+
+  // Get marker style that mirrors getCountryStyle for polygons
+  const getMarkerStyle = (country) => {
+    const isSelected = Boolean(
+      country && selectedCountry?.name && country.name === selectedCountry.name
+    );
+    const isActivatedSelected = Boolean(
+      isSelected && activatedCountryName && country.name === activatedCountryName
+    );
+    const isExternallyHovered = Boolean(
+      country &&
+        hoveredCountryNormalized &&
+        normalizeName(country.name) === hoveredCountryNormalized
+    );
+    const isHovered = Boolean(isExternallyHovered && !isSelected);
+
+    // Activated selected state (panel open/closed)
+    if (isActivatedSelected) {
+      const selectedColor = isPanelOpen ? "#F16458" : "#333536";
+      return {
+        radius: 10,
+        fillColor: selectedColor,
+        color: selectedColor,
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 1,
+        glow: isPanelOpen,
+      };
+    }
+
+    // Selected state
+    if (isSelected) {
+      return {
+        radius: 10,
+        fillColor: "#87B940",
+        color: "#87B940",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 1,
+        glow: false,
+      };
+    }
+
+    // Hovered state
+    if (isHovered) {
+      return {
+        radius: 10,
+        fillColor: "#F16458",
+        color: "#F16458",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 1,
+        glow: true,
+      };
+    }
+
+    // Default state
+    return {
+      radius: 8,
+      fillColor: "#87B940",
+      color: "#87B940",
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 1,
+      glow: false,
+    };
+  };
 
   useEffect(() => {
     if (!geojson || !map) {
@@ -570,19 +649,23 @@ function SmallCountryMarkers({ geojson, onSelectCountry, selectedCountry }) {
 
     const markers = L.layerGroup();
     markersRef.current = markers;
+    markerDataRef.current = new Map();
 
     // Find and mark small countries
     geojson.features?.forEach((feature) => {
-      const country = findCountryByFeature(feature, new Set(countries.map(c => normalizeName(c.name))));
-      
+      const country = findCountryByFeature(
+        feature,
+        new Set(countries.map((c) => normalizeName(c.name)))
+      );
+
       if (!country) {
         return;
       }
 
       const countryName = normalizeName(country.name);
-      
+
       // Check if this is a small country
-      if (!smallCountries.some(sc => normalizeName(sc) === countryName)) {
+      if (!smallCountries.some((sc) => normalizeName(sc) === countryName)) {
         return;
       }
 
@@ -591,26 +674,52 @@ function SmallCountryMarkers({ geojson, onSelectCountry, selectedCountry }) {
       const bounds = layer.getBounds();
       const center = bounds.getCenter();
 
-      // Create circular marker
+      // Create circular marker with default style
       const marker = L.circleMarker(center, {
         radius: 8,
-        fillColor: "#AFCF68",
+        fillColor: "#87B940",
         color: "#87B940",
         weight: 2,
         opacity: 1,
-        fillOpacity: 0.9,
+        fillOpacity: 1,
       });
+
+      // Store country data with marker
+      markerDataRef.current.set(marker, country);
+
+      // Get marker element and apply transition styles
+      const applyTransitionStyles = () => {
+        const element = marker.getElement();
+        if (element) {
+          element.style.transition =
+            "fill 250ms cubic-bezier(0.22, 1, 0.36, 1), stroke 250ms cubic-bezier(0.22, 1, 0.36, 1), r 250ms cubic-bezier(0.22, 1, 0.36, 1), filter 250ms cubic-bezier(0.22, 1, 0.36, 1)";
+        }
+      };
+
+      // Apply transitions after marker is added to DOM
+      setTimeout(applyTransitionStyles, 0);
 
       marker.bindTooltip(country.name, {
         permanent: false,
         direction: "center",
-        className: "country-tooltip"
+        className: "country-tooltip",
+      });
+
+      marker.on("mouseover", () => {
+        const element = marker.getElement();
+        if (element) {
+          element.style.cursor = "pointer";
+        }
+        onCountryHover?.(country.name);
+      });
+
+      marker.on("mouseout", () => {
+        onCountryHover?.(null);
       });
 
       marker.on("click", (event) => {
-        console.log("Marker clicked:", country.name);
-        console.log("Selected country:", country.name);
         L.DomEvent.stopPropagation(event);
+        onCountryHover?.(null);
         onSelectCountry(country);
       });
 
@@ -621,8 +730,43 @@ function SmallCountryMarkers({ geojson, onSelectCountry, selectedCountry }) {
 
     return () => {
       markers.remove();
+      markerDataRef.current.clear();
     };
-  }, [geojson, map, onSelectCountry]);
+  }, [geojson, map, onSelectCountry, onCountryHover]);
+
+  // Update marker styles based on state (hover, selection, etc.)
+  useEffect(() => {
+    if (!markersRef.current) {
+      return;
+    }
+
+    markersRef.current.eachLayer((marker) => {
+      const country = markerDataRef.current.get(marker);
+      if (!country) {
+        return;
+      }
+
+      const style = getMarkerStyle(country);
+      const element = marker.getElement();
+
+      // Apply style
+      marker.setStyle({
+        radius: style.radius,
+        fillColor: style.fillColor,
+        color: style.color,
+        weight: style.weight,
+        opacity: style.opacity,
+        fillOpacity: style.fillOpacity,
+      });
+
+      // Apply glow effect
+      if (element) {
+        element.style.filter = style.glow
+          ? "drop-shadow(0 0 8px rgba(241, 100, 88, 0.35))"
+          : "none";
+      }
+    });
+  }, [hoveredCountry, selectedCountry, activatedCountryName, isPanelOpen]);
 
   // Update marker visibility based on zoom
   useEffect(() => {
@@ -636,7 +780,7 @@ function SmallCountryMarkers({ geojson, onSelectCountry, selectedCountry }) {
 
       markersRef.current.eachLayer((layer) => {
         if (showMarkers) {
-          layer.setStyle({ opacity: 0.9, fillOpacity: 0.9 });
+          layer.setStyle({ opacity: 1, fillOpacity: 1 });
         } else {
           layer.setStyle({ opacity: 0, fillOpacity: 0 });
         }
@@ -1998,52 +2142,43 @@ export default function App() {
               setIsMenuOpen(true);
             }
           }}
-          onMouseEnter={handlePressableMouseEnter}
-          onMouseLeave={handlePressableMouseLeave}
-          onMouseDown={handlePressableMouseDown}
-          onMouseUp={handlePressableMouseUp}
           style={{
             width: "100%",
-            padding: "1rem 1.15rem",
+            padding: "0.85rem 1.1rem",
             borderRadius: "999px",
             background: "rgba(255, 255, 255, 0.72)",
             backdropFilter: "blur(18px) saturate(160%)",
-            boxShadow: "0 14px 28px rgba(15, 23, 42, 0.16)",
-            border: "1px solid rgba(255,255,255,0.45)",
+            boxShadow: "0 2px 8px rgba(15, 23, 42, 0.08)",
+            border: "1px solid rgba(0, 0, 0, 0.08)",
             color: "#1f2937",
             fontSize: "0.9rem",
-            fontWeight: 600,
-            letterSpacing: "0.02em",
+            fontWeight: 500,
+            letterSpacing: "-0.01em",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             cursor: "pointer",
-            transform: "scale(1)",
-            transition: `all 220ms ${springEase}`,
+            transform: "translateY(0)",
+            transition: "transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         >
-          <span style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 487 631.8"
               aria-hidden="true"
               style={{
-                width: "28.8px",
-                height: "37.44px",
+                width: "22px",
+                height: "28px",
                 display: "block",
                 color: "#1d1d1b",
                 flexShrink: 0,
-                opacity: isPanelVisible ? 0.85 : 0,
-opacity: isPanelVisible ? 1 : 0,
-
-transform: isPanelVisible
-  ? "translateX(8px)"
-  : "translateX(-18px)",
-
-transition:
-  "opacity 420ms ease, transform 650ms cubic-bezier(0.16, 1, 0.3, 1)",
-
-transitionDelay: isPanelVisible ? "120ms" : "0ms",
+                opacity: isPanelVisible ? 0.6 : 0,
+                transform: isPanelVisible
+                  ? "translateX(4px)"
+                  : "translateX(-12px)",
+                transition: "opacity 320ms ease, transform 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+                transitionDelay: isPanelVisible ? "80ms" : "0ms",
               }}
             >
               <path fill="currentColor" d="M410.8,285.4v75.4h75.4v-75.4h-75.4ZM461,335.6h-25.1v-25.1h25.1v25.1Z" />
@@ -2278,7 +2413,15 @@ transitionDelay: isPanelVisible ? "120ms" : "0ms",
           countryLayerRefs={countryLayerRefs}
           onGeojsonLoad={handleGeojsonLoad}
         />
-        <SmallCountryMarkers geojson={geojson} onSelectCountry={handleSelectCountry} selectedCountry={selectedCountry} />
+        <SmallCountryMarkers
+          geojson={geojson}
+          onSelectCountry={handleSelectCountry}
+          selectedCountry={selectedCountry}
+          hoveredCountry={hoveredCountry}
+          activatedCountryName={activatedCountryName}
+          isPanelOpen={isPanelOpen}
+          onCountryHover={handleCountryHover}
+        />
         </MapContainer>
 
         <div
