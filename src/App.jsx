@@ -2145,13 +2145,14 @@ export default function App() {
           style={{
             width: "100%",
             padding: "0.85rem 1.1rem",
-            borderRadius: "999px",
+            borderRadius: "14px",
             background: "rgba(255, 255, 255, 0.72)",
-            backdropFilter: "blur(18px) saturate(160%)",
-            boxShadow: "0 2px 8px rgba(15, 23, 42, 0.08)",
-            border: "1px solid rgba(0, 0, 0, 0.08)",
+            backdropFilter: "blur(20px) saturate(180%)",
+            WebkitBackdropFilter: "blur(20px) saturate(180%)",
+            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.03)",
+            border: "1px solid rgba(255, 255, 255, 0.8)",
             color: "#1f2937",
-            fontSize: "0.9rem",
+            fontSize: "0.95rem",
             fontWeight: 500,
             letterSpacing: "-0.01em",
             display: "flex",
@@ -2168,12 +2169,12 @@ export default function App() {
               viewBox="0 0 487 631.8"
               aria-hidden="true"
               style={{
-                width: "22px",
-                height: "28px",
+                width: "26px",
+                height: "32px",
                 display: "block",
                 color: "#1d1d1b",
                 flexShrink: 0,
-                opacity: isPanelVisible ? 0.6 : 0,
+                opacity: isPanelVisible ? 0.5 : 0,
                 transform: isPanelVisible
                   ? "translateX(4px)"
                   : "translateX(-12px)",
@@ -2189,7 +2190,7 @@ export default function App() {
             </svg>
             <span
               style={{
-                transform: isPanelVisible ? "translateX(8px)" : `translateX(calc(-8.8px - 0.55rem))`,
+                transform: isPanelVisible ? "translateX(6px)" : `translateX(calc(-6px - 0.45rem))`,
                 transition: "transform 380ms cubic-bezier(0.22, 1, 0.36, 1)",
                 transitionDelay: isPanelVisible ? "0ms" : "150ms",
               }}
@@ -2197,68 +2198,118 @@ export default function App() {
               Explore the Commonwealth
             </span>
           </span>
-          <span style={{ fontSize: "1rem", opacity: 0.95 }}>{isMenuOpen ? "▴" : "▾"}</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              opacity: 0.4,
+              transform: isMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease",
+            }}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
         </button>
 
         {(isMenuOpen || isMenuClosing) ? (
           <div
             style={{
-              marginTop: "0.7rem",
-              borderRadius: "22px",
-              background: "rgba(255, 255, 255, 0.78)",
-              backdropFilter: "blur(18px) saturate(165%)",
-              boxShadow: "0 20px 38px rgba(15, 23, 42, 0.16)",
-              border: "1px solid rgba(255,255,255,0.55)",
-              maxHeight: "min(560px, 70vh)",
+              marginTop: "0.5rem",
+              borderRadius: "18px",
+              background: "rgba(255, 255, 255, 0.72)",
+              backdropFilter: "blur(24px) saturate(180%)",
+              WebkitBackdropFilter: "blur(24px) saturate(180%)",
+              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04), 0 12px 40px rgba(15, 23, 42, 0.06)",
+              border: "1px solid rgba(255, 255, 255, 0.7)",
+              maxHeight: "min(520px, 68vh)",
               overflow: "hidden",
               display: "flex",
               flexDirection: "column",
               opacity: isMenuClosing ? 0 : 1,
-              transform: isMenuClosing ? "translateY(-10px) scale(0.985)" : "translateY(0) scale(1)",
+              transform: isMenuClosing ? "translateY(-8px) scale(0.98)" : "translateY(0) scale(1)",
               transformOrigin: "top center",
-              transition: "opacity 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+              transition: "opacity 200ms cubic-bezier(0.22, 1, 0.36, 1), transform 200ms cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
-            <div style={{ padding: "0.9rem 0.95rem 0.6rem", borderBottom: "1px solid rgba(186, 183, 177, 0.28)", position: "relative" }}>
+            {/* Integrated search */}
+            <div style={{ padding: "0.85rem 0.9rem 0.65rem", position: "relative" }}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  position: "absolute",
+                  left: "1.55rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "#94a3b8",
+                  pointerEvents: "none",
+                  opacity: 0.7,
+                  marginTop: "-0.05rem",
+                }}
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
               <input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search countries"
+                placeholder="Search"
                 style={{
                   width: "100%",
-                  border: "1px solid rgba(186, 183, 177, 0.6)",
-                  borderRadius: "999px",
-                  padding: "0.8rem 0.95rem",
-                  paddingRight: "2.4rem",
-                  fontSize: "0.95rem",
-                  color: "#333331",
-                  background: "#FFFFFF",
+                  border: "none",
+                  borderRadius: "10px",
+                  padding: "0.65rem 0.9rem",
+                  paddingLeft: "2.4rem",
+                  paddingRight: "2.2rem",
+                  fontSize: "0.9rem",
+                  color: "#1f2937",
+                  background: "rgba(0, 0, 0, 0.03)",
                   outline: "none",
                   boxSizing: "border-box",
-                  boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)",
+                  boxShadow: "none",
+                  fontWeight: 400,
+                  letterSpacing: "-0.01em",
+                  transition: "background 200ms ease",
                 }}
+                onFocus={(e) => { e.target.style.background = "rgba(0, 0, 0, 0.05)"; }}
+                onBlur={(e) => { e.target.style.background = "rgba(0, 0, 0, 0.03)"; }}
               />
               {searchTerm ? (
                 <button
                   onClick={() => setSearchTerm("")}
                   style={{
                     position: "absolute",
-                    right: "0.35rem",
+                    right: "1.3rem",
                     top: "50%",
                     transform: "translateY(-50%)",
                     border: "none",
-                    background: "#E8E5E0",
-                    color: "#6B6A66",
-                    fontSize: "0.95rem",
+                    background: "rgba(0, 0, 0, 0.08)",
+                    color: "#64748b",
+                    fontSize: "0.75rem",
                     cursor: "pointer",
-                    width: "20px",
-                    height: "20px",
+                    width: "18px",
+                    height: "18px",
                     borderRadius: "50%",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     lineHeight: 1,
                     padding: 0,
+                    marginTop: "-0.05rem",
                   }}
                   aria-label="Clear search"
                 >
@@ -2267,29 +2318,73 @@ export default function App() {
               ) : null}
             </div>
 
-            <div style={{ padding: "0.35rem 0.4rem 0.4rem", overflowY: "auto" }}>
+            {/* View Entire Commonwealth action */}
+            <div style={{ padding: "0 0.6rem" }}>
               <button
                 onClick={handleViewEntireCommonwealth}
                 style={{
                   width: "100%",
                   border: "none",
                   background: "transparent",
-                  color: "#000000",
+                  color: "#0f172a",
                   textAlign: "left",
-                  padding: "0.95rem 1rem",
-                  borderRadius: "16px",
+                  padding: "0.75rem 0.7rem",
+                  borderRadius: "12px",
                   cursor: "pointer",
-                  fontSize: "0.96rem",
-                  fontWeight: 700,
+                  fontSize: "0.88rem",
+                  fontWeight: 500,
                   display: "flex",
                   alignItems: "center",
-                  gap: "0.7rem",
+                  gap: "0.65rem",
+                  letterSpacing: "-0.01em",
+                  transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.55)";
+                  e.currentTarget.style.backdropFilter = "blur(10px)";
+                  e.currentTarget.style.boxShadow = "0 2px 8px rgba(15, 23, 42, 0.04)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.backdropFilter = "none";
+                  e.currentTarget.style.boxShadow = "none";
                 }}
               >
-                <span style={{ fontSize: "1.1rem", filter: "brightness(0)", opacity: 0.7 }}>🌍</span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ color: "#0A84FF", opacity: 0.75, flexShrink: 0 }}
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                  <path d="M2 12h20" />
+                </svg>
                 <span>View Entire Commonwealth</span>
               </button>
-              <div style={{ height: "1px", background: "rgba(186, 183, 177, 0.28)", margin: "0.15rem 0.5rem 0.35rem" }} />
+            </div>
+
+            {/* Section label */}
+            <div style={{
+              padding: "0.6rem 1.3rem 0.35rem",
+              fontSize: "0.68rem",
+              fontWeight: 500,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "#64748b",
+              opacity: 0.6,
+            }}>
+              Commonwealth Countries
+            </div>
+
+            {/* Country list */}
+            <div style={{ padding: "0.15rem 0.5rem 0.5rem", overflowY: "auto", flex: 1 }}>
               {filteredCountries.map((country) => {
                 const isActive = selectedCountry?.name === country.name;
                 const isHovered = normalizeName(hoveredCountry || "") === normalizeName(country.name);
@@ -2304,30 +2399,76 @@ export default function App() {
                       border: "none",
                       color: isActive ? "#0A84FF" : "#1f2937",
                       textAlign: "left",
-                      padding: "0.95rem 1rem",
-                      borderRadius: "16px",
+                      padding: "0.6rem 0.75rem",
+                      borderRadius: "10px",
                       cursor: "pointer",
-                      fontSize: "0.98rem",
-                      fontWeight: isActive ? 700 : 500,
+                      fontSize: "0.88rem",
+                      fontWeight: isActive ? 500 : 400,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      minHeight: "56px",
-                      gap: "0.7rem",
-                      transition: "background-color 150ms ease, transform 150ms ease",
-                      transform: isHovered && !isActive ? "translateX(4px)" : "translateX(0)",
-                      backgroundColor: isActive ? "rgba(10, 132, 255, 0.14)" : isHovered ? "#F1F1F1" : "transparent",
+                      height: "44px",
+                      gap: "0.65rem",
+                      transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+                      transform: isHovered && !isActive ? "translateX(3px)" : "translateX(0)",
+                      backgroundColor: isActive ? "rgba(10, 132, 255, 0.08)" : "transparent",
+                      backdropFilter: isHovered && !isActive ? "blur(10px)" : "none",
+                      boxShadow: isHovered && !isActive ? "0 2px 8px rgba(15, 23, 42, 0.04)" : "none",
+                      letterSpacing: "-0.01em",
+                      ...(isHovered && !isActive && !isActive ? { background: "rgba(255, 255, 255, 0.55)" } : {}),
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.55)";
+                        e.currentTarget.style.backdropFilter = "blur(10px)";
+                        e.currentTarget.style.boxShadow = "0 2px 8px rgba(15, 23, 42, 0.04)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.backdropFilter = "none";
+                        e.currentTarget.style.boxShadow = "none";
+                      }
                     }}
                   >
-                    <span style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
                       <img
                         src={`https://flagcdn.com/w40/${country.countryCode || "xx"}.png`}
                         alt=""
-                        style={{ width: "28px", height: "20px", borderRadius: "3px", objectFit: "cover", boxShadow: "0 1px 3px rgba(0,0,0,0.15)" }}
+                        style={{
+                          width: "24px",
+                          height: "16px",
+                          borderRadius: "3px",
+                          objectFit: "cover",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+                          filter: "saturate(0.85)",
+                          opacity: 0.9,
+                        }}
                       />
-                      <span>{country.name}</span>
+                      <span style={{ fontWeight: isActive ? 500 : 400 }}>{country.name}</span>
                     </span>
-                    <span style={{ color: isHovered && !isActive ? "#475569" : "#0A84FF", fontSize: "0.95rem", transform: isHovered && !isActive ? "translateX(4px)" : "translateX(0)", transition: "color 150ms ease, transform 150ms ease" }}>→</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{
+                        color: "#0A84FF",
+                        opacity: isHovered && !isActive ? 1 : 0.35,
+                        transform: isHovered && !isActive ? "translateX(3px)" : "translateX(0)",
+                        transition: "opacity 200ms cubic-bezier(0.22, 1, 0.36, 1), transform 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
+                    </svg>
                   </button>
                 );
               })}
