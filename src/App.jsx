@@ -26,7 +26,8 @@ const REST_COUNTRIES_URL = "https://raw.githubusercontent.com/samayo/country-jso
 const REST_COUNTRIES_CAPITAL_URL = "https://raw.githubusercontent.com/samayo/country-json/master/src/country-by-capital-city.json";
 const FAMILYSEARCH_LOGO_URL = "https://edge.fscdn.org/assets/static/media/familysearch-tree.dc22204d2135c739e39d0af7d519e182.svg";
 const MAP_BACKGROUND_ART_URL = "https://plus.unsplash.com/premium_photo-1779463020508-7cd254b1d37f?auto=format&fit=crop&w=2400&q=80";
-const FAMILYSEARCH_COLLECTIONS_BASE_URL = "/familysearch/en/search/collection/list";
+const FAMILYSEARCH_COLLECTIONS_BASE_URL = "https://www.familysearch.org/en/search/collection/list";
+const FAMILYSEARCH_FETCH_MIRROR_BASE_URL = "https://r.jina.ai/http://www.familysearch.org";
 const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v2";
 const FAMILYSEARCH_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const DEFAULT_GALLERY_VIDEO_ID = "aqz-KE-bpKQ";
@@ -295,13 +296,22 @@ function getFamilySearchLocationUrl(countryName = "") {
   return FAMILYSEARCH_LOCATION_URL_BY_COUNTRY[normalizedCountry] || null;
 }
 
-function toFamilySearchProxyUrl(url = "") {
+function toFamilySearchFetchUrl(url = "") {
   if (!url) {
     return null;
   }
 
-  if (url.startsWith("/familysearch/")) {
+  if (url.startsWith(FAMILYSEARCH_FETCH_MIRROR_BASE_URL)) {
     return url;
+  }
+
+  if (url.startsWith("/familysearch/")) {
+    const relativePath = url.replace(/^\/familysearch/, "");
+    return `${FAMILYSEARCH_FETCH_MIRROR_BASE_URL}${relativePath}`;
+  }
+
+  if (url.startsWith("/")) {
+    return `${FAMILYSEARCH_FETCH_MIRROR_BASE_URL}${url}`;
   }
 
   const match = url.match(/^https?:\/\/www\.familysearch\.org(\/.*)$/i);
@@ -309,7 +319,7 @@ function toFamilySearchProxyUrl(url = "") {
     return null;
   }
 
-  return `/familysearch${match[1]}`;
+  return `${FAMILYSEARCH_FETCH_MIRROR_BASE_URL}${match[1]}`;
 }
 
 function parseCanonicalCollectionsUrlFromLocationPage(pageText = "") {
@@ -490,11 +500,18 @@ function AmbientMapMotion() {
   const map = useMap();
 
   useEffect(() => {
-    // Create a subtle breathing effect on the map background
+    // Apply subtle breathing to rendered map art/map pane (not tile layers).
     const mapContainer = map.getContainer();
-    const tileLayer = mapContainer.querySelector('.leaflet-tile-pane');
-    
-    if (!tileLayer) return;
+    const motionTarget =
+      map.getPane("background-art-pane") ||
+      mapContainer.querySelector(".leaflet-map-pane") ||
+      mapContainer;
+
+    if (!motionTarget) {
+      return;
+    }
+
+    const previousFilter = motionTarget.style.filter;
 
     let animationFrame;
     let startTime = Date.now();
@@ -503,8 +520,8 @@ function AmbientMapMotion() {
       const elapsed = Date.now() - startTime;
       // Very slow breathing: 20 second cycle
       const breathe = Math.sin(elapsed / 10000 * Math.PI) * 0.015 + 1;
-      
-      tileLayer.style.filter = `brightness(${breathe})`;
+
+      motionTarget.style.filter = `brightness(${breathe})`;
       animationFrame = requestAnimationFrame(animate);
     };
 
@@ -515,9 +532,8 @@ function AmbientMapMotion() {
       if (animationFrame) {
         cancelAnimationFrame(animationFrame);
       }
-      if (tileLayer) {
-        tileLayer.style.filter = '';
-      }
+
+      motionTarget.style.filter = previousFilter;
     };
   }, [map]);
 
@@ -1162,6 +1178,7 @@ export default function App() {
   const [isPanelVisible, setIsPanelVisible] = useState(false);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const [isContentVisible, setIsContentVisible] = useState(false);
+  const [attractAutoCountryName, setAttractAutoCountryName] = useState("");
   const [activatedCountryName, setActivatedCountryName] = useState(null);
   const [heroMotionSeed, setHeroMotionSeed] = useState(0);
   const [hoveredCountry, setHoveredCountry] = useState(null);
@@ -1183,6 +1200,7 @@ export default function App() {
   const selectedCountryKeyRef = useRef("");
   const panelOpenTimeoutRef = useRef(null);
   const selectionTimelineTimeoutsRef = useRef([]);
+  const attractCycleTimeoutRef = useRef(null);
   const galleryTrackRef = useRef(null);
   const overviewTextRef = useRef(null);
   const recordTitleRefs = useRef([]);
@@ -1505,18 +1523,17 @@ export default function App() {
       let locationPageText = "";
 
       if (!url && locationUrl) {
-        const proxyLocationUrl = toFamilySearchProxyUrl(locationUrl);
+        const locationFetchUrl = toFamilySearchFetchUrl(locationUrl);
 
-        if (proxyLocationUrl) {
-          const locationResponse = await fetch(proxyLocationUrl, {
+        if (locationFetchUrl) {
+          const locationResponse = await fetch(locationFetchUrl, {
             headers: { Accept: "text/plain, text/html, */*" },
           });
           locationPageText = await locationResponse.text();
           const canonicalAbsoluteUrl = parseCanonicalCollectionsUrlFromLocationPage(locationPageText);
-          const canonicalProxyUrl = toFamilySearchProxyUrl(canonicalAbsoluteUrl || "");
 
-          if (canonicalProxyUrl) {
-            url = canonicalProxyUrl;
+          if (canonicalAbsoluteUrl) {
+            url = canonicalAbsoluteUrl;
           }
         }
       }
@@ -1544,7 +1561,9 @@ export default function App() {
       for (const candidateUrl of candidateUrls) {
         console.log("Collection URL:", candidateUrl);
 
-        const response = await fetch(candidateUrl, {
+        const fetchUrl = toFamilySearchFetchUrl(candidateUrl) || candidateUrl;
+
+        const response = await fetch(fetchUrl, {
           headers: { Accept: "text/plain, text/html, */*" },
         });
         const pageText = await response.text();
@@ -1811,23 +1830,156 @@ export default function App() {
     },
   ].filter((entry) => entry.value?.url);
 
-  const LINK_BASE_COLOR = "#5b7831";
-  const LINK_HOVER_COLOR = "#6f9c33";
-  const NEUTRAL_LINK_BASE_COLOR = "#333536";
+  const LINK_BASE_COLOR = "#87b940";
+  const LINK_HOVER_COLOR = "#9ecd4e";
+  const SUBTLE_DARK_CARD_TEXT_COLOR = "rgba(255,255,255,0.65)";
+  const STORY_CARD_SIDE_PADDING = "2rem";
   const springEase = "cubic-bezier(0.22, 1, 0.36, 1)";
-  const DEFAULT_HERO_IMAGE_URL = "https://images.unsplash.com/photo-1557683316-973673baf926?w=1400&q=80";
+  const DEFAULT_HERO_IMAGE_URL = "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1600&q=80";
+  const HERO_IMAGE_ALLOWED_TERMS = /(landscape|cityscape|skyline|mountain|coast|nature|panorama|aerial|harbor|waterfront|architecture|scenic)/i;
+  const HERO_IMAGE_BLOCKED_TERMS = /(people|person|portrait|selfie|face|crowd|group|wedding|fashion|product|object|still\s?life|abstract|illustration|graphic|pattern)/i;
+  const HERO_IMAGE_NON_COUNTRY_TERMS = /(flag|coat\s*of\s*arms|logo|seal|locator\s*map|map\s*of)/i;
+  const WIKIPEDIA_TITLE_OVERRIDES = {
+    "the bahamas": "Bahamas",
+    "the gambia": "Gambia",
+    "brunei darussalam": "Brunei",
+    "united republic of tanzania": "Tanzania",
+    "st kitts and nevis": "Saint Kitts and Nevis",
+    "st vincent and the grenadines": "Saint Vincent and the Grenadines",
+  };
+
+  const getCountryMatchTerms = (countryName = "") => {
+    const raw = countryName.toLowerCase().trim();
+    const terms = new Set([raw]);
+    const noLeadingThe = raw.replace(/^the\s+/, "").trim();
+    if (noLeadingThe) {
+      terms.add(noLeadingThe);
+    }
+    terms.add(raw.replace(/\bst\b/g, "saint"));
+    terms.add(raw.replace(/\bsaint\b/g, "st"));
+    terms.add(raw.replace(/\bunited republic of\b/g, ""));
+    return [...terms].map((term) => term.replace(/\s+/g, " ").trim()).filter(Boolean);
+  };
+
+  const doesUrlContainCountryTerm = (url = "", countryName = "") => {
+    const decodedUrl = decodeURIComponent(url).toLowerCase();
+    const terms = getCountryMatchTerms(countryName);
+
+    return terms.some((term) => {
+      const compact = term.replace(/\s+/g, "");
+      const hyphenated = term.replace(/\s+/g, "-");
+      const underscored = term.replace(/\s+/g, "_");
+      return (
+        decodedUrl.includes(term) ||
+        decodedUrl.includes(compact) ||
+        decodedUrl.includes(hyphenated) ||
+        decodedUrl.includes(underscored)
+      );
+    });
+  };
+
+  const isCountrySpecificHeroUrl = (url = "", countryName = "") => {
+    if (!url || !countryName) {
+      return false;
+    }
+
+    const decodedUrl = decodeURIComponent(url).toLowerCase();
+    const isWikimedia = /upload\.wikimedia\.org|wikimedia\.org/i.test(decodedUrl);
+    if (isWikimedia) {
+      if (HERO_IMAGE_NON_COUNTRY_TERMS.test(decodedUrl)) {
+        return false;
+      }
+      return doesUrlContainCountryTerm(decodedUrl, countryName);
+    }
+
+    return doesUrlContainCountryTerm(decodedUrl, countryName);
+  };
 
   const isPreferredHeroImageProvider = (url = "") => {
     if (!url) {
       return false;
     }
 
-    return /(images\.unsplash\.com|unsplash\.com|images\.pexels\.com|pexels\.com|pixabay\.com|cdn\.pixabay\.com)/i.test(url);
+    return /(images\.unsplash\.com|unsplash\.com|images\.pexels\.com|pexels\.com|pixabay\.com|cdn\.pixabay\.com|upload\.wikimedia\.org|wikimedia\.org)/i.test(url);
+  };
+
+  const isLandscapeOrCityscapeHeroUrl = (url = "") => {
+    if (!isPreferredHeroImageProvider(url)) {
+      return false;
+    }
+
+    const decodedUrl = decodeURIComponent(url).toLowerCase();
+    if (/upload\.wikimedia\.org|wikimedia\.org/i.test(decodedUrl)) {
+      return true;
+    }
+
+    if (HERO_IMAGE_BLOCKED_TERMS.test(decodedUrl)) {
+      return false;
+    }
+
+    return HERO_IMAGE_ALLOWED_TERMS.test(decodedUrl);
   };
 
   const buildUnsplashHeroFallbackUrl = (countryName = "") => {
-    const query = encodeURIComponent(`${countryName} landscape`);
-    return `https://source.unsplash.com/1600x900/?${query}`;
+    const query = encodeURIComponent(`${countryName} cityscape landscape skyline scenic nature`);
+    return `https://source.unsplash.com/1600x900/?${query}&orientation=landscape`;
+  };
+
+  const fetchCountrySpecificWikimediaHero = async (countryName = "") => {
+    if (!countryName) {
+      return null;
+    }
+
+    try {
+      const overrideName = WIKIPEDIA_TITLE_OVERRIDES[countryName.toLowerCase()] || countryName;
+      const searchTerms = [`${overrideName} landscape`, `${overrideName} skyline`, overrideName];
+
+      for (const term of searchTerms) {
+        const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(term)}&srnamespace=6&format=json&srlimit=6&srprop=size`;
+        const searchRes = await fetch(searchUrl);
+        if (!searchRes.ok) {
+          continue;
+        }
+
+        const searchData = await searchRes.json();
+        const matches = (searchData.query?.search || []).filter((item) => {
+          const title = item.title || "";
+          return isCountrySpecificHeroUrl(title, countryName) && !HERO_IMAGE_NON_COUNTRY_TERMS.test(title.toLowerCase());
+        });
+        if (!matches.length) {
+          continue;
+        }
+
+        const imageTitles = matches.slice(0, 4).map((item) => item.title);
+        const imageInfoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(imageTitles.join("|"))}&prop=imageinfo&iiprop=url|size&iiurlwidth=1600&format=json`;
+        const imageInfoRes = await fetch(imageInfoUrl);
+        if (!imageInfoRes.ok) {
+          continue;
+        }
+
+        const imageInfoData = await imageInfoRes.json();
+        const pages = imageInfoData.query?.pages || {};
+
+        for (const pageId of Object.keys(pages)) {
+          const page = pages[pageId];
+          const imageInfo = page.imageinfo?.[0];
+          const thumbUrl = imageInfo?.thumburl;
+
+          if (!thumbUrl || !isCountrySpecificHeroUrl(page.title || thumbUrl, countryName)) {
+            continue;
+          }
+
+          const valid = await testImageUrl(thumbUrl, 6000);
+          if (valid) {
+            return thumbUrl;
+          }
+        }
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
   };
 
   const testImageUrl = (url, timeoutMs = 5000) => {
@@ -1843,7 +1995,11 @@ export default function App() {
         resolve(result);
       };
 
-      img.onload = () => finish(img.naturalWidth > 100 && img.naturalHeight > 100);
+      img.onload = () => {
+        const hasMinimumSize = img.naturalWidth > 100 && img.naturalHeight > 100;
+        const isLandscape = img.naturalWidth >= img.naturalHeight * 1.2;
+        finish(hasMinimumSize && isLandscape);
+      };
       img.onerror = () => finish(false);
       setTimeout(() => finish(false), timeoutMs);
       img.src = url;
@@ -1851,7 +2007,8 @@ export default function App() {
   };
 
   const selectedCountryHeroImage = selectedCountry
-    ? (isPreferredHeroImageProvider(selectedCountry.image)
+    ? (isLandscapeOrCityscapeHeroUrl(selectedCountry.image) &&
+      isCountrySpecificHeroUrl(selectedCountry.image, selectedCountry.name)
         ? selectedCountry.image
         : buildUnsplashHeroFallbackUrl(selectedCountry.name))
     : DEFAULT_HERO_IMAGE_URL;
@@ -1863,34 +2020,41 @@ export default function App() {
     }
 
     let isActive = true;
-    const candidateUrl = isPreferredHeroImageProvider(selectedCountry.image)
+    const candidateUrl = isLandscapeOrCityscapeHeroUrl(selectedCountry.image) &&
+      isCountrySpecificHeroUrl(selectedCountry.image, selectedCountry.name)
       ? selectedCountry.image
-      : buildUnsplashHeroFallbackUrl(selectedCountry.name);
+      : null;
     const fallbackUrl = buildUnsplashHeroFallbackUrl(selectedCountry.name);
 
     // Show candidate immediately while validating
-    setValidatedHeroImage(candidateUrl);
+    setValidatedHeroImage(candidateUrl || fallbackUrl);
 
     const validate = async () => {
-      const candidateValid = await testImageUrl(candidateUrl);
-      if (!isActive) return;
-
-      if (candidateValid) {
-        return; // Already showing the candidate
-      }
-
-      // Candidate failed — try fallback if different
-      if (fallbackUrl !== candidateUrl) {
-        setValidatedHeroImage(fallbackUrl);
-        const fallbackValid = await testImageUrl(fallbackUrl);
+      if (candidateUrl) {
+        const candidateValid = await testImageUrl(candidateUrl);
         if (!isActive) return;
 
-        if (fallbackValid) {
+        if (candidateValid) {
           return;
         }
       }
 
-      // All failed — use default
+      const wikimediaUrl = await fetchCountrySpecificWikimediaHero(selectedCountry.name);
+      if (!isActive) return;
+
+      if (wikimediaUrl) {
+        setValidatedHeroImage(wikimediaUrl);
+        return;
+      }
+
+      setValidatedHeroImage(fallbackUrl);
+      const fallbackValid = await testImageUrl(fallbackUrl);
+      if (!isActive) return;
+
+      if (fallbackValid) {
+        return;
+      }
+
       setValidatedHeroImage(DEFAULT_HERO_IMAGE_URL);
     };
 
@@ -1899,7 +2063,7 @@ export default function App() {
     return () => {
       isActive = false;
     };
-  }, [selectedCountry?.name]);
+  }, [selectedCountry?.name, selectedCountry?.image]);
 
   const getRevealStyle = (order, baseDelay = 0) => ({
     opacity: isContentVisible ? 1 : 0,
@@ -1931,7 +2095,7 @@ export default function App() {
     alignItems: "center",
     justifyContent: "space-between",
     gap: "0.45rem",
-    color: NEUTRAL_LINK_BASE_COLOR,
+    color: LINK_BASE_COLOR,
     fontSize: "0.9rem",
     fontWeight: 600,
     textDecoration: "none",
@@ -1958,7 +2122,7 @@ export default function App() {
 
   const researchHelpLinkStyle = {
     ...familySearchRecordLinkStyle,
-    color: NEUTRAL_LINK_BASE_COLOR,
+    color: LINK_BASE_COLOR,
   };
 
   const handleFamilySearchRecordMouseEnter = (event) => {
@@ -1980,7 +2144,7 @@ export default function App() {
   };
 
   const handleSeeMoreLikeLinkMouseLeave = (event) => {
-    event.currentTarget.style.color = NEUTRAL_LINK_BASE_COLOR;
+    event.currentTarget.style.color = LINK_BASE_COLOR;
     event.currentTarget.style.opacity = "1";
     event.currentTarget.style.transform = "translateX(0)";
   };
@@ -1992,7 +2156,7 @@ export default function App() {
   };
 
   const handleResearchHelpMouseLeave = (event) => {
-    event.currentTarget.style.color = NEUTRAL_LINK_BASE_COLOR;
+    event.currentTarget.style.color = LINK_BASE_COLOR;
     event.currentTarget.style.opacity = "1";
     event.currentTarget.style.transform = "translateX(0)";
   };
@@ -2158,6 +2322,103 @@ export default function App() {
     };
   }, [visibleFamilySearchCollections, isPanelVisible, selectedCountry?.name]);
 
+  // Check if we're in attract mode (no country selected and menu closed)
+  const isAttractMode = !selectedCountry && !isMenuOpen;
+
+  const clearAttractCycleTimer = () => {
+    if (attractCycleTimeoutRef.current) {
+      clearTimeout(attractCycleTimeoutRef.current);
+      attractCycleTimeoutRef.current = null;
+    }
+  };
+
+  const getAttractCountryDistance = (countryA, countryB) => {
+    if (!countryA || !countryB) {
+      return 0;
+    }
+
+    return Math.hypot((countryA.lat || 0) - (countryB.lat || 0), (countryA.lng || 0) - (countryB.lng || 0));
+  };
+
+  const pickRandomAttractCountry = (previousCountryName = "") => {
+    const mapCountries = commonwealthCountries.filter(
+      (country) => Number.isFinite(country.lat) && Number.isFinite(country.lng)
+    );
+
+    if (!mapCountries.length) {
+      return null;
+    }
+
+    const previous = mapCountries.find((country) => country.name === previousCountryName) || null;
+    const distantCandidates = previous
+      ? mapCountries.filter(
+          (country) => country.name !== previous.name && getAttractCountryDistance(country, previous) >= 25
+        )
+      : mapCountries;
+    const pool = distantCandidates.length
+      ? distantCandidates
+      : mapCountries.filter((country) => country.name !== previousCountryName);
+
+    if (!pool.length) {
+      return null;
+    }
+
+    return pool[Math.floor(Math.random() * pool.length)];
+  };
+
+  useEffect(() => {
+    clearAttractCycleTimer();
+
+    if (!isAttractMode) {
+      setAttractAutoCountryName("");
+      return;
+    }
+
+    let isActive = true;
+    let previousCountryName = "";
+
+    const scheduleNext = (delayMs) => {
+      clearAttractCycleTimer();
+      attractCycleTimeoutRef.current = window.setTimeout(() => {
+        if (!isActive) {
+          return;
+        }
+
+        const nextCountry = pickRandomAttractCountry(previousCountryName);
+        if (!nextCountry) {
+          scheduleNext(1600);
+          return;
+        }
+
+        previousCountryName = nextCountry.name;
+        setHoveredCountry(nextCountry.name);
+        setAttractAutoCountryName(nextCountry.name.toUpperCase());
+
+        const holdMs = 2200 + Math.round(Math.random() * 900);
+        const pauseMs = 1100 + Math.round(Math.random() * 900);
+
+        attractCycleTimeoutRef.current = window.setTimeout(() => {
+          if (!isActive) {
+            return;
+          }
+
+          setHoveredCountry((current) => (current === nextCountry.name ? null : current));
+          setAttractAutoCountryName("");
+          scheduleNext(pauseMs);
+        }, holdMs);
+      }, delayMs);
+    };
+
+    scheduleNext(850);
+
+    return () => {
+      isActive = false;
+      clearAttractCycleTimer();
+      setAttractAutoCountryName("");
+      setHoveredCountry((current) => (current && !selectedCountry ? null : current));
+    };
+  }, [isAttractMode]);
+
   return (
     <div
       style={{
@@ -2165,384 +2426,517 @@ export default function App() {
         width: "100vw",
         height: "100vh",
         overflow: "hidden",
-        background: "#E9EEF3",
+        background: "#1a1f2e",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif",
       }}
     >
+      {/* ATTRACT MODE OVERLAY - Shows when idle */}
       <div
         style={{
           position: "absolute",
-          top: "1.6rem",
-          left: "1.6rem",
-          zIndex: 500,
-          width: "min(380px, calc(100vw - 3.2rem))",
+          inset: 0,
+          zIndex: 800,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: isAttractMode ? "auto" : "none",
+          opacity: isAttractMode ? 1 : 0,
+          transition: "opacity 800ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
-        <button
-          onClick={() => {
-            if (isMenuOpen) {
-              setIsMenuClosing(true);
-              setTimeout(() => {
-                setIsMenuOpen(false);
-                setIsMenuClosing(false);
-              }, 250);
-            } else {
-              setIsMenuOpen(true);
-            }
-          }}
+        {/* Subtle atmospheric overlays to preserve map as hero */}
+        <div
           style={{
-            width: "100%",
-            padding: "0.75rem 1rem",
-            borderRadius: "16px",
-            background: "rgba(255, 255, 255, 0.48)",
-            backdropFilter: "blur(24px) saturate(180%)",
-            WebkitBackdropFilter: "blur(24px) saturate(180%)",
-            boxShadow: "0 1px 2px rgba(15, 23, 42, 0.02), 0 4px 16px rgba(15, 23, 42, 0.04)",
-            border: "1px solid rgba(255, 255, 255, 0.6)",
-            color: "#1f2937",
-            fontSize: "0.92rem",
-            fontWeight: 500,
-            letterSpacing: "-0.015em",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            cursor: "pointer",
-            transform: "translateY(0)",
-            transition: "transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1), background 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+            position: "absolute",
+            inset: 0,
+            background: "radial-gradient(126% 92% at 50% 44%, rgba(8, 13, 24, 0.1) 0%, rgba(8, 13, 24, 0.34) 70%, rgba(8, 13, 24, 0.52) 100%)",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 22%, rgba(8,12,20,0.2) 100%)",
+            mixBlendMode: "screen",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "radial-gradient(58% 42% at 50% 43%, rgba(4, 9, 18, 0.02) 0%, rgba(4, 9, 18, 0.22) 54%, rgba(4, 9, 18, 0) 100%)",
+            pointerEvents: "none",
+          }}
+        />
+        
+        {/* Headline and invitation */}
+        <div
+          style={{
+            position: "relative",
+            textAlign: "center",
+            color: "#fff",
+            maxWidth: "980px",
+            padding: "0 2.25rem",
+            display: "grid",
+            gap: "1rem",
           }}
         >
-          <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 487 631.8"
-              aria-hidden="true"
-              style={{
-                width: "26px",
-                height: "32px",
-                display: "block",
-                color: "#1d1d1b",
-                flexShrink: 0,
-                opacity: isPanelVisible ? 0.5 : 0,
-                transform: isPanelVisible
-                  ? "translateX(4px)"
-                  : "translateX(-12px)",
-                transition: "opacity 320ms ease, transform 400ms cubic-bezier(0.22, 1, 0.36, 1)",
-                transitionDelay: isPanelVisible ? "80ms" : "0ms",
-              }}
-            >
-              <path fill="currentColor" d="M410.8,285.4v75.4h75.4v-75.4h-75.4ZM461,335.6h-25.1v-25.1h25.1v25.1Z" />
-              <path fill="currentColor" d="M461,117.9h-142.4v142.4h142.4V117.9ZM427.5,226.8h-75.4v-75.4h75.4v75.4Z" />
-              <path fill="currentColor" d="M234.9,436.2h23.9c-11.9,20.7-30.1,34.5-51.9,42.5-6.9-24.5-10.6-50.3-10.6-77,0-51.5,13.7-99.8,37.7-141.5h59.5v-117.3h-117.3v117.3h21.1c-22.9,36-38.6,77.1-45,121.3-15.2-9.5-27.9-21.1-37.2-37.5h35.9v-150.8H.3v150.8h93.9c11.7,31.3,30.6,54.3,55.2,72.8,0,3-.2,6.1-.2,9.1,0,78.5,29.3,150.2,77.5,204.7h85.4c-41.1-30.2-73.8-71.3-93.9-119h0c26.9-17.7,48.5-42.5,60.4-75.5h106.9v-150.8h-150.8v150.8ZM201.4,168.1h67v67h-67v-67ZM33.8,226.8h83.8v83.8H33.8v-83.8ZM268.4,318.9h83.8v83.8h-83.8v-83.8Z" />
-              <path fill="currentColor" d="M151.1,76H59v92.1h92.1v-92.1ZM126,143h-41.9v-41.9h41.9v41.9Z" />
-              <path fill="currentColor" d="M293.5.6h-117.3v117.3h117.3V.6ZM268.4,92.7h-67V25.7h67v67Z" />
-            </svg>
-            <span
-              style={{
-                transform: isPanelVisible ? "translateX(6px)" : `translateX(calc(-6px - 0.45rem))`,
-                transition: "transform 380ms cubic-bezier(0.22, 1, 0.36, 1)",
-                transitionDelay: isPanelVisible ? "0ms" : "150ms",
-              }}
-            >
-              Explore the Commonwealth
-            </span>
-          </span>
+          <div
+            style={{
+              position: "absolute",
+              inset: "-26px -36px -32px",
+              background: "radial-gradient(65% 55% at 50% 42%, rgba(0,0,0,0.46) 0%, rgba(0,0,0,0.24) 38%, rgba(0,0,0,0) 100%)",
+              filter: "blur(8px)",
+              pointerEvents: "none",
+              zIndex: 0,
+            }}
+          />
+          <div
+            style={{
+              position: "relative",
+              zIndex: 1,
+              fontSize: "0.74rem",
+              letterSpacing: "0.32em",
+              textTransform: "uppercase",
+              fontWeight: 560,
+              color: "rgba(255,255,255,0.72)",
+              opacity: isAttractMode ? 1 : 0,
+              transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
+              transition: "opacity 650ms ease 120ms, transform 650ms cubic-bezier(0.22, 1, 0.36, 1) 120ms",
+            }}
+          >
+            Commonwealth Explorer
+          </div>
+          <h1
+            style={{
+              position: "relative",
+              zIndex: 1,
+              fontSize: "clamp(3rem, 7vw, 6.25rem)",
+              fontWeight: 680,
+              letterSpacing: "-0.04em",
+              lineHeight: 0.98,
+              margin: 0,
+              color: "#f8fbff",
+              textShadow: "0 12px 28px rgba(5, 8, 16, 0.7), 0 4px 14px rgba(5, 8, 16, 0.58), 0 0 26px rgba(155, 209, 255, 0.24)",
+              opacity: isAttractMode ? 1 : 0,
+              transform: isAttractMode ? "translateY(0)" : "translateY(20px)",
+              transition: "opacity 700ms ease 220ms, transform 700ms cubic-bezier(0.22, 1, 0.36, 1) 220ms",
+            }}
+          >
+            56 Nations.
+            <br />
+            Millions of Stories.
+          </h1>
+          <p
+            style={{
+              position: "relative",
+              zIndex: 1,
+              fontSize: "clamp(1.05rem, 2.05vw, 1.5rem)",
+              fontWeight: 400,
+              color: "rgba(244, 249, 255, 0.95)",
+              margin: "0 auto",
+              maxWidth: "720px",
+              letterSpacing: "-0.012em",
+              lineHeight: 1.34,
+              textShadow: "0 2px 12px rgba(5, 8, 16, 0.55)",
+              opacity: isAttractMode ? 1 : 0,
+              transform: isAttractMode ? "translateY(0)" : "translateY(20px)",
+              transition: "opacity 700ms ease 400ms, transform 700ms cubic-bezier(0.22, 1, 0.36, 1) 400ms",
+            }}
+          >
+            Discover your family story across the Commonwealth.
+          </p>
+          <button
+            onClick={() => setIsMenuOpen(true)}
+            style={{
+              position: "relative",
+              zIndex: 1,
+              margin: "1rem auto 0",
+              padding: "1.05rem 2rem",
+              fontSize: "clamp(0.95rem, 1.35vw, 1.12rem)",
+              fontWeight: 560,
+              color: "rgba(245, 251, 255, 0.96)",
+              background: "linear-gradient(180deg, rgba(165, 230, 132, 0.24) 0%, rgba(93, 140, 53, 0.26) 100%)",
+              border: "none",
+              borderRadius: "100px",
+              cursor: "pointer",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              backdropFilter: "blur(16px) saturate(140%)",
+              WebkitBackdropFilter: "blur(16px) saturate(140%)",
+              borderColor: "rgba(214, 255, 188, 0.42)",
+              borderWidth: "1px",
+              borderStyle: "solid",
+              boxShadow: "0 14px 38px rgba(7, 11, 20, 0.5), 0 0 0 1px rgba(220,255,205,0.16), 0 0 30px rgba(142, 217, 102, 0.22)",
+              opacity: isAttractMode ? 1 : 0,
+              transform: isAttractMode ? "translateY(0) scale(1)" : "translateY(20px) scale(0.95)",
+              transition: "opacity 650ms ease 560ms, transform 650ms cubic-bezier(0.22, 1, 0.36, 1) 560ms, background 220ms ease, box-shadow 220ms ease",
+              animation: isAttractMode ? "attractPulse 3.2s ease-in-out infinite" : "none",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "linear-gradient(180deg, rgba(182, 240, 147, 0.35) 0%, rgba(111, 164, 67, 0.36) 100%)";
+              e.currentTarget.style.boxShadow = "0 18px 44px rgba(7, 11, 20, 0.56), 0 0 0 1px rgba(224,255,212,0.24), 0 0 36px rgba(152, 232, 112, 0.34)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "linear-gradient(180deg, rgba(165, 230, 132, 0.24) 0%, rgba(93, 140, 53, 0.26) 100%)";
+              e.currentTarget.style.boxShadow = "0 14px 38px rgba(7, 11, 20, 0.5), 0 0 0 1px rgba(220,255,205,0.16), 0 0 30px rgba(142, 217, 102, 0.22)";
+            }}
+          >
+            Touch to Begin
+          </button>
+          <div
+            style={{
+              position: "relative",
+              zIndex: 1,
+              fontSize: "0.82rem",
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "rgba(239, 248, 255, 0.68)",
+              marginTop: "0.2rem",
+              textShadow: "0 1px 8px rgba(5, 8, 16, 0.35)",
+              opacity: isAttractMode ? 1 : 0,
+              transform: isAttractMode ? "translateY(0)" : "translateY(14px)",
+              transition: "opacity 600ms ease 680ms, transform 600ms cubic-bezier(0.22, 1, 0.36, 1) 680ms",
+            }}
+          >
+            Touch anywhere to begin exploration
+          </div>
+          <div
+            style={{
+              position: "relative",
+              zIndex: 1,
+              alignSelf: "center",
+              marginTop: "0.15rem",
+              minHeight: "1.1rem",
+              fontSize: "0.9rem",
+              fontWeight: 560,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "rgba(232, 243, 255, 0.92)",
+              textShadow: "0 2px 10px rgba(5, 8, 16, 0.6)",
+              opacity: attractAutoCountryName ? 1 : 0,
+              transform: attractAutoCountryName ? "translateY(0)" : "translateY(6px)",
+              transition: `opacity 360ms ${springEase}, transform 360ms ${springEase}`,
+              pointerEvents: "none",
+            }}
+          >
+            {attractAutoCountryName}
+          </div>
+        </div>
+
+        {/* FamilySearch logo at bottom */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: "3rem",
+            opacity: isAttractMode ? 0.72 : 0,
+            transition: "opacity 600ms ease 800ms",
+          }}
+        >
+          <img
+            src={FAMILYSEARCH_LOGO_URL}
+            alt="FamilySearch"
+            style={{
+              width: "140px",
+              height: "auto",
+              filter: "brightness(0) invert(1)",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* TOP BAR - Minimal, appears when not in attract mode */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 500,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "1.5rem 2rem",
+          pointerEvents: isAttractMode ? "none" : "auto",
+          opacity: isAttractMode ? 0 : 1,
+          transition: "opacity 400ms ease",
+        }}
+      >
+        {/* Explore button - opens country dock */}
+        <button
+          onClick={() => setIsMenuOpen(true)}
+          style={{
+            padding: "0.875rem 1.5rem",
+            borderRadius: "100px",
+            background: "rgba(255, 255, 255, 0.15)",
+            backdropFilter: "blur(20px) saturate(180%)",
+            WebkitBackdropFilter: "blur(20px) saturate(180%)",
+            boxShadow: "0 2px 12px rgba(0, 0, 0, 0.15)",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            color: "#fff",
+            fontSize: "1rem",
+            fontWeight: 500,
+            letterSpacing: "-0.01em",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            cursor: "pointer",
+            transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.25)";
+            e.currentTarget.style.transform = "scale(1.02)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
+            width="20"
+            height="20"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            style={{
-              opacity: 0.4,
-              transform: isMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
-              transition: "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease",
-            }}
           >
-            <path d="m6 9 6 6 6-6" />
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+            <path d="M2 12h20" />
           </svg>
+          <span>Explore</span>
         </button>
 
-        {(isMenuOpen || isMenuClosing) ? (
-          <div
-            style={{
-              marginTop: "0.4rem",
-              borderRadius: "20px",
-              background: "rgba(255, 255, 255, 0.52)",
-              backdropFilter: "blur(28px) saturate(180%)",
-              WebkitBackdropFilter: "blur(28px) saturate(180%)",
-              boxShadow: "0 1px 3px rgba(15, 23, 42, 0.02), 0 8px 32px rgba(15, 23, 42, 0.06)",
-              border: "1px solid rgba(255, 255, 255, 0.55)",
-              maxHeight: "min(500px, 66vh)",
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-              opacity: isMenuClosing ? 0 : 1,
-              transform: isMenuClosing ? "translateY(-6px) scale(0.98)" : "translateY(0) scale(1)",
-              transformOrigin: "top center",
-              transition: "opacity 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
-            }}
-          >
-            {/* Integrated search */}
-            <div style={{ padding: "0.85rem 0.9rem 0.65rem", position: "relative" }}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{
-                  position: "absolute",
-                  left: "1.55rem",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "#94a3b8",
-                  pointerEvents: "none",
-                  opacity: 0.7,
-                  marginTop: "-0.05rem",
-                }}
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
-              <input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search"
-                style={{
-                  width: "100%",
-                  border: "none",
-                  borderRadius: "10px",
-                  padding: "0.65rem 0.9rem",
-                  paddingLeft: "2.4rem",
-                  paddingRight: "2.2rem",
-                  fontSize: "0.9rem",
-                  color: "#1f2937",
-                  background: "rgba(0, 0, 0, 0.03)",
-                  outline: "none",
-                  boxSizing: "border-box",
-                  boxShadow: "none",
-                  fontWeight: 400,
-                  letterSpacing: "-0.01em",
-                  transition: "background 200ms ease",
-                }}
-                onFocus={(e) => { e.target.style.background = "rgba(0, 0, 0, 0.05)"; }}
-                onBlur={(e) => { e.target.style.background = "rgba(0, 0, 0, 0.03)"; }}
-              />
-              {searchTerm ? (
-                <button
-                  onClick={() => setSearchTerm("")}
-                  style={{
-                    position: "absolute",
-                    right: "1.3rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    border: "none",
-                    background: "rgba(0, 0, 0, 0.08)",
-                    color: "#64748b",
-                    fontSize: "0.75rem",
-                    cursor: "pointer",
-                    width: "18px",
-                    height: "18px",
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    lineHeight: 1,
-                    padding: 0,
-                    marginTop: "-0.05rem",
-                  }}
-                  aria-label="Clear search"
-                >
-                  ×
-                </button>
-              ) : null}
-            </div>
-
-            {/* View Entire Commonwealth action */}
-            <div style={{ padding: "0 0.6rem" }}>
-              <button
-                onClick={handleViewEntireCommonwealth}
-                style={{
-                  width: "100%",
-                  border: "none",
-                  background: "transparent",
-                  color: "#0f172a",
-                  textAlign: "left",
-                  padding: "0.75rem 0.7rem",
-                  borderRadius: "12px",
-                  cursor: "pointer",
-                  fontSize: "0.88rem",
-                  fontWeight: 500,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.65rem",
-                  letterSpacing: "-0.01em",
-                  transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.55)";
-                  e.currentTarget.style.backdropFilter = "blur(10px)";
-                  e.currentTarget.style.boxShadow = "0 2px 8px rgba(15, 23, 42, 0.04)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.backdropFilter = "none";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ color: "#87b940", opacity: 0.75, flexShrink: 0 }}
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-                  <path d="M2 12h20" />
-                </svg>
-                <span>View Entire Commonwealth</span>
-              </button>
-            </div>
-
-            {/* Section label */}
-            <div style={{
-              padding: "0.6rem 1.3rem 0.35rem",
-              fontSize: "0.68rem",
-              fontWeight: 500,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: "#64748b",
-              opacity: 0.6,
-            }}>
-              Commonwealth Countries
-            </div>
-
-            {/* Country list */}
-            <div style={{ padding: "0.1rem 0.45rem 0.45rem", overflowY: "auto", flex: 1 }}>
-              {filteredCountries.map((country) => {
-                const isActive = selectedCountry?.name === country.name;
-                const isHovered = normalizeName(hoveredCountry || "") === normalizeName(country.name);
-                return (
-                  <button
-                    key={country.name}
-                    onClick={() => handleSelectCountry(country)}
-                    onMouseEnter={() => handleCountryHover(country.name)}
-                    onMouseLeave={() => handleCountryHover(null)}
-                    style={{
-                      width: "100%",
-                      border: "none",
-                      color: isActive ? "#87b940" : "#1f2937",
-                      textAlign: "left",
-                      padding: "0.5rem 0.7rem",
-                      borderRadius: "11px",
-                      cursor: "pointer",
-                      fontSize: "0.87rem",
-                      fontWeight: isActive ? 500 : 400,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      height: "40px",
-                      gap: "0.6rem",
-                      transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-                      transform: isHovered && !isActive ? "translateX(4px)" : "translateX(0)",
-                      backgroundColor: isActive ? "rgba(135, 185, 64, 0.08)" : "transparent",
-                      backdropFilter: isHovered && !isActive ? "blur(10px)" : "none",
-                      letterSpacing: "-0.012em",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.55)";
-                        e.currentTarget.style.backdropFilter = "blur(10px)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = "transparent";
-                        e.currentTarget.style.backdropFilter = "none";
-                      }
-                    }}
-                  >
-                    <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                      <img
-                        src={`https://flagcdn.com/w40/${country.countryCode || "xx"}.png`}
-                        alt=""
-                        style={{
-                          width: "22px",
-                          height: "15px",
-                          borderRadius: "3px",
-                          objectFit: "cover",
-                          boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-                          filter: "saturate(0.8)",
-                          opacity: 0.85,
-                        }}
-                      />
-                      <span style={{ fontWeight: isActive ? 500 : 400 }}>{country.name}</span>
-                    </span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="13"
-                      height="13"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      style={{
-                        color: "#87b940",
-                        opacity: isHovered && !isActive ? 0.9 : 0.25,
-                        transform: isHovered && !isActive ? "translateX(4px)" : "translateX(0)",
-                        transition: "opacity 200ms cubic-bezier(0.22, 1, 0.36, 1), transform 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <path d="M5 12h14" />
-                      <path d="m12 5 7 7-7 7" />
-                    </svg>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          top: "1.6rem",
-          right: "1.8rem",
-          zIndex: 600,
-          pointerEvents: "none",
-          opacity: isPanelVisible ? 0 : 0.9,
-          transform: isPanelVisible ? "translateY(-8px)" : "translateY(0)",
-          transition: "opacity 220ms ease, transform 280ms ease",
-          transitionDelay: isPanelVisible ? "0ms" : "120ms",
-        }}
-      >
+        {/* FamilySearch logo */}
         <img
           src={FAMILYSEARCH_LOGO_URL}
           alt="FamilySearch"
           style={{
-            width: "160px",
+            width: "120px",
             height: "auto",
-            filter: "brightness(0) saturate(100%)",
+            filter: "brightness(0) invert(1)",
+            opacity: 0.7,
           }}
         />
       </div>
+
+      {/* COUNTRY DOCK - Bottom navigation rail */}
+      {(isMenuOpen || isMenuClosing) && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 900,
+            padding: "1.5rem 2rem 2rem",
+            background: "linear-gradient(to top, rgba(26, 31, 46, 0.95) 0%, rgba(26, 31, 46, 0.8) 70%, transparent 100%)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            opacity: isMenuClosing ? 0 : 1,
+            transform: isMenuClosing ? "translateY(20px)" : "translateY(0)",
+            transition: "opacity 300ms cubic-bezier(0.22, 1, 0.36, 1), transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
+          {/* Search bar */}
+          <div style={{ maxWidth: "600px", margin: "0 auto 1.5rem", position: "relative" }}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                position: "absolute",
+                left: "1.25rem",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "rgba(255,255,255,0.5)",
+                pointerEvents: "none",
+              }}
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search countries..."
+              style={{
+                width: "100%",
+                border: "none",
+                borderRadius: "100px",
+                padding: "1rem 1.25rem 1rem 3.5rem",
+                fontSize: "1.1rem",
+                color: "#fff",
+                background: "rgba(255, 255, 255, 0.1)",
+                outline: "none",
+                boxSizing: "border-box",
+                boxShadow: "inset 0 1px 2px rgba(0,0,0,0.2)",
+                fontWeight: 400,
+                letterSpacing: "-0.01em",
+                transition: "background 200ms ease",
+              }}
+              onFocus={(e) => { e.target.style.background = "rgba(255, 255, 255, 0.15)"; }}
+              onBlur={(e) => { e.target.style.background = "rgba(255, 255, 255, 0.1)"; }}
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                style={{
+                  position: "absolute",
+                  right: "1rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  border: "none",
+                  background: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  fontSize: "1rem",
+                  cursor: "pointer",
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  lineHeight: 1,
+                  padding: 0,
+                }}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          {/* Country cards horizontal scroll */}
+          <div
+            style={{
+              display: "flex",
+              gap: "1rem",
+              overflowX: "auto",
+              padding: "0.5rem 0",
+              scrollSnapType: "x mandatory",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+            {filteredCountries.map((country) => {
+              const isActive = selectedCountry?.name === country.name;
+              return (
+                <button
+                  key={country.name}
+                  onClick={() => {
+                    handleSelectCountry(country);
+                    setIsMenuOpen(false);
+                  }}
+                  style={{
+                    flex: "0 0 auto",
+                    width: "132px",
+                    padding: "0.85rem 0.75rem 0.7rem",
+                    borderRadius: "16px",
+                    background: isActive ? "rgba(135, 185, 64, 0.3)" : "rgba(255, 255, 255, 0.08)",
+                    border: isActive ? "2px solid rgba(135, 185, 64, 0.6)" : "1px solid rgba(255, 255, 255, 0.1)",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "0.45rem",
+                    scrollSnapAlign: "start",
+                    transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+                  }}
+                  onMouseEnter={(e) => {
+                    handleCountryHover(country.name);
+                    if (!isActive) {
+                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    handleCountryHover(null);
+                    if (!isActive) {
+                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                      e.currentTarget.style.transform = "translateY(0)";
+                    }
+                  }}
+                >
+                  <img
+                    src={`https://flagcdn.com/w80/${country.countryCode || "xx"}.png`}
+                    alt=""
+                    style={{
+                      width: "46px",
+                      height: "30px",
+                      borderRadius: "5px",
+                      objectFit: "cover",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: "0.79rem",
+                      fontWeight: 500,
+                      color: "#fff",
+                      textAlign: "center",
+                      lineHeight: 1.14,
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {country.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Close button */}
+          <button
+            onClick={() => {
+              setIsMenuClosing(true);
+              setTimeout(() => {
+                setIsMenuOpen(false);
+                setIsMenuClosing(false);
+              }, 300);
+            }}
+            style={{
+              position: "absolute",
+              top: "1.5rem",
+              right: "2rem",
+              width: "44px",
+              height: "44px",
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(255,255,255,0.1)",
+              color: "#fff",
+              fontSize: "1.5rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 200ms ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+            }}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+      )}
         <div
           style={{
             position: "absolute",
@@ -2624,58 +3018,88 @@ export default function App() {
         />
       </div>
 
+      {/* FLOATING STORY CARD - Replaces side panel */}
       <div
         onClick={(event) => event.stopPropagation()}
         style={{
           position: "absolute",
-          top: 0,
-          right: 0,
-          height: "100%",
-          width: "660px",
-          maxWidth: "88vw",
-          background: "rgba(248, 251, 255, 0.58)",
-          backdropFilter: "blur(26px) saturate(165%)",
-          boxShadow: "-24px 0 48px rgba(15, 23, 42, 0.18)",
+          bottom: "2rem",
+          left: "50%",
+          transform: isPanelVisible ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(100px)",
+          width: "min(900px, 92vw)",
+          maxHeight: "75vh",
+          background: "rgba(26, 31, 46, 0.92)",
+          backdropFilter: "blur(40px) saturate(180%)",
+          WebkitBackdropFilter: "blur(40px) saturate(180%)",
+          boxShadow: "0 32px 80px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.3)",
+          borderRadius: "32px",
           opacity: isPanelVisible ? 1 : 0,
-          transform: isPanelVisible ? "translateX(0) scale(1)" : "translateX(40px) scale(0.98)",
-          transition: "opacity 450ms cubic-bezier(0.22, 1, 0.36, 1), transform 450ms cubic-bezier(0.22, 1, 0.36, 1)",
-          transformOrigin: "right center",
+          transition: "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1)",
           pointerEvents: isPanelVisible ? "auto" : "none",
-          overflowY: "hidden",
+          overflowY: "auto",
+          overflowX: "hidden",
           zIndex: 1000,
-          color: "#0f172a",
-          borderLeft: "1px solid rgba(255, 255, 255, 0.5)",
+          color: "#fff",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
         }}
       >
         {selectedCountry ? (
           <div
             style={{
-              padding: "1.15rem 1.1rem 1.3rem",
+              padding: "0",
               position: "relative",
               display: "flex",
               flexDirection: "column",
-              height: "100%",
-              boxSizing: "border-box",
-              gap: "0.95rem",
               minHeight: 0,
-              opacity: 1,
-              transform: "translateY(0)",
-              transition: "none",
             }}
           >
+            {/* Close button */}
+            <button
+              onClick={handleClosePanel}
+              style={{
+                position: "absolute",
+                top: "1rem",
+                right: "1rem",
+                width: "48px",
+                height: "48px",
+                borderRadius: "50%",
+                border: "none",
+                background: "rgba(255,255,255,0.15)",
+                backdropFilter: "blur(10px)",
+                color: "#fff",
+                fontSize: "1.5rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 200ms ease",
+                zIndex: 10,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+                e.currentTarget.style.transform = "scale(1.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.15)";
+                e.currentTarget.style.transform = "scale(1)";
+              }}
+              aria-label="Close"
+            >
+              ×
+            </button>
             <div
               key={`hero-${selectedCountry.name}-${heroMotionSeed}`}
               style={{
-                borderRadius: "28px",
+                borderRadius: "32px 32px 0 0",
                 overflow: "hidden",
                 minHeight: "220px",
-                boxShadow: "0 16px 40px rgba(15, 23, 42, 0.28), 0 4px 12px rgba(15, 23, 42, 0.12)",
                 backgroundImage: `linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.65) 100%), url(${validatedHeroImage || selectedCountryHeroImage})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center 30%",
                 display: "flex",
                 alignItems: "flex-end",
-                padding: "1.4rem 1.5rem",
+                padding: `1.4rem ${STORY_CARD_SIDE_PADDING}`,
                 position: "relative",
                 ...getRevealStyle(0),
               }}
@@ -2720,7 +3144,7 @@ export default function App() {
                     left: 0,
                     right: 0,
                     background: "linear-gradient(transparent, rgba(0,0,0,0.4))",
-                    padding: "1.5rem 1.2rem 0.5rem",
+                    padding: `1.5rem ${STORY_CARD_SIDE_PADDING} 0.5rem`,
                     display: "flex",
                     justifyContent: "flex-end",
                     alignItems: "flex-end",
@@ -2750,92 +3174,94 @@ export default function App() {
               )}
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 0.8fr)",
-                gap: "0.75rem",
-                padding: "0.1rem 0.15rem 0",
-                alignItems: "start",
-              }}
-            >
-              <div style={{ display: "flex", flexDirection: "column", minWidth: 0, ...getRevealStyle(2) }}>
-                <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "#333536", fontWeight: 700 }}>
-                  Overview
-                </h3>
-                <p
-                  ref={overviewTextRef}
-                  style={{
-                    margin: 0,
-                    lineHeight: 1.65,
-                    fontSize: "0.9rem",
-                    color: "#1e293b",
-                    overflow: "hidden",
-                    display: isOverviewExpanded ? "block" : "-webkit-box",
-                    WebkitBoxOrient: "vertical",
-                    WebkitLineClamp: isOverviewExpanded ? "unset" : 6,
-                  }}
-                >
-                  {selectedCountry.overview}
-                </p>
-                {hasOverviewOverflow ? (
-                  <button
-                    onClick={() => setIsOverviewExpanded((value) => !value)}
+            {/* Content sections with padding */}
+            <div style={{ padding: `1.5rem ${STORY_CARD_SIDE_PADDING} 2rem` }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 0.8fr)",
+                  gap: "1.5rem",
+                  alignItems: "start",
+                }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", minWidth: 0, ...getRevealStyle(2) }}>
+                  <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>
+                    Overview
+                  </h3>
+                  <p
+                    ref={overviewTextRef}
                     style={{
-                      marginTop: "0.6rem",
-                      border: "none",
-                      background: "transparent",
-                      color: "#333536",
-                      fontSize: "0.84rem",
-                      fontWeight: 600,
-                      textAlign: "left",
-                      cursor: "pointer",
-                      padding: 0,
-                      alignSelf: "flex-start",
+                      margin: 0,
+                      lineHeight: 1.7,
+                      fontSize: "1rem",
+                      color: "rgba(255,255,255,0.85)",
+                      overflow: "hidden",
+                      display: isOverviewExpanded ? "block" : "-webkit-box",
+                      WebkitBoxOrient: "vertical",
+                      WebkitLineClamp: isOverviewExpanded ? "unset" : 6,
                     }}
                   >
-                    {isOverviewExpanded ? "Read Less" : "Read More →"}
-                  </button>
-                ) : null}
-              </div>
-              <div style={{ display: "grid", gap: "0.55rem", gridTemplateRows: "repeat(2, minmax(0, 1fr))", minWidth: 0, ...getRevealStyle(1) }}>
-                {detailItems.map((item) => (
-                  <div
-                    key={item.label}
-                    style={{
-                      borderRadius: "14px",
-                      background: "rgba(255,255,255,0.58)",
-                      border: "1px solid rgba(255,255,255,0.52)",
-                      backdropFilter: "blur(8px)",
-                      padding: "0.68rem 0.8rem",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <div style={{ marginBottom: "0.3rem", display: "flex", alignItems: "center" }}>{renderStatIcon(item.label)}</div>
-                    <div style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "#333536", marginBottom: "0.2rem", fontWeight: 600 }}>
-                      {item.label}
+                    {selectedCountry.overview}
+                  </p>
+                  {hasOverviewOverflow ? (
+                    <button
+                      onClick={() => setIsOverviewExpanded((value) => !value)}
+                      style={{
+                        marginTop: "0.75rem",
+                        border: "none",
+                        background: "transparent",
+                        color: "#87b940",
+                        fontSize: "0.9rem",
+                        fontWeight: 600,
+                        textAlign: "left",
+                        cursor: "pointer",
+                        padding: 0,
+                        alignSelf: "flex-start",
+                      }}
+                    >
+                      {isOverviewExpanded ? "Read Less" : "Read More →"}
+                    </button>
+                  ) : null}
+                </div>
+                <div style={{ display: "grid", gap: "0.75rem", gridTemplateRows: "repeat(2, minmax(0, 1fr))", minWidth: 0, ...getRevealStyle(1) }}>
+                  {detailItems.map((item) => (
+                    <div
+                      key={item.label}
+                      style={{
+                        borderRadius: "16px",
+                        background: "rgba(255,255,255,0.08)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        padding: "1rem 1.25rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <div style={{ marginBottom: "0.4rem", display: "flex", alignItems: "center" }}>{renderStatIcon(item.label)}</div>
+                      <div style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.5)", marginBottom: "0.3rem", fontWeight: 600 }}>
+                        {item.label}
+                      </div>
+                      <div style={{ fontSize: "1.1rem", fontWeight: 600, color: "#fff" }}>{item.value}</div>
                     </div>
-                    <div style={{ fontSize: "0.94rem", fontWeight: 600, color: "#0f172a" }}>{item.value}</div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
-            <div style={{ height: "0px", background: "rgba(148, 163, 184, 0.35)", margin: "0" }} />
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 0.8fr)",
-                gap: "0.75rem",
-                padding: "0.1rem 0.15rem 0.75rem",
-                borderBottom: "1px solid rgba(148, 163, 184, 0.35)",
-                alignItems: "start",
-              }}
-            >
-              <div style={{ minWidth: 0, ...getRevealStyle(3) }}>
-                <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "#333536", fontWeight: 700 }}>
+            {/* FamilySearch Records and Research Helps */}
+            <div style={{ padding: `0 ${STORY_CARD_SIDE_PADDING} 1.5rem` }}>
+              <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.1)", margin: "0 0 1.5rem" }} />
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 0.8fr)",
+                  gap: "1.5rem",
+                  alignItems: "start",
+                }}
+              >
+                <div style={{ minWidth: 0, ...getRevealStyle(3) }}>
+                <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontWeight: 700 }}>
                   FamilySearch Records
                 </h3>
                 <div style={{ display: "grid", gap: "0.38rem" }}>
@@ -2861,7 +3287,7 @@ export default function App() {
                       </a>
                     ))
                   ) : (
-                    <div style={{ color: "#333536", fontSize: "0.95rem", textAlign: "left" }}>No FamilySearch record collections available.</div>
+                    <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No FamilySearch record collections available.</div>
                   )}
                 </div>
                 {familySearchLocationUrl ? (
@@ -2882,14 +3308,14 @@ export default function App() {
                     </span>
                   </a>
                 ) : (
-                  <div style={{ marginTop: "0.72rem", color: "#333536", fontSize: "0.9rem", textAlign: "left" }}>
+                  <div style={{ marginTop: "0.72rem", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.9rem", textAlign: "left" }}>
                     Country research page not available.
                   </div>
                 )}
               </div>
 
               <div style={{ minWidth: 0, ...getRevealStyle(4) }}>
-                <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "#333536", fontWeight: 700 }}>
+                <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontWeight: 700 }}>
                   Research Helps
                 </h3>
                 <div style={{ display: "grid", gap: "0.38rem" }}>
@@ -2912,10 +3338,11 @@ export default function App() {
                       </a>
                     ))
                   ) : (
-                    <div style={{ color: "#333536", fontSize: "0.95rem", textAlign: "left" }}>No research help links available.</div>
+                    <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No research help links available.</div>
                   )}
                 </div>
               </div>
+            </div>
             </div>
 
      <div
@@ -2925,42 +3352,44 @@ export default function App() {
     flex: 1,
     minHeight: 0,
     overflow: "visible",
+    padding: `0 ${STORY_CARD_SIDE_PADDING} 1.8rem`,
     ...getRevealStyle(5),
   }}
 >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.7rem", padding: "0 0.1rem" }}>
-                <h3 style={{ margin: 0, fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.15em", color: "#333536", fontWeight: 600 }}>
-                  Gallery
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                <h3 style={{ margin: 0, fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "#64748b", fontWeight: 500 }}>
+                  Discover
                 </h3>
                 {showGalleryNavigation ? (
-                  <div style={{ display: "flex", gap: "0.3rem" }}>
+                  <div style={{ display: "flex", gap: "0.25rem" }}>
                     <button
                       onClick={() => scrollGallery("left")}
                       style={{ 
                         border: "none", 
-                        background: "rgba(0,0,0,0.04)", 
-                        color: "#64748b", 
-                        borderRadius: "8px", 
-                        width: "28px", 
-                        height: "28px", 
+                        background: "transparent", 
+                        color: "#94a3b8", 
+                        borderRadius: "6px", 
+                        width: "24px", 
+                        height: "24px", 
                         cursor: "pointer", 
                         lineHeight: 1,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        transition: "all 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+                        transition: "color 180ms ease",
+                        opacity: 0.6,
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "rgba(0,0,0,0.08)";
-                        e.currentTarget.style.color = "#333536";
+                        e.currentTarget.style.color = "#475569";
+                        e.currentTarget.style.opacity = "1";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "rgba(0,0,0,0.04)";
-                        e.currentTarget.style.color = "#64748b";
+                        e.currentTarget.style.color = "#94a3b8";
+                        e.currentTarget.style.opacity = "0.6";
                       }}
-                      aria-label="Scroll gallery left"
+                      aria-label="Previous"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="m15 18-6-6 6-6" />
                       </svg>
                     </button>
@@ -2968,29 +3397,30 @@ export default function App() {
                       onClick={() => scrollGallery("right")}
                       style={{ 
                         border: "none", 
-                        background: "rgba(0,0,0,0.04)", 
-                        color: "#64748b", 
-                        borderRadius: "8px", 
-                        width: "28px", 
-                        height: "28px", 
+                        background: "transparent", 
+                        color: "#94a3b8", 
+                        borderRadius: "6px", 
+                        width: "24px", 
+                        height: "24px", 
                         cursor: "pointer", 
                         lineHeight: 1,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        transition: "all 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+                        transition: "color 180ms ease",
+                        opacity: 0.6,
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "rgba(0,0,0,0.08)";
-                        e.currentTarget.style.color = "#333536";
+                        e.currentTarget.style.color = "#475569";
+                        e.currentTarget.style.opacity = "1";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "rgba(0,0,0,0.04)";
-                        e.currentTarget.style.color = "#64748b";
+                        e.currentTarget.style.color = "#94a3b8";
+                        e.currentTarget.style.opacity = "0.6";
                       }}
-                      aria-label="Scroll gallery right"
+                      aria-label="Next"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="m9 18 6-6-6-6" />
                       </svg>
                     </button>
@@ -3001,14 +3431,14 @@ export default function App() {
   ref={galleryTrackRef}
   style={{
     display: "flex",
-    gap: "0.85rem",
+    gap: "0.6rem",
     overflowX: "auto",
-    overflowY: "visible",
-    paddingTop: "4px",
-    paddingBottom: "20px",
+    overflowY: "hidden",
+    paddingTop: "2px",
+    paddingBottom: "8px",
     flex: 1,
     minHeight: 0,
-    alignItems: "flex-start",
+    alignItems: "stretch",
     scrollBehavior: "smooth",
     WebkitOverflowScrolling: "touch",
     touchAction: "pan-x",
@@ -3025,27 +3455,28 @@ export default function App() {
                       border: "none",
                       background: "transparent",
                       padding: 0,
-                      borderRadius: "18px",
+                      borderRadius: "14px",
                       overflow: "hidden",
                       cursor: "pointer",
                       position: "relative",
-                      flex: index === 0 ? "0 0 min(82%, 420px)" : "0 0 min(65%, 300px)",
-                      alignSelf: "flex-start",
-                      maxWidth: index === 0 ? "420px" : "300px",
-                      minWidth: index === 0 ? "280px" : "220px",
-                      height: index === 0 ? "200px" : "160px",
+                      flex: "0 0 80%",
+                      minWidth: "0",
+                      height: "155px",
                       transform: "translateY(0)",
-                      transition: "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1)",
-                      boxShadow: "0 8px 24px rgba(15,23,42,0.14), 0 2px 6px rgba(15,23,42,0.08)",
-                      scrollSnapAlign: "start",
+                      transition: "transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease",
+                      boxShadow: "0 4px 16px rgba(15,23,42,0.1), 0 1px 4px rgba(15,23,42,0.06)",
+                      scrollSnapAlign: "center",
+                      opacity: index === 0 ? 1 : 0.75,
                     }}
                     onMouseEnter={(event) => {
                       event.currentTarget.style.transform = "translateY(-2px)";
-                      event.currentTarget.style.boxShadow = "0 14px 36px rgba(15,23,42,0.2), 0 4px 10px rgba(15,23,42,0.1)";
+                      event.currentTarget.style.boxShadow = "0 8px 24px rgba(15,23,42,0.14), 0 2px 8px rgba(15,23,42,0.08)";
+                      event.currentTarget.style.opacity = "1";
                     }}
                     onMouseLeave={(event) => {
                       event.currentTarget.style.transform = "translateY(0)";
-                      event.currentTarget.style.boxShadow = "0 8px 24px rgba(15,23,42,0.14), 0 2px 6px rgba(15,23,42,0.08)";
+                      event.currentTarget.style.boxShadow = "0 4px 16px rgba(15,23,42,0.1), 0 1px 4px rgba(15,23,42,0.06)";
+                      event.currentTarget.style.opacity = index === 0 ? "1" : "0.75";
                     }}
                   >
                     <img
@@ -3054,34 +3485,14 @@ export default function App() {
                       style={{ width: "100%", height: "100%", objectFit: "cover", background: "#1a1a1a", display: "block" }}
                     />
                     {item.type === "video" ? (
-                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.35) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <div style={{ width: "52px", height: "52px", borderRadius: "50%", background: "rgba(255,255,255,0.95)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}>
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="#c4302b">
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(255,255,255,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="#c4302b">
                             <path d="M8 5v14l11-7z" />
                           </svg>
                         </div>
                       </div>
                     ) : null}
-                    {index === 0 && (
-                      <div style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        padding: "2rem 1rem 0.8rem",
-                        background: "linear-gradient(transparent, rgba(0,0,0,0.5))",
-                        pointerEvents: "none",
-                      }}>
-                        <span style={{
-                          fontSize: "0.72rem",
-                          color: "rgba(255,255,255,0.85)",
-                          fontWeight: 500,
-                          letterSpacing: "0.02em",
-                        }}>
-                          {item.title}
-                        </span>
-                      </div>
-                    )}
                   </button>
                 ))}
               </div>
