@@ -486,6 +486,44 @@ function MapArtOverlay({ imageUrl, opacity = 0.4 }) {
   return null;
 }
 
+function AmbientMapMotion() {
+  const map = useMap();
+
+  useEffect(() => {
+    // Create a subtle breathing effect on the map background
+    const mapContainer = map.getContainer();
+    const tileLayer = mapContainer.querySelector('.leaflet-tile-pane');
+    
+    if (!tileLayer) return;
+
+    let animationFrame;
+    let startTime = Date.now();
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      // Very slow breathing: 20 second cycle
+      const breathe = Math.sin(elapsed / 10000 * Math.PI) * 0.015 + 1;
+      
+      tileLayer.style.filter = `brightness(${breathe})`;
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    // Start the animation
+    animationFrame = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+      if (tileLayer) {
+        tileLayer.style.filter = '';
+      }
+    };
+  }, [map]);
+
+  return null;
+}
+
 function VintageMapDecorations() {
   const map = useMap();
 
@@ -896,8 +934,18 @@ function WorldGeoLayer({
             const isActivated = Boolean(
               selectedCountry?.name && country.name === selectedCountry.name && activatedCountryName === country.name
             );
+            const isHovered = Boolean(
+              country && hoveredCountryNormalized && normalizeName(country.name) === hoveredCountryNormalized
+            );
             element.style.transition = "fill 300ms cubic-bezier(0.22, 1, 0.36, 1), fill-opacity 300ms cubic-bezier(0.22, 1, 0.36, 1), stroke 300ms cubic-bezier(0.22, 1, 0.36, 1), stroke-width 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 300ms cubic-bezier(0.22, 1, 0.36, 1), filter 300ms cubic-bezier(0.22, 1, 0.36, 1)";
-            element.style.filter = isActivated ? "drop-shadow(0 0 6px rgba(241, 100, 88, 0.45))" : "none";
+            
+            if (isActivated) {
+              element.style.filter = "drop-shadow(0 0 8px rgba(241, 100, 88, 0.5)) drop-shadow(0 0 16px rgba(241, 100, 88, 0.25))";
+            } else if (isHovered) {
+              element.style.filter = "drop-shadow(0 0 6px rgba(241, 100, 88, 0.35)) drop-shadow(0 0 12px rgba(241, 100, 88, 0.18))";
+            } else {
+              element.style.filter = "none";
+            }
           }
         }
       });
@@ -2124,10 +2172,10 @@ export default function App() {
       <div
         style={{
           position: "absolute",
-          top: "1.4rem",
-          left: "1.4rem",
+          top: "1.6rem",
+          left: "1.6rem",
           zIndex: 500,
-          width: "min(400px, calc(100vw - 2.8rem))",
+          width: "min(380px, calc(100vw - 3.2rem))",
         }}
       >
         <button
@@ -2144,23 +2192,23 @@ export default function App() {
           }}
           style={{
             width: "100%",
-            padding: "0.85rem 1.1rem",
-            borderRadius: "14px",
-            background: "rgba(255, 255, 255, 0.72)",
-            backdropFilter: "blur(20px) saturate(180%)",
-            WebkitBackdropFilter: "blur(20px) saturate(180%)",
-            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.03)",
-            border: "1px solid rgba(255, 255, 255, 0.8)",
+            padding: "0.75rem 1rem",
+            borderRadius: "16px",
+            background: "rgba(255, 255, 255, 0.48)",
+            backdropFilter: "blur(24px) saturate(180%)",
+            WebkitBackdropFilter: "blur(24px) saturate(180%)",
+            boxShadow: "0 1px 2px rgba(15, 23, 42, 0.02), 0 4px 16px rgba(15, 23, 42, 0.04)",
+            border: "1px solid rgba(255, 255, 255, 0.6)",
             color: "#1f2937",
-            fontSize: "0.95rem",
+            fontSize: "0.92rem",
             fontWeight: 500,
-            letterSpacing: "-0.01em",
+            letterSpacing: "-0.015em",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             cursor: "pointer",
             transform: "translateY(0)",
-            transition: "transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+            transition: "transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1), background 200ms cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -2221,21 +2269,21 @@ export default function App() {
         {(isMenuOpen || isMenuClosing) ? (
           <div
             style={{
-              marginTop: "0.5rem",
-              borderRadius: "18px",
-              background: "rgba(255, 255, 255, 0.72)",
-              backdropFilter: "blur(24px) saturate(180%)",
-              WebkitBackdropFilter: "blur(24px) saturate(180%)",
-              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04), 0 12px 40px rgba(15, 23, 42, 0.06)",
-              border: "1px solid rgba(255, 255, 255, 0.7)",
-              maxHeight: "min(520px, 68vh)",
+              marginTop: "0.4rem",
+              borderRadius: "20px",
+              background: "rgba(255, 255, 255, 0.52)",
+              backdropFilter: "blur(28px) saturate(180%)",
+              WebkitBackdropFilter: "blur(28px) saturate(180%)",
+              boxShadow: "0 1px 3px rgba(15, 23, 42, 0.02), 0 8px 32px rgba(15, 23, 42, 0.06)",
+              border: "1px solid rgba(255, 255, 255, 0.55)",
+              maxHeight: "min(500px, 66vh)",
               overflow: "hidden",
               display: "flex",
               flexDirection: "column",
               opacity: isMenuClosing ? 0 : 1,
-              transform: isMenuClosing ? "translateY(-8px) scale(0.98)" : "translateY(0) scale(1)",
+              transform: isMenuClosing ? "translateY(-6px) scale(0.98)" : "translateY(0) scale(1)",
               transformOrigin: "top center",
-              transition: "opacity 200ms cubic-bezier(0.22, 1, 0.36, 1), transform 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+              transition: "opacity 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
             {/* Integrated search */}
@@ -2360,7 +2408,7 @@ export default function App() {
                   strokeWidth="1.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  style={{ color: "#0A84FF", opacity: 0.75, flexShrink: 0 }}
+                  style={{ color: "#87b940", opacity: 0.75, flexShrink: 0 }}
                 >
                   <circle cx="12" cy="12" r="10" />
                   <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
@@ -2384,7 +2432,7 @@ export default function App() {
             </div>
 
             {/* Country list */}
-            <div style={{ padding: "0.15rem 0.5rem 0.5rem", overflowY: "auto", flex: 1 }}>
+            <div style={{ padding: "0.1rem 0.45rem 0.45rem", overflowY: "auto", flex: 1 }}>
               {filteredCountries.map((country) => {
                 const isActive = selectedCountry?.name === country.name;
                 const isHovered = normalizeName(hoveredCountry || "") === normalizeName(country.name);
@@ -2397,61 +2445,57 @@ export default function App() {
                     style={{
                       width: "100%",
                       border: "none",
-                      color: isActive ? "#0A84FF" : "#1f2937",
+                      color: isActive ? "#87b940" : "#1f2937",
                       textAlign: "left",
-                      padding: "0.6rem 0.75rem",
-                      borderRadius: "10px",
+                      padding: "0.5rem 0.7rem",
+                      borderRadius: "11px",
                       cursor: "pointer",
-                      fontSize: "0.88rem",
+                      fontSize: "0.87rem",
                       fontWeight: isActive ? 500 : 400,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      height: "44px",
-                      gap: "0.65rem",
+                      height: "40px",
+                      gap: "0.6rem",
                       transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-                      transform: isHovered && !isActive ? "translateX(3px)" : "translateX(0)",
-                      backgroundColor: isActive ? "rgba(10, 132, 255, 0.08)" : "transparent",
+                      transform: isHovered && !isActive ? "translateX(4px)" : "translateX(0)",
+                      backgroundColor: isActive ? "rgba(135, 185, 64, 0.08)" : "transparent",
                       backdropFilter: isHovered && !isActive ? "blur(10px)" : "none",
-                      boxShadow: isHovered && !isActive ? "0 2px 8px rgba(15, 23, 42, 0.04)" : "none",
-                      letterSpacing: "-0.01em",
-                      ...(isHovered && !isActive && !isActive ? { background: "rgba(255, 255, 255, 0.55)" } : {}),
+                      letterSpacing: "-0.012em",
                     }}
                     onMouseEnter={(e) => {
                       if (!isActive) {
                         e.currentTarget.style.background = "rgba(255, 255, 255, 0.55)";
                         e.currentTarget.style.backdropFilter = "blur(10px)";
-                        e.currentTarget.style.boxShadow = "0 2px 8px rgba(15, 23, 42, 0.04)";
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (!isActive) {
                         e.currentTarget.style.background = "transparent";
                         e.currentTarget.style.backdropFilter = "none";
-                        e.currentTarget.style.boxShadow = "none";
                       }
                     }}
                   >
-                    <span style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                       <img
                         src={`https://flagcdn.com/w40/${country.countryCode || "xx"}.png`}
                         alt=""
                         style={{
-                          width: "24px",
-                          height: "16px",
+                          width: "22px",
+                          height: "15px",
                           borderRadius: "3px",
                           objectFit: "cover",
-                          boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
-                          filter: "saturate(0.85)",
-                          opacity: 0.9,
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+                          filter: "saturate(0.8)",
+                          opacity: 0.85,
                         }}
                       />
                       <span style={{ fontWeight: isActive ? 500 : 400 }}>{country.name}</span>
                     </span>
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
+                      width="13"
+                      height="13"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -2459,9 +2503,9 @@ export default function App() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       style={{
-                        color: "#0A84FF",
-                        opacity: isHovered && !isActive ? 1 : 0.35,
-                        transform: isHovered && !isActive ? "translateX(3px)" : "translateX(0)",
+                        color: "#87b940",
+                        opacity: isHovered && !isActive ? 0.9 : 0.25,
+                        transform: isHovered && !isActive ? "translateX(4px)" : "translateX(0)",
                         transition: "opacity 200ms cubic-bezier(0.22, 1, 0.36, 1), transform 200ms cubic-bezier(0.22, 1, 0.36, 1)",
                         flexShrink: 0,
                       }}
@@ -2541,6 +2585,7 @@ export default function App() {
           >
         <MapArtOverlay imageUrl={MAP_BACKGROUND_ART_URL} opacity={0.28} />
         <MapBounds />
+        <AmbientMapMotion />
         <VintageMapDecorations />
         <WorldGeoLayer
           onSelectCountry={handleSelectCountry}
@@ -2621,46 +2666,47 @@ export default function App() {
             <div
               key={`hero-${selectedCountry.name}-${heroMotionSeed}`}
               style={{
-                borderRadius: "26px",
+                borderRadius: "28px",
                 overflow: "hidden",
-                minHeight: "182px",
-                boxShadow: "0 12px 26px rgba(15, 23, 42, 0.2)",
-                backgroundImage: `linear-gradient(180deg, rgba(15,23,42,0.08) 0%, rgba(15,23,42,0.58) 85%), url(${validatedHeroImage || selectedCountryHeroImage})`,
+                minHeight: "220px",
+                boxShadow: "0 16px 40px rgba(15, 23, 42, 0.28), 0 4px 12px rgba(15, 23, 42, 0.12)",
+                backgroundImage: `linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.65) 100%), url(${validatedHeroImage || selectedCountryHeroImage})`,
                 backgroundSize: "cover",
-                backgroundPosition: "center",
+                backgroundPosition: "center 30%",
                 display: "flex",
                 alignItems: "flex-end",
-                padding: "1.2rem",
+                padding: "1.4rem 1.5rem",
                 position: "relative",
                 ...getRevealStyle(0),
               }}
             >
-              <div>
+              <div style={{ position: "relative", zIndex: 2 }}>
                 <img
                   src={`https://flagcdn.com/w40/${selectedCountry.countryCode || "xx"}.png`}
                   alt=""
                   style={{
-                    width: "24px",
-                    height: "16px",
+                    width: "26px",
+                    height: "17px",
                     borderRadius: "4px",
                     objectFit: "cover",
-                    border: "1px solid rgba(255,255,255,0.5)",
-                    boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
-                    opacity: 0.88,
+                    border: "1px solid rgba(255,255,255,0.4)",
+                    boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+                    opacity: 0.92,
                   }}
                 />
                 <h2
                   style={{
-                    margin: "0.35rem 0 0",
-                    fontSize: "2.5rem",
-                    lineHeight: 1.05,
+                    margin: "0.4rem 0 0",
+                    fontSize: "2.8rem",
+                    lineHeight: 1.02,
                     fontWeight: 700,
                     color: "#fff",
-                    textShadow: "0 8px 20px rgba(0,0,0,0.35)",
+                    textShadow: "0 2px 8px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.25)",
+                    letterSpacing: "-0.02em",
                     opacity: isContentVisible ? 1 : 0,
-                    transform: isContentVisible ? "translateY(0)" : "translateY(20px)",
-                    transition: `opacity 500ms ${springEase}, transform 500ms ${springEase}`,
-                    transitionDelay: isContentVisible ? "80ms" : "0ms",
+                    transform: isContentVisible ? "translateY(0)" : "translateY(24px)",
+                    transition: `opacity 550ms ${springEase}, transform 550ms ${springEase}`,
+                    transitionDelay: isContentVisible ? "100ms" : "0ms",
                   }}
                 >
                   {selectedCountry.name}
@@ -2878,37 +2924,75 @@ export default function App() {
     flexDirection: "column",
     flex: 1,
     minHeight: 0,
-    overflow: "visible",   // add this
+    overflow: "visible",
     ...getRevealStyle(5),
   }}
 >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.6rem", padding: "0 0.15rem" }}>
-                <h3 style={{ margin: 0, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "#333536", fontWeight: 700 }}>
-                  Media
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.7rem", padding: "0 0.1rem" }}>
+                <h3 style={{ margin: 0, fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.15em", color: "#333536", fontWeight: 600 }}>
+                  Gallery
                 </h3>
                 {showGalleryNavigation ? (
-                  <div style={{ display: "flex", gap: "0.38rem" }}>
+                  <div style={{ display: "flex", gap: "0.3rem" }}>
                     <button
                       onClick={() => scrollGallery("left")}
-                      onMouseEnter={handlePressableMouseEnter}
-                      onMouseLeave={handlePressableMouseLeave}
-                      onMouseDown={handlePressableMouseDown}
-                      onMouseUp={handlePressableMouseUp}
-                      style={{ border: "1px solid rgba(148,163,184,0.4)", background: "rgba(255,255,255,0.62)", color: "#87b940", borderRadius: "999px", width: "30px", height: "30px", cursor: "pointer", lineHeight: 1 }}
+                      style={{ 
+                        border: "none", 
+                        background: "rgba(0,0,0,0.04)", 
+                        color: "#64748b", 
+                        borderRadius: "8px", 
+                        width: "28px", 
+                        height: "28px", 
+                        cursor: "pointer", 
+                        lineHeight: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "all 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "rgba(0,0,0,0.08)";
+                        e.currentTarget.style.color = "#333536";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "rgba(0,0,0,0.04)";
+                        e.currentTarget.style.color = "#64748b";
+                      }}
                       aria-label="Scroll gallery left"
                     >
-                      ‹
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m15 18-6-6 6-6" />
+                      </svg>
                     </button>
                     <button
                       onClick={() => scrollGallery("right")}
-                      onMouseEnter={handlePressableMouseEnter}
-                      onMouseLeave={handlePressableMouseLeave}
-                      onMouseDown={handlePressableMouseDown}
-                      onMouseUp={handlePressableMouseUp}
-                      style={{ border: "1px solid rgba(148,163,184,0.4)", background: "rgba(255,255,255,0.62)", color: "#87b940", borderRadius: "999px", width: "30px", height: "30px", cursor: "pointer", lineHeight: 1 }}
+                      style={{ 
+                        border: "none", 
+                        background: "rgba(0,0,0,0.04)", 
+                        color: "#64748b", 
+                        borderRadius: "8px", 
+                        width: "28px", 
+                        height: "28px", 
+                        cursor: "pointer", 
+                        lineHeight: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "all 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "rgba(0,0,0,0.08)";
+                        e.currentTarget.style.color = "#333536";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "rgba(0,0,0,0.04)";
+                        e.currentTarget.style.color = "#64748b";
+                      }}
                       aria-label="Scroll gallery right"
                     >
-                      ›
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
                     </button>
                   </div>
                 ) : null}
@@ -2917,11 +3001,11 @@ export default function App() {
   ref={galleryTrackRef}
   style={{
     display: "flex",
-    gap: "0.72rem",
+    gap: "0.85rem",
     overflowX: "auto",
-    overflowY: "visible",   // <- changed
-    paddingTop: "8px",      // <- added
-    paddingBottom: "24px",
+    overflowY: "visible",
+    paddingTop: "4px",
+    paddingBottom: "20px",
     flex: 1,
     minHeight: 0,
     alignItems: "flex-start",
@@ -2929,9 +3013,11 @@ export default function App() {
     WebkitOverflowScrolling: "touch",
     touchAction: "pan-x",
     scrollSnapType: "x mandatory",
+    scrollbarWidth: "none",
+    msOverflowStyle: "none",
   }}
 >
-                {galleryItems.map((item) => (
+                {galleryItems.map((item, index) => (
                   <button
                     key={item.id}
                     onClick={() => setLightboxItem(item)}
@@ -2939,46 +3025,63 @@ export default function App() {
                       border: "none",
                       background: "transparent",
                       padding: 0,
-                      borderRadius: "16px",
+                      borderRadius: "18px",
                       overflow: "hidden",
                       cursor: "pointer",
                       position: "relative",
-                      flex: "0 0 min(72%, 340px)",
+                      flex: index === 0 ? "0 0 min(82%, 420px)" : "0 0 min(65%, 300px)",
                       alignSelf: "flex-start",
-                      maxWidth: "340px",
-                      minWidth: "240px",
-                      height: "170px",
-                   
+                      maxWidth: index === 0 ? "420px" : "300px",
+                      minWidth: index === 0 ? "280px" : "220px",
+                      height: index === 0 ? "200px" : "160px",
                       transform: "translateY(0)",
-                      transition: "transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-                      boxShadow: "0 10px 22px rgba(15,23,42,0.18)",
+                      transition: "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+                      boxShadow: "0 8px 24px rgba(15,23,42,0.14), 0 2px 6px rgba(15,23,42,0.08)",
                       scrollSnapAlign: "start",
                     }}
-               onMouseEnter={(event) => {
-  event.currentTarget.style.transform =
-    "translateY(-2px)";
-  event.currentTarget.style.boxShadow =
-    "0 16px 28px rgba(15,23,42,0.22)";
-}}
-onMouseLeave={(event) => {
-  event.currentTarget.style.transform =
-    "translateY(0)";
-  event.currentTarget.style.boxShadow =
-    "0 10px 22px rgba(15,23,42,0.18)";
-}}
+                    onMouseEnter={(event) => {
+                      event.currentTarget.style.transform = "translateY(-2px)";
+                      event.currentTarget.style.boxShadow = "0 14px 36px rgba(15,23,42,0.2), 0 4px 10px rgba(15,23,42,0.1)";
+                    }}
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.transform = "translateY(0)";
+                      event.currentTarget.style.boxShadow = "0 8px 24px rgba(15,23,42,0.14), 0 2px 6px rgba(15,23,42,0.08)";
+                    }}
                   >
                     <img
                       src={item.thumbnailUrl}
                       alt={item.title}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", background: "#0f1111", display: "block" }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", background: "#1a1a1a", display: "block" }}
                     />
                     {item.type === "video" ? (
-                      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.24)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <div style={{ width: "46px", height: "46px", borderRadius: "50%", background: "rgba(255,255,255,0.92)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <span style={{ color: "#c4302b", fontSize: "1rem", marginLeft: "2px" }}>▶</span>
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.35) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ width: "52px", height: "52px", borderRadius: "50%", background: "rgba(255,255,255,0.95)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="#c4302b">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
                         </div>
                       </div>
                     ) : null}
+                    {index === 0 && (
+                      <div style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        padding: "2rem 1rem 0.8rem",
+                        background: "linear-gradient(transparent, rgba(0,0,0,0.5))",
+                        pointerEvents: "none",
+                      }}>
+                        <span style={{
+                          fontSize: "0.72rem",
+                          color: "rgba(255,255,255,0.85)",
+                          fontWeight: 500,
+                          letterSpacing: "0.02em",
+                        }}>
+                          {item.title}
+                        </span>
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>
