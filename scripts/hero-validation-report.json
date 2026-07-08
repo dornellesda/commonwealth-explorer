@@ -1,0 +1,572 @@
+{
+  "summary": {
+    "checkedAt": "2026-07-08T14:07:53.067Z",
+    "total": 56,
+    "validatedCount": 0,
+    "unverifiableCount": 56,
+    "failedCount": 0,
+    "validatedRate": 0
+  },
+  "results": [
+    {
+      "country": "Antigua and Barbuda",
+      "source": "pexels",
+      "image": "https://images.pexels.com/photos/1483053/pexels-photo-1483053.jpeg?auto=compress&cs=tinysrgb&w=800",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.pexels.com/photos/1483053/pexels-photo-1483053.jpeg?auto=compress&cs=tinysrgb&w=800 https://www.pexels.com/photo/1483053/"
+    },
+    {
+      "country": "Australia",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1523482580672-f109ba8cb9be?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1523482580672-f109ba8cb9be?w=800&q=80 https://unsplash.com/photos/1523482580672-f109ba8cb9be"
+    },
+    {
+      "country": "The Bahamas",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1548574505-5e239809ee19?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1548574505-5e239809ee19?w=800&q=80 https://unsplash.com/photos/1548574505-5e239809ee19"
+    },
+    {
+      "country": "Bangladesh",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800&q=80 https://unsplash.com/photos/1544620347-c4fd4a3d5957"
+    },
+    {
+      "country": "Barbados",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?w=800&q=80 https://unsplash.com/photos/1590523741831-ab7e8b8f9c7f"
+    },
+    {
+      "country": "Belize",
+      "source": "pexels",
+      "image": "https://images.pexels.com/photos/2089717/pexels-photo-2089717.jpeg?auto=compress&cs=tinysrgb&w=800",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.pexels.com/photos/2089717/pexels-photo-2089717.jpeg?auto=compress&cs=tinysrgb&w=800 https://www.pexels.com/photo/2089717/"
+    },
+    {
+      "country": "Botswana",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g0cdab0e76ca851a54aeff188c11a318ad40676f0e11368f9f43cf2472f45072c53e72b31aa51416065fedf6d8f51113d_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g0cdab0e76ca851a54aeff188c11a318ad40676f0e11368f9f43cf2472f45072c53e72b31aa51416065fedf6d8f51113d_640.jpg"
+    },
+    {
+      "country": "Brunei Darussalam",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=800&q=80 https://unsplash.com/photos/1596422846543-75c6fc197f07"
+    },
+    {
+      "country": "Cameroon",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1580060839134-75a5edca2e99?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1580060839134-75a5edca2e99?w=800&q=80 https://unsplash.com/photos/1580060839134-75a5edca2e99"
+    },
+    {
+      "country": "Canada",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g76f4eea349b507dede61574025e99cdcba7601b8334474dd614ac17d5a50091ed21a7565a00ad7e50a05f4f962de5d6b5bb8349f6f84f6ae74a34ac6dcf8713e_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g76f4eea349b507dede61574025e99cdcba7601b8334474dd614ac17d5a50091ed21a7565a00ad7e50a05f4f962de5d6b5bb8349f6f84f6ae74a34ac6dcf8713e_640.jpg"
+    },
+    {
+      "country": "Cyprus",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=800&q=80 https://unsplash.com/photos/1570077188670-e3a8d69ac5ff"
+    },
+    {
+      "country": "Dominica",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/ga42131bc695dd040e0d7ebc76b9321cf1d7386e0f58ff131d3bd12bc0043680dde50684d3eae7e1cef6a4ee435dbf4b5b99a6077ee2d0f7a9ca8a57c72b3b6a4_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/ga42131bc695dd040e0d7ebc76b9321cf1d7386e0f58ff131d3bd12bc0043680dde50684d3eae7e1cef6a4ee435dbf4b5b99a6077ee2d0f7a9ca8a57c72b3b6a4_640.jpg"
+    },
+    {
+      "country": "Eswatini",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=800&q=80 https://unsplash.com/photos/1547471080-7cc2caa01a7e"
+    },
+    {
+      "country": "Fiji",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=800&q=80 https://unsplash.com/photos/1506973035872-a4ec16b8e8d9"
+    },
+    {
+      "country": "Gabon",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1452421822248-d4c2b47f0c81?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1452421822248-d4c2b47f0c81?w=800&q=80 https://unsplash.com/photos/1452421822248-d4c2b47f0c81"
+    },
+    {
+      "country": "The Gambia",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&q=80 https://unsplash.com/photos/1504384308090-c894fdcc538d"
+    },
+    {
+      "country": "Ghana",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=800&q=80 https://unsplash.com/photos/1521295121783-8a321d551ad2"
+    },
+    {
+      "country": "Grenada",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/ge156cfe59be138260a109023ef2266ac5c04fd0b93fd402ca838bf17571571ec776421ba22408b023f9668cc9ebf15cebe9265cb3283d5e83fafd86c9f7533d3_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/ge156cfe59be138260a109023ef2266ac5c04fd0b93fd402ca838bf17571571ec776421ba22408b023f9668cc9ebf15cebe9265cb3283d5e83fafd86c9f7533d3_640.jpg"
+    },
+    {
+      "country": "Guyana",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80 https://unsplash.com/photos/1506905925346-21bda4d32df4"
+    },
+    {
+      "country": "India",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=800&q=80 https://unsplash.com/photos/1524492412937-b28074a5d7da"
+    },
+    {
+      "country": "Jamaica",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g7fa71fba96e3f6a72fcf626630aa7eb22c720f5bfd8d8e07ec034ac07ff14a7ae1d4349405f304b5706b2d2931106bb871e2f5faeb87f8d16e1fef8c9a821bb3_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g7fa71fba96e3f6a72fcf626630aa7eb22c720f5bfd8d8e07ec034ac07ff14a7ae1d4349405f304b5706b2d2931106bb871e2f5faeb87f8d16e1fef8c9a821bb3_640.jpg"
+    },
+    {
+      "country": "Kenya",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1489392191049-fc10c97e64b6?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1489392191049-fc10c97e64b6?w=800&q=80 https://unsplash.com/photos/1489392191049-fc10c97e64b6"
+    },
+    {
+      "country": "Kiribati",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=800&q=80 https://unsplash.com/photos/1559128010-7c1ad6e1b6a5"
+    },
+    {
+      "country": "Lesotho",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=800&q=80 https://unsplash.com/photos/1534353473418-4cfa6c56fd38"
+    },
+    {
+      "country": "Malawi",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/ga5db16d78a8d514b08fd2f8008da25c527ebc26a6b1eb9711d869bebfb6bbf32eccbaf8d61c2e9ca271bf0216a84d744a3e974c86598f39c8834fcdd4010d8de_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/ga5db16d78a8d514b08fd2f8008da25c527ebc26a6b1eb9711d869bebfb6bbf32eccbaf8d61c2e9ca271bf0216a84d744a3e974c86598f39c8834fcdd4010d8de_640.jpg"
+    },
+    {
+      "country": "Malaysia",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1508804185872-d7badad00f7d?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1508804185872-d7badad00f7d?w=800&q=80 https://unsplash.com/photos/1508804185872-d7badad00f7d"
+    },
+    {
+      "country": "Maldives",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?w=800&q=80 https://unsplash.com/photos/1514282401047-d79a71a590e8"
+    },
+    {
+      "country": "Malta",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/geb17b4d0cc5116cdaa47010a1f5cf06a44200710f2814ba506e100b8d8530cfcb31afc5ba4d87b2e63e1fbe321aaece299bc0b2377e4c4516053f33e73c3598e_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/geb17b4d0cc5116cdaa47010a1f5cf06a44200710f2814ba506e100b8d8530cfcb31afc5ba4d87b2e63e1fbe321aaece299bc0b2377e4c4516053f33e73c3598e_640.jpg"
+    },
+    {
+      "country": "Mauritius",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1540202404-a2f29016b523?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1540202404-a2f29016b523?w=800&q=80 https://unsplash.com/photos/1540202404-a2f29016b523"
+    },
+    {
+      "country": "Mozambique",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/gc70043fe0c4fb9396c65177d8e944426d28aa54824bcb0613088db419e9e335fce1f4d974704b43e82982dfd0b0fc547_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/gc70043fe0c4fb9396c65177d8e944426d28aa54824bcb0613088db419e9e335fce1f4d974704b43e82982dfd0b0fc547_640.jpg"
+    },
+    {
+      "country": "Namibia",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=800&q=80 https://unsplash.com/photos/1509316785289-025f5b846b35"
+    },
+    {
+      "country": "Nauru",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&q=80 https://unsplash.com/photos/1544551763-46a013bb70d5"
+    },
+    {
+      "country": "New Zealand",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1469521669194-babb45599def?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1469521669194-babb45599def?w=800&q=80 https://unsplash.com/photos/1469521669194-babb45599def"
+    },
+    {
+      "country": "Nigeria",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=800&q=80 https://unsplash.com/photos/1534274988757-a28bf1a57c17"
+    },
+    {
+      "country": "Pakistan",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g13d53b5c3a8695f8ac279d4d606c03ade0fa458758626ddaa04e3165364bb4b700f9665c91449ca9b7f584d7b3809298_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g13d53b5c3a8695f8ac279d4d606c03ade0fa458758626ddaa04e3165364bb4b700f9665c91449ca9b7f584d7b3809298_640.jpg"
+    },
+    {
+      "country": "Papua New Guinea",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1580137189272-c9379f8864fd?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1580137189272-c9379f8864fd?w=800&q=80 https://unsplash.com/photos/1580137189272-c9379f8864fd"
+    },
+    {
+      "country": "Rwanda",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&q=80 https://unsplash.com/photos/1518709268805-4e9042af9f23"
+    },
+    {
+      "country": "St Kitts and Nevis",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g38be48c7680ae3b258244e7ed9851707bbb2ada309d4029a7ea169738f11a1af24a3c29220cc1613c21890e5b17735a5_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g38be48c7680ae3b258244e7ed9851707bbb2ada309d4029a7ea169738f11a1af24a3c29220cc1613c21890e5b17735a5_640.jpg"
+    },
+    {
+      "country": "Saint Lucia",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g46e04a26f0cb03214369784e5ba655be45a16f3d214aef1237fd85ee873538b26469150304f517821be651e028719861_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g46e04a26f0cb03214369784e5ba655be45a16f3d214aef1237fd85ee873538b26469150304f517821be651e028719861_640.jpg"
+    },
+    {
+      "country": "St Vincent and The Grenadines",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/gf4cd91dd2ec57ff833ce3de706abe175ba95e86a74b12bfff26c5de74cd7f8201c826310d27e468954f96b7ec30ae7c919e86d895d1f1390da9595d2c0d0a985_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/gf4cd91dd2ec57ff833ce3de706abe175ba95e86a74b12bfff26c5de74cd7f8201c826310d27e468954f96b7ec30ae7c919e86d895d1f1390da9595d2c0d0a985_640.jpg"
+    },
+    {
+      "country": "Samoa",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g579dae111990057ace81043982116b01432494d39e0b25a41caefcffc0e90521a677d0cd100d4a7e6daca2b013de1f2d_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g579dae111990057ace81043982116b01432494d39e0b25a41caefcffc0e90521a677d0cd100d4a7e6daca2b013de1f2d_640.jpg"
+    },
+    {
+      "country": "Seychelles",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g9eeebbb28aa4ebd9ce12006c46eb7c743f8aaf774b4357c47ea34a29c553de70a9df59cb1eed393e393db6a76f866090cd7f20293474798d8b054d50e3bd4c1c_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g9eeebbb28aa4ebd9ce12006c46eb7c743f8aaf774b4357c47ea34a29c553de70a9df59cb1eed393e393db6a76f866090cd7f20293474798d8b054d50e3bd4c1c_640.jpg"
+    },
+    {
+      "country": "Sierra Leone",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g7dda17623b5606e23d780534e109a4f4c1ad3fa8e239cf291fc17382ff87657c3f595f10f22ca4a9a8304ea0ddd7358a5e50cfe5e8830103463056478ef0dc6c_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g7dda17623b5606e23d780534e109a4f4c1ad3fa8e239cf291fc17382ff87657c3f595f10f22ca4a9a8304ea0ddd7358a5e50cfe5e8830103463056478ef0dc6c_640.jpg"
+    },
+    {
+      "country": "Singapore",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?w=800&q=80 https://unsplash.com/photos/1525625293386-3f8f99389edd"
+    },
+    {
+      "country": "Solomon Islands",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/ga50baaef4c8fdc71eda7a420ae1bfb00c08d7842d88d0ce27acfbfba92e89f091f2fce8ea0f4e9f147fac76bd9068147800caaabc5ec44a8f05b8b4ebde76a0c_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/ga50baaef4c8fdc71eda7a420ae1bfb00c08d7842d88d0ce27acfbfba92e89f091f2fce8ea0f4e9f147fac76bd9068147800caaabc5ec44a8f05b8b4ebde76a0c_640.jpg"
+    },
+    {
+      "country": "South Africa",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g771a2f6f9f93b7427a28ed10a786cb2668b2550ef0ba558a0a10c8a37de5810b8a5008b5ac2a88685d8695bd3abd9395265148137d31c5f6f8bc3b3e13611ef9_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g771a2f6f9f93b7427a28ed10a786cb2668b2550ef0ba558a0a10c8a37de5810b8a5008b5ac2a88685d8695bd3abd9395265148137d31c5f6f8bc3b3e13611ef9_640.jpg"
+    },
+    {
+      "country": "Sri Lanka",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/gdd304acbd391f7d7ad5fb0cabd5c624f11f52a8fa66c5dc69238c4206ac6c4ea31d4c831bcb81c03afdcd5304c4625961f6f3b6252267bf4169839e81a401071_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/gdd304acbd391f7d7ad5fb0cabd5c624f11f52a8fa66c5dc69238c4206ac6c4ea31d4c831bcb81c03afdcd5304c4625961f6f3b6252267bf4169839e81a401071_640.jpg"
+    },
+    {
+      "country": "Tonga",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g199bd7e70fa9c323e23d2764105d239a5ba5e0ddf72475ced4604c02d7a10b9471e22d8c8f2ff3089c51c9460b646948d4da3a467df9cec775dd10c2e2c3d754_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g199bd7e70fa9c323e23d2764105d239a5ba5e0ddf72475ced4604c02d7a10b9471e22d8c8f2ff3089c51c9460b646948d4da3a467df9cec775dd10c2e2c3d754_640.jpg"
+    },
+    {
+      "country": "Togo",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/gffb262fead71280c539ba4492660c7ea30cc952d3a64b7e85f0f6e4573b2c0a04ebc993a9415c90ed65d82c9fa4c990780bc9ae8d29a251b73c0cf9b27fd934d_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/gffb262fead71280c539ba4492660c7ea30cc952d3a64b7e85f0f6e4573b2c0a04ebc993a9415c90ed65d82c9fa4c990780bc9ae8d29a251b73c0cf9b27fd934d_640.jpg"
+    },
+    {
+      "country": "Trinidad and Tobago",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g2bf59c8271a3bc5511e0de057b7e960e69de4e2a786b6f9e84a379b01aebda0137fa6818b19e4d49bff660686ea27d23a2900d5d7b4e61ca2dccc3de95f05fc5_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g2bf59c8271a3bc5511e0de057b7e960e69de4e2a786b6f9e84a379b01aebda0137fa6818b19e4d49bff660686ea27d23a2900d5d7b4e61ca2dccc3de95f05fc5_640.jpg"
+    },
+    {
+      "country": "Tuvalu",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/ge54cd62e2a19d98b116f46d9917da261964ebd9ab312e24b2d586eed9321dc6240b8908d81327c972af39d56de1a5a01_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/ge54cd62e2a19d98b116f46d9917da261964ebd9ab312e24b2d586eed9321dc6240b8908d81327c972af39d56de1a5a01_640.jpg"
+    },
+    {
+      "country": "Uganda",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&q=80 https://unsplash.com/photos/1518709268805-4e9042af9f23"
+    },
+    {
+      "country": "United Kingdom",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=800&q=80 https://unsplash.com/photos/1513635269975-59663e0ac1ad"
+    },
+    {
+      "country": "United Republic of Tanzania",
+      "source": "pixabay",
+      "image": "https://pixabay.com/get/g3767b2f4d4ad9dad55b6d1d97f75fc86abda7e0085d3674bf0726d5c56d2c511b04e9b1a1d4061bcf8c646e46bf032eb_640.jpg",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "url",
+      "descriptorSample": "https://pixabay.com/get/g3767b2f4d4ad9dad55b6d1d97f75fc86abda7e0085d3674bf0726d5c56d2c511b04e9b1a1d4061bcf8c646e46bf032eb_640.jpg"
+    },
+    {
+      "country": "Vanuatu",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1580137189272-c9379f8864fd?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1580137189272-c9379f8864fd?w=800&q=80 https://unsplash.com/photos/1580137189272-c9379f8864fd"
+    },
+    {
+      "country": "Zambia",
+      "source": "unsplash",
+      "image": "https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=800&q=80",
+      "status": "unverifiable",
+      "reason": "provider-metadata-not-country-specific",
+      "hasCountryTerm": false,
+      "descriptorNote": "oembed-failed",
+      "descriptorSample": "https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=800&q=80 https://unsplash.com/photos/1534353473418-4cfa6c56fd38"
+    }
+  ]
+}

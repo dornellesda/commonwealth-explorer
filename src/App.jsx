@@ -156,8 +156,77 @@ const FAMILYSEARCH_COLLECTION_SETTINGS_BY_COUNTRY = {
 };
 const COMMONWEALTH_VIEW = {
   center: [18, 20],
-  zoom: 2.2,
+  zoom: 2.6,
 };
+const COMMONWEALTH_MAP_BOUNDS = [
+  [-62, -178],
+  [84, 178],
+];
+const COMMONWEALTH_MIN_ZOOM = 2.6;
+const KIOSK_IDLE_TIMEOUT_MS = 70_000;
+const KIOSK_DOCK_SEARCH_IDLE_TIMEOUT_MS = 30_000;
+const DOCK_SOFT_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const DOCK_GENTLE_EASE = "cubic-bezier(0.2, 0.85, 0.24, 1)";
+
+const ATTRACT_JOURNEY_SEQUENCE = [
+  // Geographic storytelling path across the Commonwealth.
+  "United Kingdom",
+  "Canada",
+  "The Bahamas",
+  "Jamaica",
+  "Trinidad and Tobago",
+  "Ghana",
+  "Kenya",
+  "South Africa",
+  "India",
+  "Sri Lanka",
+  "Singapore",
+  "Malaysia",
+  "Australia",
+  "New Zealand",
+  "Fiji",
+  "Samoa",
+  "Malta",
+];
+
+const ATTRACT_ROUTE_SEGMENTS = new Set([
+  "United Kingdom|Canada",
+  "Canada|The Bahamas",
+  "Jamaica|Ghana",
+  "Kenya|India",
+  "India|Singapore",
+  "Singapore|Australia",
+  "Australia|New Zealand",
+]);
+const ATTRACT_ROUTE_CHANCE = 0.16;
+const ATTRACT_ROUTE_MIN_GAP_STEPS = 6;
+const MAP_HIGHLIGHT_TRANSITION_MS = 520;
+const MAP_HIGHLIGHT_EASE = "cubic-bezier(0.2, 0.65, 0.25, 1)";
+const VOYAGER_TOTAL_COUNTRIES = countries.length;
+
+function getVoyagerTitle(visitedCount) {
+  if (visitedCount >= 56) {
+    return "Platinum Commonwealth Voyager";
+  }
+
+  if (visitedCount >= 50) {
+    return "Master Voyager";
+  }
+
+  if (visitedCount >= 35) {
+    return "Adventurer";
+  }
+
+  if (visitedCount >= 20) {
+    return "Navigator";
+  }
+
+  if (visitedCount >= 10) {
+    return "Traveller";
+  }
+
+  return "Explorer";
+}
 
 const countryZoomOverrides = {
   "New Zealand": { center: [-41, 174], zoom: 5 },
@@ -450,8 +519,27 @@ function MapBounds() {
   const map = useMap();
 
   useEffect(() => {
-    map.setMinZoom(2.2);
-    map.options.worldCopyJump = true;
+    map.setMinZoom(COMMONWEALTH_MIN_ZOOM);
+    map.setMaxBounds(COMMONWEALTH_MAP_BOUNDS);
+    map.options.maxBoundsViscosity = 0.92;
+    map.options.worldCopyJump = false;
+
+    const keepMapInBounds = () => {
+      if (!map.getBounds().intersects(L.latLngBounds(COMMONWEALTH_MAP_BOUNDS))) {
+        map.panInsideBounds(COMMONWEALTH_MAP_BOUNDS, {
+          animate: true,
+          duration: 0.45,
+        });
+      }
+    };
+
+    map.on("dragend", keepMapInBounds);
+    map.on("zoomend", keepMapInBounds);
+
+    return () => {
+      map.off("dragend", keepMapInBounds);
+      map.off("zoomend", keepMapInBounds);
+    };
   }, [map]);
 
   return null;
@@ -613,6 +701,115 @@ function VintageMapDecorations() {
   return null;
 }
 
+function buildSeaRouteArc(from, to, samples = 28) {
+  const [lat1, lng1] = from;
+  const [lat2, lng2] = to;
+  const dx = lng2 - lng1;
+  const dy = lat2 - lat1;
+  const distance = Math.hypot(dx, dy);
+  if (!Number.isFinite(distance) || distance <= 0) {
+    return [from, to];
+  }
+
+  const mx = (lng1 + lng2) / 2;
+  const my = (lat1 + lat2) / 2;
+  const nx = -dy / distance;
+  const ny = dx / distance;
+  const arcHeight = Math.min(18, Math.max(6, distance * 0.18));
+  const cx = mx + nx * arcHeight;
+  const cy = my + ny * arcHeight;
+  const points = [];
+
+  for (let i = 0; i <= samples; i += 1) {
+    const t = i / samples;
+    const inv = 1 - t;
+    const lng = inv * inv * lng1 + 2 * inv * t * cx + t * t * lng2;
+    const lat = inv * inv * lat1 + 2 * inv * t * cy + t * t * lat2;
+    points.push([lat, lng]);
+  }
+
+  return points;
+}
+
+function AttractSeaRouteSwoosh({ route }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!route?.from || !route?.to) {
+      return;
+    }
+
+    const paneName = "attract-route-pane";
+    let pane = map.getPane(paneName);
+
+    if (!pane) {
+      pane = map.createPane(paneName);
+      pane.style.zIndex = "430";
+      pane.style.pointerEvents = "none";
+    }
+
+    const latLngs = buildSeaRouteArc(route.from, route.to);
+    const glow = L.polyline(latLngs, {
+      pane: paneName,
+      color: "#d9ecff",
+      weight: 1.8,
+      opacity: 0,
+      lineCap: "round",
+      interactive: false,
+    }).addTo(map);
+
+    const line = L.polyline(latLngs, {
+      pane: paneName,
+      color: "#e5f3ff",
+      weight: 0.9,
+      opacity: 0,
+      dashArray: "4 20",
+      lineCap: "round",
+      interactive: false,
+    }).addTo(map);
+
+    const durationMs = 5000;
+    let rafId = null;
+    const startedAt = performance.now();
+
+    const animate = (now) => {
+      const progress = Math.min(1, (now - startedAt) / durationMs);
+      let opacity = 0;
+
+      if (progress < 0.28) {
+        opacity = (progress / 0.28) * 0.13;
+      } else if (progress < 0.8) {
+        opacity = 0.13;
+      } else {
+        opacity = ((1 - progress) / 0.2) * 0.13;
+      }
+
+      const clampedOpacity = Math.max(0, Math.min(0.13, opacity));
+      line.setStyle({ opacity: clampedOpacity });
+      glow.setStyle({ opacity: clampedOpacity * 0.18 });
+
+      const phase = progress * 54;
+      line.setStyle({ dashOffset: `${phase}px` });
+
+      if (progress < 1) {
+        rafId = requestAnimationFrame(animate);
+      }
+    };
+
+    rafId = requestAnimationFrame(animate);
+
+    return () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      glow.remove();
+      line.remove();
+    };
+  }, [map, route?.id]);
+
+  return null;
+}
+
 function SmallCountryMarkers({
   geojson,
   onSelectCountry,
@@ -746,7 +943,7 @@ function SmallCountryMarkers({
         const element = marker.getElement();
         if (element) {
           element.style.transition =
-            "fill 250ms cubic-bezier(0.22, 1, 0.36, 1), stroke 250ms cubic-bezier(0.22, 1, 0.36, 1), r 250ms cubic-bezier(0.22, 1, 0.36, 1), filter 250ms cubic-bezier(0.22, 1, 0.36, 1)";
+            `fill ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, r ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, filter ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}`;
         }
       };
 
@@ -953,7 +1150,7 @@ function WorldGeoLayer({
             const isHovered = Boolean(
               country && hoveredCountryNormalized && normalizeName(country.name) === hoveredCountryNormalized
             );
-            element.style.transition = "fill 300ms cubic-bezier(0.22, 1, 0.36, 1), fill-opacity 300ms cubic-bezier(0.22, 1, 0.36, 1), stroke 300ms cubic-bezier(0.22, 1, 0.36, 1), stroke-width 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 300ms cubic-bezier(0.22, 1, 0.36, 1), filter 300ms cubic-bezier(0.22, 1, 0.36, 1)";
+            element.style.transition = `fill ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, fill-opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke-width ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, filter ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}`;
             
             if (isActivated) {
               element.style.filter = "drop-shadow(0 0 8px rgba(241, 100, 88, 0.5)) drop-shadow(0 0 16px rgba(241, 100, 88, 0.25))";
@@ -1127,10 +1324,10 @@ function WorldGeoLayer({
             return;
           }
 
-          const duration = phase === "in" ? 300 : 300;
+          const duration = phase === "in" ? MAP_HIGHLIGHT_TRANSITION_MS : MAP_HIGHLIGHT_TRANSITION_MS;
 
           element.style.transition =
-            `fill ${duration}ms cubic-bezier(0.22, 1, 0.36, 1), fill-opacity ${duration}ms cubic-bezier(0.22, 1, 0.36, 1), stroke ${duration}ms cubic-bezier(0.22, 1, 0.36, 1), stroke-width ${duration}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${duration}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+            `fill ${duration}ms ${MAP_HIGHLIGHT_EASE}, fill-opacity ${duration}ms ${MAP_HIGHLIGHT_EASE}, stroke ${duration}ms ${MAP_HIGHLIGHT_EASE}, stroke-width ${duration}ms ${MAP_HIGHLIGHT_EASE}, opacity ${duration}ms ${MAP_HIGHLIGHT_EASE}`;
         };
 
         setTimeout(applySoftTransition, 0);
@@ -1191,6 +1388,14 @@ export default function App() {
   const [hasOverviewOverflow, setHasOverviewOverflow] = useState(false);
   const [recordCollectionsDisplayLimit, setRecordCollectionsDisplayLimit] = useState(3);
   const [validatedHeroImage, setValidatedHeroImage] = useState(null);
+  const [isIdleAttractMode, setIsIdleAttractMode] = useState(true);
+  const [attractRouteSwoosh, setAttractRouteSwoosh] = useState(null);
+  const [isDockSearchExpanded, setIsDockSearchExpanded] = useState(false);
+  const [dockSearchActivityTick, setDockSearchActivityTick] = useState(0);
+  const [isMenuOpening, setIsMenuOpening] = useState(false);
+  const [visitedVoyagerCountries, setVisitedVoyagerCountries] = useState([]);
+  const [voyagerNotice, setVoyagerNotice] = useState(null);
+  const [voyagerCompletionVisible, setVoyagerCompletionVisible] = useState(false);
   const mapRef = useRef(null);
   const countryLayerRefs = useRef({});
   const loggedMissingApiMatches = useRef(new Set());
@@ -1201,9 +1406,16 @@ export default function App() {
   const panelOpenTimeoutRef = useRef(null);
   const selectionTimelineTimeoutsRef = useRef([]);
   const attractCycleTimeoutRef = useRef(null);
+  const dockSearchTimeoutRef = useRef(null);
+  const idleTimeoutRef = useRef(null);
+  const lastMoveActivityAtRef = useRef(0);
+  const lastUserActivityAtRef = useRef(Date.now());
   const galleryTrackRef = useRef(null);
   const overviewTextRef = useRef(null);
   const recordTitleRefs = useRef([]);
+  const voyagerNoticeTimeoutRef = useRef(null);
+  const voyagerCompletionTimeoutRef = useRef(null);
+  const visitedVoyagerCountriesRef = useRef([]);
 
   const commonwealthCountries = [...countries].sort((a, b) => a.name.localeCompare(b.name));
   const filteredCountries = commonwealthCountries.filter((country) =>
@@ -1214,6 +1426,76 @@ export default function App() {
     selectionTimelineTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
     selectionTimelineTimeoutsRef.current = [];
   };
+
+  const markUserActivity = () => {
+    lastUserActivityAtRef.current = Date.now();
+  };
+
+  const clearDockSearchTimer = () => {
+    if (dockSearchTimeoutRef.current) {
+      clearTimeout(dockSearchTimeoutRef.current);
+      dockSearchTimeoutRef.current = null;
+    }
+  };
+
+  const markDockInteraction = () => {
+    markUserActivity();
+    setDockSearchActivityTick((value) => value + 1);
+  };
+
+  const clearVoyagerProgressTimers = () => {
+    if (voyagerNoticeTimeoutRef.current) {
+      clearTimeout(voyagerNoticeTimeoutRef.current);
+      voyagerNoticeTimeoutRef.current = null;
+    }
+
+    if (voyagerCompletionTimeoutRef.current) {
+      clearTimeout(voyagerCompletionTimeoutRef.current);
+      voyagerCompletionTimeoutRef.current = null;
+    }
+  };
+
+  const resetVoyagerProgress = () => {
+    clearVoyagerProgressTimers();
+    visitedVoyagerCountriesRef.current = [];
+    setVisitedVoyagerCountries([]);
+    setVoyagerNotice(null);
+    setVoyagerCompletionVisible(false);
+  };
+
+  const clearAttractPresentation = () => {
+    setHoveredCountry(null);
+    setAttractAutoCountryName("");
+    setAttractRouteSwoosh(null);
+  };
+
+  const exitIdleAttractMode = () => {
+    setIsIdleAttractMode(false);
+    clearAttractPresentation();
+  };
+
+  useEffect(() => {
+    visitedVoyagerCountriesRef.current = visitedVoyagerCountries;
+  }, [visitedVoyagerCountries]);
+
+  useEffect(() => {
+    if (isIdleAttractMode) {
+      resetVoyagerProgress();
+    }
+  }, [isIdleAttractMode]);
+
+  useEffect(() => {
+    if (!selectedCountry) {
+      return;
+    }
+
+    console.log("Selection state snapshot", {
+      selectedCountry: selectedCountry.name,
+      activatedCountryName,
+      isPanelOpen,
+      isPanelVisible,
+    });
+  }, [selectedCountry?.name, activatedCountryName, isPanelOpen, isPanelVisible]);
 
   const flyToCountry = (country) => {
     const map = mapRef?.current;
@@ -1268,6 +1550,7 @@ export default function App() {
   };
 
   const handleReset = () => {
+    markUserActivity();
     clearSelectionTimeline();
 
     if (panelOpenTimeoutRef.current) {
@@ -1276,6 +1559,7 @@ export default function App() {
     }
 
     setSelectedCountry(null);
+    exitIdleAttractMode();
     setIsMenuOpen(false);
     setIsPanelOpen(false);
     setIsPanelVisible(false);
@@ -1303,6 +1587,7 @@ export default function App() {
   };
 
   const handleSelectCountry = (country) => {
+    markUserActivity();
     clearSelectionTimeline();
 
     if (panelOpenTimeoutRef.current) {
@@ -1311,9 +1596,45 @@ export default function App() {
     }
 
     setSelectedCountry(country);
+    exitIdleAttractMode();
+    const countryKey = normalizeName(country.name);
+    const alreadyVisited = visitedVoyagerCountriesRef.current.includes(countryKey);
+
+    if (!alreadyVisited) {
+      const nextVisitedCountries = [...visitedVoyagerCountriesRef.current, countryKey];
+      visitedVoyagerCountriesRef.current = nextVisitedCountries;
+      setVisitedVoyagerCountries(nextVisitedCountries);
+
+      clearVoyagerProgressTimers();
+
+      if (nextVisitedCountries.length >= VOYAGER_TOTAL_COUNTRIES) {
+        setVoyagerCompletionVisible(true);
+        setVoyagerNotice({
+          type: "completion",
+          label: "PLATINUM COMMONWEALTH VOYAGER",
+          detail: "56 of 56 Nations Explored",
+        });
+
+        voyagerCompletionTimeoutRef.current = window.setTimeout(() => {
+          setVoyagerCompletionVisible(false);
+          setVoyagerNotice(null);
+          voyagerCompletionTimeoutRef.current = null;
+        }, 3200);
+      } else {
+        setVoyagerNotice({
+          type: "discovery",
+          label: `${country.name} added`,
+          detail: null,
+        });
+
+        voyagerNoticeTimeoutRef.current = window.setTimeout(() => {
+          setVoyagerNotice(null);
+          voyagerNoticeTimeoutRef.current = null;
+        }, 2400);
+      }
+    }
     setHeroMotionSeed((value) => value + 1);
-    const selectedKey = normalizeName(country.name);
-    selectedCountryKeyRef.current = selectedKey;
+    selectedCountryKeyRef.current = countryKey;
     setIsMenuOpen(false);
     setIsPanelOpen(true);
     setIsPanelVisible(false);
@@ -1323,12 +1644,12 @@ export default function App() {
 
     const hasCachedCollections = Object.prototype.hasOwnProperty.call(
       familySearchCollectionsCacheRef.current,
-      selectedKey
+      countryKey
     );
 
     if (!hasCachedCollections) {
       loadFamilySearchCollectionsForCountry(country.name).then((collections) => {
-        if (selectedCountryKeyRef.current === selectedKey) {
+        if (selectedCountryKeyRef.current === countryKey) {
           setFamilySearchCollections(collections || []);
         }
       });
@@ -1365,11 +1686,21 @@ export default function App() {
     handleReset();
   };
 
+  const beginExploration = () => {
+    markUserActivity();
+    exitIdleAttractMode();
+    // Exit attract into map-first exploration; the dock remains available via Explore.
+    setIsMenuOpen(false);
+  };
+
   const handleGeojsonLoad = (data) => {
     setGeojson(data);
   };
 
   const handleCountryHover = (countryName = null) => {
+    if (countryName) {
+      markUserActivity();
+    }
     setHoveredCountry(countryName);
   };
 
@@ -1709,8 +2040,123 @@ export default function App() {
       if (panelOpenTimeoutRef.current) {
         clearTimeout(panelOpenTimeoutRef.current);
       }
+      clearDockSearchTimer();
+      if (idleTimeoutRef.current) {
+        clearTimeout(idleTimeoutRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      setIsMenuOpening(false);
+      return;
+    }
+
+    setIsMenuOpening(true);
+
+    const frameA = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        setIsMenuOpening(false);
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameA);
+    };
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    clearDockSearchTimer();
+
+    if (!isMenuOpen || !isDockSearchExpanded) {
+      return;
+    }
+
+    dockSearchTimeoutRef.current = window.setTimeout(() => {
+      setIsDockSearchExpanded(false);
+      setSearchTerm("");
+    }, KIOSK_DOCK_SEARCH_IDLE_TIMEOUT_MS);
+
+    return () => {
+      clearDockSearchTimer();
+    };
+  }, [isMenuOpen, isDockSearchExpanded, searchTerm, dockSearchActivityTick]);
+
+  useEffect(() => {
+    const scheduleIdleTransition = () => {
+      if (idleTimeoutRef.current) {
+        clearTimeout(idleTimeoutRef.current);
+      }
+
+      const elapsedMs = Date.now() - lastUserActivityAtRef.current;
+      const remainingMs = Math.max(0, KIOSK_IDLE_TIMEOUT_MS - elapsedMs);
+
+      idleTimeoutRef.current = window.setTimeout(() => {
+        const isBusy = Boolean(selectedCountry || isMenuOpen || lightboxItem);
+        const hasReachedIdleThreshold =
+          Date.now() - lastUserActivityAtRef.current >= KIOSK_IDLE_TIMEOUT_MS;
+
+        if (isBusy || !hasReachedIdleThreshold) {
+          scheduleIdleTransition();
+          return;
+        }
+
+        setSearchTerm("");
+        clearAttractPresentation();
+        setIsIdleAttractMode(true);
+      }, remainingMs);
+    };
+
+    const markActivity = (event) => {
+      const type = event?.type || "unknown";
+      const now = Date.now();
+      const isMoveLike = type === "pointermove" || type === "mousemove" || type === "touchmove";
+
+      if (isMoveLike) {
+        if (now - lastMoveActivityAtRef.current < 1200) {
+          return;
+        }
+        lastMoveActivityAtRef.current = now;
+      }
+
+      lastUserActivityAtRef.current = now;
+
+      if (isIdleAttractMode && /pointerdown|touchstart|click|keydown/.test(type)) {
+        exitIdleAttractMode();
+      }
+
+      scheduleIdleTransition();
+    };
+
+    scheduleIdleTransition();
+
+    const events = [
+      "pointermove",
+      "pointerdown",
+      "touchstart",
+      "touchmove",
+      "click",
+      "scroll",
+      "wheel",
+      "keydown",
+    ];
+
+    events.forEach((eventName) => {
+      window.addEventListener(eventName, markActivity, { passive: true });
+    });
+
+    return () => {
+      events.forEach((eventName) => {
+        window.removeEventListener(eventName, markActivity);
+      });
+
+      if (idleTimeoutRef.current) {
+        clearTimeout(idleTimeoutRef.current);
+        idleTimeoutRef.current = null;
+      }
+    };
+  }, [selectedCountry, isMenuOpen, lightboxItem, isIdleAttractMode]);
 
   useEffect(() => {
     setIsOverviewExpanded(false);
@@ -1805,6 +2251,9 @@ export default function App() {
   const visibleFamilySearchCollections = familySearchCollections.filter(
     (collection) => !/no collections found/i.test(collection.title)
   );
+
+  const voyagerProgressCount = visitedVoyagerCountries.length;
+  const voyagerProgressTitle = getVoyagerTitle(voyagerProgressCount);
   const displayedFamilySearchCollections = visibleFamilySearchCollections.slice(
     0,
     recordCollectionsDisplayLimit
@@ -2006,12 +2455,7 @@ export default function App() {
     });
   };
 
-  const selectedCountryHeroImage = selectedCountry
-    ? (isLandscapeOrCityscapeHeroUrl(selectedCountry.image) &&
-      isCountrySpecificHeroUrl(selectedCountry.image, selectedCountry.name)
-        ? selectedCountry.image
-        : buildUnsplashHeroFallbackUrl(selectedCountry.name))
-    : DEFAULT_HERO_IMAGE_URL;
+  const selectedCountryHeroImage = selectedCountry?.image || DEFAULT_HERO_IMAGE_URL;
 
   useEffect(() => {
     if (!selectedCountry) {
@@ -2020,14 +2464,10 @@ export default function App() {
     }
 
     let isActive = true;
-    const candidateUrl = isLandscapeOrCityscapeHeroUrl(selectedCountry.image) &&
-      isCountrySpecificHeroUrl(selectedCountry.image, selectedCountry.name)
-      ? selectedCountry.image
-      : null;
-    const fallbackUrl = buildUnsplashHeroFallbackUrl(selectedCountry.name);
+    // Use curated image from countries.json and only fall back if it fails to load.
+    const candidateUrl = selectedCountry.image || null;
 
-    // Show candidate immediately while validating
-    setValidatedHeroImage(candidateUrl || fallbackUrl);
+    setValidatedHeroImage(candidateUrl || DEFAULT_HERO_IMAGE_URL);
 
     const validate = async () => {
       if (candidateUrl) {
@@ -2037,22 +2477,6 @@ export default function App() {
         if (candidateValid) {
           return;
         }
-      }
-
-      const wikimediaUrl = await fetchCountrySpecificWikimediaHero(selectedCountry.name);
-      if (!isActive) return;
-
-      if (wikimediaUrl) {
-        setValidatedHeroImage(wikimediaUrl);
-        return;
-      }
-
-      setValidatedHeroImage(fallbackUrl);
-      const fallbackValid = await testImageUrl(fallbackUrl);
-      if (!isActive) return;
-
-      if (fallbackValid) {
-        return;
       }
 
       setValidatedHeroImage(DEFAULT_HERO_IMAGE_URL);
@@ -2322,8 +2746,9 @@ export default function App() {
     };
   }, [visibleFamilySearchCollections, isPanelVisible, selectedCountry?.name]);
 
-  // Check if we're in attract mode (no country selected and menu closed)
-  const isAttractMode = !selectedCountry && !isMenuOpen;
+  // Attract mode is timer-driven; this guard only prevents overlay conflicts.
+  const hasActiveExplorationSurface = Boolean(selectedCountry || isMenuOpen || lightboxItem);
+  const isAttractMode = isIdleAttractMode && !hasActiveExplorationSurface;
 
   const clearAttractCycleTimer = () => {
     if (attractCycleTimeoutRef.current) {
@@ -2332,50 +2757,26 @@ export default function App() {
     }
   };
 
-  const getAttractCountryDistance = (countryA, countryB) => {
-    if (!countryA || !countryB) {
-      return 0;
-    }
-
-    return Math.hypot((countryA.lat || 0) - (countryB.lat || 0), (countryA.lng || 0) - (countryB.lng || 0));
-  };
-
-  const pickRandomAttractCountry = (previousCountryName = "") => {
-    const mapCountries = commonwealthCountries.filter(
-      (country) => Number.isFinite(country.lat) && Number.isFinite(country.lng)
-    );
-
-    if (!mapCountries.length) {
-      return null;
-    }
-
-    const previous = mapCountries.find((country) => country.name === previousCountryName) || null;
-    const distantCandidates = previous
-      ? mapCountries.filter(
-          (country) => country.name !== previous.name && getAttractCountryDistance(country, previous) >= 25
-        )
-      : mapCountries;
-    const pool = distantCandidates.length
-      ? distantCandidates
-      : mapCountries.filter((country) => country.name !== previousCountryName);
-
-    if (!pool.length) {
-      return null;
-    }
-
-    return pool[Math.floor(Math.random() * pool.length)];
-  };
-
   useEffect(() => {
     clearAttractCycleTimer();
 
     if (!isAttractMode) {
       setAttractAutoCountryName("");
+      setAttractRouteSwoosh(null);
       return;
     }
 
     let isActive = true;
-    let previousCountryName = "";
+    const journeyCountries = ATTRACT_JOURNEY_SEQUENCE
+      .map((name) => countries.find((country) => country.name === name))
+      .filter((country) => country && Number.isFinite(country.lat) && Number.isFinite(country.lng));
+
+    if (!journeyCountries.length) {
+      return;
+    }
+
+    let journeyIndex = 0;
+    let lastRouteStep = -ATTRACT_ROUTE_MIN_GAP_STEPS;
 
     const scheduleNext = (delayMs) => {
       clearAttractCycleTimer();
@@ -2384,40 +2785,55 @@ export default function App() {
           return;
         }
 
-        const nextCountry = pickRandomAttractCountry(previousCountryName);
-        if (!nextCountry) {
-          scheduleNext(1600);
-          return;
+        const nextCountry = journeyCountries[journeyIndex % journeyCountries.length];
+        const previousCountry = journeyCountries[(journeyIndex - 1 + journeyCountries.length) % journeyCountries.length];
+        journeyIndex += 1;
+
+        setHoveredCountry(nextCountry.name);
+        setAttractAutoCountryName(nextCountry.name);
+
+        const routeKey = `${previousCountry?.name || ""}|${nextCountry.name}`;
+        const canShowRoute =
+          previousCountry &&
+          ATTRACT_ROUTE_SEGMENTS.has(routeKey) &&
+          journeyIndex - lastRouteStep >= ATTRACT_ROUTE_MIN_GAP_STEPS &&
+          Math.random() < ATTRACT_ROUTE_CHANCE;
+
+        if (canShowRoute) {
+          lastRouteStep = journeyIndex;
+          setAttractRouteSwoosh({
+            id: `${routeKey}-${Date.now()}`,
+            from: [previousCountry.lat, previousCountry.lng],
+            to: [nextCountry.lat, nextCountry.lng],
+          });
+        } else {
+          setAttractRouteSwoosh(null);
         }
 
-        previousCountryName = nextCountry.name;
-        setHoveredCountry(nextCountry.name);
-        setAttractAutoCountryName(nextCountry.name.toUpperCase());
-
-        const holdMs = 2200 + Math.round(Math.random() * 900);
-        const pauseMs = 1100 + Math.round(Math.random() * 900);
+        const holdMs = 3600;
+        const pauseMs = 900;
 
         attractCycleTimeoutRef.current = window.setTimeout(() => {
           if (!isActive) {
             return;
           }
 
-          setHoveredCountry((current) => (current === nextCountry.name ? null : current));
-          setAttractAutoCountryName("");
+          setAttractRouteSwoosh(null);
           scheduleNext(pauseMs);
         }, holdMs);
       }, delayMs);
     };
 
-    scheduleNext(850);
+    scheduleNext(700);
 
     return () => {
       isActive = false;
       clearAttractCycleTimer();
       setAttractAutoCountryName("");
+      setAttractRouteSwoosh(null);
       setHoveredCountry((current) => (current && !selectedCountry ? null : current));
     };
-  }, [isAttractMode]);
+  }, [isAttractMode, selectedCountry]);
 
   return (
     <div
@@ -2432,6 +2848,11 @@ export default function App() {
     >
       {/* ATTRACT MODE OVERLAY - Shows when idle */}
       <div
+        onPointerDown={() => {
+          if (isAttractMode) {
+            beginExploration();
+          }
+        }}
         style={{
           position: "absolute",
           inset: 0,
@@ -2445,12 +2866,36 @@ export default function App() {
           transition: "opacity 800ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 32%, rgba(255,255,255,0) 62%)",
+            pointerEvents: "none",
+          }}
+        />
+        <img
+          src={FAMILYSEARCH_LOGO_URL}
+          alt="FamilySearch"
+          style={{
+            position: "absolute",
+            left: "50%",
+            bottom: "4.8rem",
+            transform: "translateX(-50%)",
+            width: "146px",
+            height: "auto",
+            filter: "brightness(0) invert(1) saturate(0)",
+            opacity: 1,
+            pointerEvents: "none",
+          }}
+        />
+
         {/* Subtle atmospheric overlays to preserve map as hero */}
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background: "radial-gradient(126% 92% at 50% 44%, rgba(8, 13, 24, 0.1) 0%, rgba(8, 13, 24, 0.34) 70%, rgba(8, 13, 24, 0.52) 100%)",
+            background: "radial-gradient(130% 95% at 50% 46%, rgba(4, 8, 16, 0.18) 0%, rgba(4, 8, 16, 0.5) 66%, rgba(4, 8, 16, 0.72) 100%)",
             pointerEvents: "none",
           }}
         />
@@ -2458,8 +2903,7 @@ export default function App() {
           style={{
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 22%, rgba(8,12,20,0.2) 100%)",
-            mixBlendMode: "screen",
+            background: "radial-gradient(58% 46% at 50% 43%, rgba(0, 0, 0, 0.52) 0%, rgba(0, 0, 0, 0.18) 36%, rgba(0, 0, 0, 0) 100%)",
             pointerEvents: "none",
           }}
         />
@@ -2467,7 +2911,7 @@ export default function App() {
           style={{
             position: "absolute",
             inset: 0,
-            background: "radial-gradient(58% 42% at 50% 43%, rgba(4, 9, 18, 0.02) 0%, rgba(4, 9, 18, 0.22) 54%, rgba(4, 9, 18, 0) 100%)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 20%, rgba(2, 6, 14, 0.4) 100%)",
             pointerEvents: "none",
           }}
         />
@@ -2487,179 +2931,126 @@ export default function App() {
           <div
             style={{
               position: "absolute",
-              inset: "-26px -36px -32px",
-              background: "radial-gradient(65% 55% at 50% 42%, rgba(0,0,0,0.46) 0%, rgba(0,0,0,0.24) 38%, rgba(0,0,0,0) 100%)",
-              filter: "blur(8px)",
+              inset: "-24px -34px -30px",
+              background: "radial-gradient(66% 54% at 50% 44%, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.3) 42%, rgba(0,0,0,0) 100%)",
+              filter: "blur(9px)",
               pointerEvents: "none",
               zIndex: 0,
+              borderRadius: "24px",
             }}
           />
-          <div
-            style={{
-              position: "relative",
-              zIndex: 1,
-              fontSize: "0.74rem",
-              letterSpacing: "0.32em",
-              textTransform: "uppercase",
-              fontWeight: 560,
-              color: "rgba(255,255,255,0.72)",
-              opacity: isAttractMode ? 1 : 0,
-              transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
-              transition: "opacity 650ms ease 120ms, transform 650ms cubic-bezier(0.22, 1, 0.36, 1) 120ms",
-            }}
-          >
-            Commonwealth Explorer
-          </div>
           <h1
             style={{
               position: "relative",
               zIndex: 1,
-              fontSize: "clamp(3rem, 7vw, 6.25rem)",
+              fontSize: "clamp(2.4rem, 6vw, 5.3rem)",
               fontWeight: 680,
-              letterSpacing: "-0.04em",
-              lineHeight: 0.98,
+              letterSpacing: "0.06em",
+              lineHeight: 1,
+              textTransform: "uppercase",
               margin: 0,
-              color: "#f8fbff",
-              textShadow: "0 12px 28px rgba(5, 8, 16, 0.7), 0 4px 14px rgba(5, 8, 16, 0.58), 0 0 26px rgba(155, 209, 255, 0.24)",
+              color: "#f5f9ff",
+              textShadow: "0 16px 34px rgba(3, 6, 14, 0.78), 0 5px 16px rgba(3, 6, 14, 0.62), 0 0 28px rgba(147, 204, 255, 0.22)",
               opacity: isAttractMode ? 1 : 0,
               transform: isAttractMode ? "translateY(0)" : "translateY(20px)",
               transition: "opacity 700ms ease 220ms, transform 700ms cubic-bezier(0.22, 1, 0.36, 1) 220ms",
             }}
           >
-            56 Nations.
-            <br />
-            Millions of Stories.
+            <div
+              style={{
+                position: "relative",
+                zIndex: 1,
+                fontSize: "0.78rem",
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "rgba(239, 248, 255, 0.66)",
+                marginBottom: "0.9rem",
+                textShadow: "0 2px 10px rgba(5, 8, 16, 0.46)",
+                opacity: isAttractMode ? 1 : 0,
+                transform: isAttractMode ? "translateY(0)" : "translateY(14px)",
+                transition: "opacity 600ms ease 160ms, transform 600ms cubic-bezier(0.22, 1, 0.36, 1) 160ms",
+              }}
+            >
+              56 Nations. Millions of Stories.
+            </div>
+            Commonwealth Explorer
           </h1>
-          <p
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              beginExploration();
+            }}
             style={{
               position: "relative",
               zIndex: 1,
-              fontSize: "clamp(1.05rem, 2.05vw, 1.5rem)",
-              fontWeight: 400,
-              color: "rgba(244, 249, 255, 0.95)",
-              margin: "0 auto",
-              maxWidth: "720px",
-              letterSpacing: "-0.012em",
-              lineHeight: 1.34,
-              textShadow: "0 2px 12px rgba(5, 8, 16, 0.55)",
+              margin: "0.45rem auto 0",
+              padding: "0.9rem 1.65rem",
+              borderRadius: "999px",
+              border: "1px solid rgba(255, 255, 255, 0.46)",
+              background: "linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0.14) 42%, rgba(255,255,255,0.08) 100%)",
+              backdropFilter: "blur(22px) saturate(190%)",
+              WebkitBackdropFilter: "blur(22px) saturate(190%)",
+              boxShadow: "0 14px 34px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -8px 22px rgba(255,255,255,0.07)",
+              color: "rgba(246, 251, 255, 0.98)",
+              fontSize: "clamp(0.95rem, 1.7vw, 1.16rem)",
+              fontWeight: 560,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              lineHeight: 1,
+              cursor: "pointer",
+              textShadow: "0 4px 16px rgba(4, 8, 16, 0.64)",
               opacity: isAttractMode ? 1 : 0,
               transform: isAttractMode ? "translateY(0)" : "translateY(20px)",
               transition: "opacity 700ms ease 400ms, transform 700ms cubic-bezier(0.22, 1, 0.36, 1) 400ms",
             }}
-          >
-            Discover your family story across the Commonwealth.
-          </p>
-          <button
-            onClick={() => setIsMenuOpen(true)}
-            style={{
-              position: "relative",
-              zIndex: 1,
-              margin: "1rem auto 0",
-              padding: "1.05rem 2rem",
-              fontSize: "clamp(0.95rem, 1.35vw, 1.12rem)",
-              fontWeight: 560,
-              color: "rgba(245, 251, 255, 0.96)",
-              background: "linear-gradient(180deg, rgba(165, 230, 132, 0.24) 0%, rgba(93, 140, 53, 0.26) 100%)",
-              border: "none",
-              borderRadius: "100px",
-              cursor: "pointer",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              backdropFilter: "blur(16px) saturate(140%)",
-              WebkitBackdropFilter: "blur(16px) saturate(140%)",
-              borderColor: "rgba(214, 255, 188, 0.42)",
-              borderWidth: "1px",
-              borderStyle: "solid",
-              boxShadow: "0 14px 38px rgba(7, 11, 20, 0.5), 0 0 0 1px rgba(220,255,205,0.16), 0 0 30px rgba(142, 217, 102, 0.22)",
-              opacity: isAttractMode ? 1 : 0,
-              transform: isAttractMode ? "translateY(0) scale(1)" : "translateY(20px) scale(0.95)",
-              transition: "opacity 650ms ease 560ms, transform 650ms cubic-bezier(0.22, 1, 0.36, 1) 560ms, background 220ms ease, box-shadow 220ms ease",
-              animation: isAttractMode ? "attractPulse 3.2s ease-in-out infinite" : "none",
+            onMouseEnter={(event) => {
+              event.currentTarget.style.transform = "translateY(-1px)";
+              event.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.18) 44%, rgba(255,255,255,0.12) 100%)";
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "linear-gradient(180deg, rgba(182, 240, 147, 0.35) 0%, rgba(111, 164, 67, 0.36) 100%)";
-              e.currentTarget.style.boxShadow = "0 18px 44px rgba(7, 11, 20, 0.56), 0 0 0 1px rgba(224,255,212,0.24), 0 0 36px rgba(152, 232, 112, 0.34)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "linear-gradient(180deg, rgba(165, 230, 132, 0.24) 0%, rgba(93, 140, 53, 0.26) 100%)";
-              e.currentTarget.style.boxShadow = "0 14px 38px rgba(7, 11, 20, 0.5), 0 0 0 1px rgba(220,255,205,0.16), 0 0 30px rgba(142, 217, 102, 0.22)";
+            onMouseLeave={(event) => {
+              event.currentTarget.style.transform = "translateY(0)";
+              event.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0.14) 42%, rgba(255,255,255,0.08) 100%)";
             }}
           >
-            Touch to Begin
+            Touch to begin
           </button>
-          <div
-            style={{
-              position: "relative",
-              zIndex: 1,
-              fontSize: "0.82rem",
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: "rgba(239, 248, 255, 0.68)",
-              marginTop: "0.2rem",
-              textShadow: "0 1px 8px rgba(5, 8, 16, 0.35)",
-              opacity: isAttractMode ? 1 : 0,
-              transform: isAttractMode ? "translateY(0)" : "translateY(14px)",
-              transition: "opacity 600ms ease 680ms, transform 600ms cubic-bezier(0.22, 1, 0.36, 1) 680ms",
-            }}
-          >
-            Touch anywhere to begin exploration
-          </div>
-          <div
-            style={{
-              position: "relative",
-              zIndex: 1,
-              alignSelf: "center",
-              marginTop: "0.15rem",
-              minHeight: "1.1rem",
-              fontSize: "0.9rem",
-              fontWeight: 560,
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: "rgba(232, 243, 255, 0.92)",
-              textShadow: "0 2px 10px rgba(5, 8, 16, 0.6)",
-              opacity: attractAutoCountryName ? 1 : 0,
-              transform: attractAutoCountryName ? "translateY(0)" : "translateY(6px)",
-              transition: `opacity 360ms ${springEase}, transform 360ms ${springEase}`,
-              pointerEvents: "none",
-            }}
-          >
-            {attractAutoCountryName}
-          </div>
         </div>
 
-        {/* FamilySearch logo at bottom */}
         <div
           style={{
             position: "absolute",
-            bottom: "3rem",
-            opacity: isAttractMode ? 0.72 : 0,
-            transition: "opacity 600ms ease 800ms",
+            left: "2.2rem",
+            bottom: "2.4rem",
+            minHeight: "1.15rem",
+            fontSize: "0.8rem",
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            fontWeight: 600,
+            color: "rgba(234, 245, 255, 0.84)",
+            textShadow: "0 2px 10px rgba(5, 8, 16, 0.62)",
+            opacity: attractAutoCountryName ? 1 : 0,
+            transform: attractAutoCountryName ? "translateY(0)" : "translateY(6px)",
+            transition: `opacity 700ms ${springEase}, transform 700ms ${springEase}`,
+            pointerEvents: "none",
           }}
         >
-          <img
-            src={FAMILYSEARCH_LOGO_URL}
-            alt="FamilySearch"
-            style={{
-              width: "140px",
-              height: "auto",
-              filter: "brightness(0) invert(1)",
-            }}
-          />
+          {attractAutoCountryName ? attractAutoCountryName.toUpperCase() : ""}
         </div>
+
       </div>
 
       {/* TOP BAR - Minimal, appears when not in attract mode */}
       <div
         style={{
           position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
+          top: "1.5rem",
+          left: "1.5rem",
+          right: "1.5rem",
           zIndex: 500,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "1.5rem 2rem",
+          padding: 0,
           pointerEvents: isAttractMode ? "none" : "auto",
           opacity: isAttractMode ? 0 : 1,
           transition: "opacity 400ms ease",
@@ -2667,15 +3058,22 @@ export default function App() {
       >
         {/* Explore button - opens country dock */}
         <button
-          onClick={() => setIsMenuOpen(true)}
+          onClick={() => {
+            markUserActivity();
+            exitIdleAttractMode();
+            setIsMenuClosing(false);
+            setIsMenuOpen(true);
+            setIsDockSearchExpanded(false);
+            setSearchTerm("");
+          }}
           style={{
             padding: "0.875rem 1.5rem",
             borderRadius: "100px",
-            background: "rgba(255, 255, 255, 0.15)",
-            backdropFilter: "blur(20px) saturate(180%)",
-            WebkitBackdropFilter: "blur(20px) saturate(180%)",
-            boxShadow: "0 2px 12px rgba(0, 0, 0, 0.15)",
-            border: "1px solid rgba(255, 255, 255, 0.2)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.12) 100%)",
+            backdropFilter: "blur(22px) saturate(185%)",
+            WebkitBackdropFilter: "blur(22px) saturate(185%)",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255,255,255,0.36)",
+            border: "1px solid rgba(255, 255, 255, 0.3)",
             color: "#fff",
             fontSize: "1rem",
             fontWeight: 500,
@@ -2687,11 +3085,11 @@ export default function App() {
             transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(255, 255, 255, 0.25)";
+            e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0.16) 100%)";
             e.currentTarget.style.transform = "scale(1.02)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
+            e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.12) 100%)";
             e.currentTarget.style.transform = "scale(1)";
           }}
         >
@@ -2721,175 +3119,368 @@ export default function App() {
             width: "120px",
             height: "auto",
             filter: "brightness(0) invert(1)",
-            opacity: 0.7,
+            mixBlendMode: "difference",
+            opacity: 0.92,
+            transition: `opacity 520ms ${DOCK_GENTLE_EASE}`,
           }}
         />
       </div>
 
-      {/* COUNTRY DOCK - Bottom navigation rail */}
-      {(isMenuOpen || isMenuClosing) && (
+      {!isIdleAttractMode ? (
         <div
           style={{
             position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 900,
-            padding: "1.5rem 2rem 2rem",
-            background: "linear-gradient(to top, rgba(26, 31, 46, 0.95) 0%, rgba(26, 31, 46, 0.8) 70%, transparent 100%)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            opacity: isMenuClosing ? 0 : 1,
-            transform: isMenuClosing ? "translateY(20px)" : "translateY(0)",
-            transition: "opacity 300ms cubic-bezier(0.22, 1, 0.36, 1), transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+            top: "1.5rem",
+            right: "1.5rem",
+            zIndex: 820,
+            width: "min(320px, calc(100vw - 3rem))",
+            padding: "0.9rem 1rem 0.85rem",
+            borderRadius: "22px",
+            border: "1px solid rgba(255,255,255,0.16)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.08) 100%)",
+            backdropFilter: "blur(24px) saturate(180%)",
+            WebkitBackdropFilter: "blur(24px) saturate(180%)",
+            boxShadow: "0 16px 34px rgba(2, 6, 23, 0.18), inset 0 1px 0 rgba(255,255,255,0.28)",
+            color: "#f8fafc",
+            pointerEvents: "none",
           }}
         >
-          {/* Search bar */}
-          <div style={{ maxWidth: "600px", margin: "0 auto 1.5rem", position: "relative" }}>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{
-                position: "absolute",
-                left: "1.25rem",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "rgba(255,255,255,0.5)",
-                pointerEvents: "none",
-              }}
-            >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-            <input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search countries..."
-              style={{
-                width: "100%",
-                border: "none",
-                borderRadius: "100px",
-                padding: "1rem 1.25rem 1rem 3.5rem",
-                fontSize: "1.1rem",
-                color: "#fff",
-                background: "rgba(255, 255, 255, 0.1)",
-                outline: "none",
-                boxSizing: "border-box",
-                boxShadow: "inset 0 1px 2px rgba(0,0,0,0.2)",
-                fontWeight: 400,
-                letterSpacing: "-0.01em",
-                transition: "background 200ms ease",
-              }}
-              onFocus={(e) => { e.target.style.background = "rgba(255, 255, 255, 0.15)"; }}
-              onBlur={(e) => { e.target.style.background = "rgba(255, 255, 255, 0.1)"; }}
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm("")}
+          <div style={{ fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(248,250,252,0.7)", fontWeight: 700 }}>
+            Commonwealth Voyager
+          </div>
+          <div style={{ marginTop: "0.45rem", display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "0.75rem" }}>
+            <div style={{ fontSize: "1.1rem", fontWeight: 650, letterSpacing: "-0.02em" }}>
+              {voyagerProgressCount} / {VOYAGER_TOTAL_COUNTRIES} Countries
+            </div>
+            <div style={{ fontSize: "0.78rem", color: "rgba(248,250,252,0.72)", fontWeight: 600, textAlign: "right" }}>
+              {voyagerProgressTitle}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {voyagerNotice ? (
+        <div
+          style={{
+            position: "absolute",
+            top: "6.3rem",
+            right: "1.5rem",
+            zIndex: 821,
+            width: "min(320px, calc(100vw - 3rem))",
+            padding: voyagerNotice.type === "completion" ? "1rem 1rem 0.95rem" : "0.75rem 0.95rem",
+            borderRadius: "18px",
+            border: "1px solid rgba(255,255,255,0.14)",
+            background: "linear-gradient(180deg, rgba(15,23,42,0.82) 0%, rgba(2,6,23,0.88) 100%)",
+            backdropFilter: "blur(22px) saturate(170%)",
+            WebkitBackdropFilter: "blur(22px) saturate(170%)",
+            boxShadow: "0 14px 28px rgba(0,0,0,0.22)",
+            color: "#fff",
+            pointerEvents: "none",
+            opacity: voyagerCompletionVisible || voyagerNotice.type === "discovery" ? 1 : 0,
+            transition: "opacity 420ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
+          <div style={{ fontSize: voyagerNotice.type === "completion" ? "0.78rem" : "0.88rem", fontWeight: 650, letterSpacing: voyagerNotice.type === "completion" ? "0.18em" : "-0.01em", textTransform: voyagerNotice.type === "completion" ? "uppercase" : "none", color: voyagerNotice.type === "completion" ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.92)" }}>
+            {voyagerNotice.label}
+          </div>
+          {voyagerNotice.detail ? (
+            <div style={{ marginTop: "0.35rem", fontSize: "0.88rem", color: "rgba(255,255,255,0.72)", letterSpacing: "0.01em" }}>
+              {voyagerNotice.detail}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* COUNTRY DOCK - Bottom navigation rail */}
+      {(isMenuOpen || isMenuClosing) && (
+        <div
+          onMouseLeave={() => {
+            markDockInteraction();
+          }}
+          onPointerDown={markDockInteraction}
+          style={{
+            position: "absolute",
+            bottom: "1.1rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "min(1360px, 98vw)",
+            zIndex: 900,
+            padding: "0.9rem 1.1rem 1rem",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0.11) 26%, rgba(16,22,35,0.78) 100%)",
+            backdropFilter: "blur(32px) saturate(195%)",
+            WebkitBackdropFilter: "blur(32px) saturate(195%)",
+            border: "1px solid rgba(255,255,255,0.22)",
+            borderRadius: "30px",
+            boxShadow: "0 20px 44px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.32)",
+            opacity: isMenuClosing ? 0 : isMenuOpening ? 0 : 1,
+            transform: isMenuClosing
+              ? "translateX(-50%) translateY(16px) scale(0.992)"
+              : isMenuOpening
+                ? "translateX(-50%) translateY(22px) scale(0.985)"
+                : "translateX(-50%) translateY(0) scale(1)",
+            transition: `opacity 640ms ${DOCK_SOFT_EASE}, transform 760ms ${DOCK_GENTLE_EASE}`,
+          }}
+        >
+          <div
+            style={{
+              maxWidth: "760px",
+              margin: isDockSearchExpanded ? "0 auto 0.85rem" : "0 auto 0",
+              position: "relative",
+              opacity: isDockSearchExpanded ? 1 : 0,
+              maxHeight: isDockSearchExpanded ? "68px" : "0px",
+              transform: isDockSearchExpanded ? "translateY(0) scale(1)" : "translateY(-10px) scale(0.985)",
+              overflow: "hidden",
+              pointerEvents: isDockSearchExpanded ? "auto" : "none",
+              transition: `opacity 420ms ${DOCK_SOFT_EASE}, transform 520ms ${DOCK_GENTLE_EASE}, max-height 520ms ${DOCK_GENTLE_EASE}, margin 520ms ${DOCK_GENTLE_EASE}`,
+            }}
+          >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 style={{
                   position: "absolute",
-                  right: "1rem",
+                  left: "1.25rem",
                   top: "50%",
                   transform: "translateY(-50%)",
-                  border: "none",
-                  background: "rgba(255,255,255,0.2)",
-                  color: "#fff",
-                  fontSize: "1rem",
-                  cursor: "pointer",
-                  width: "28px",
-                  height: "28px",
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  lineHeight: 1,
-                  padding: 0,
+                  color: "rgba(255,255,255,0.5)",
+                  pointerEvents: "none",
                 }}
-                aria-label="Clear search"
               >
-                ×
-              </button>
-            )}
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <input
+                value={searchTerm}
+                onChange={(event) => {
+                  setSearchTerm(event.target.value);
+                  markDockInteraction();
+                }}
+                onFocus={markDockInteraction}
+                onKeyDown={markDockInteraction}
+                placeholder="Search countries..."
+                style={{
+                  width: "100%",
+                  border: "1px solid rgba(255,255,255,0.22)",
+                  borderRadius: "100px",
+                  padding: "1rem 1.25rem 1rem 3.5rem",
+                  fontSize: "1.1rem",
+                  color: "#fff",
+                  background: "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.12) 100%)",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.24), 0 6px 18px rgba(0,0,0,0.18)",
+                  fontWeight: 400,
+                  letterSpacing: "-0.01em",
+                  transition: "background 200ms ease",
+                }}
+                onFocusCapture={(e) => {
+                  e.target.style.background = "linear-gradient(180deg, rgba(255,255,255,0.31) 0%, rgba(255,255,255,0.16) 100%)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.background = "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.12) 100%)";
+                }}
+              />
+              {searchTerm ? (
+                <button
+                  onClick={() => {
+                    setSearchTerm("");
+                    markDockInteraction();
+                  }}
+                  style={{
+                    position: "absolute",
+                    right: "1rem",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    border: "none",
+                    background: "rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    fontSize: "1rem",
+                    cursor: "pointer",
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    lineHeight: 1,
+                    padding: 0,
+                  }}
+                  aria-label="Clear search"
+                >
+                  ×
+                </button>
+              ) : null}
           </div>
 
-          {/* Country cards horizontal scroll */}
           <div
             style={{
               display: "flex",
-              gap: "1rem",
-              overflowX: "auto",
-              padding: "0.5rem 0",
-              scrollSnapType: "x mandatory",
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-              WebkitOverflowScrolling: "touch",
+              alignItems: "center",
+              gap: "0.85rem",
             }}
           >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                flexShrink: 0,
+                paddingLeft: "0.2rem",
+                opacity: isMenuClosing ? 0 : 1,
+                transform: isMenuClosing
+                  ? "translateX(-10px) translateY(8px)"
+                  : "translateX(0) translateY(0)",
+                transition: `opacity 420ms ${DOCK_SOFT_EASE}, transform 560ms ${DOCK_GENTLE_EASE}`,
+              }}
+            >
+              <button
+                onClick={() => {
+                  markDockInteraction();
+                  setIsDockSearchExpanded((value) => {
+                    const next = !value;
+                    if (!next) {
+                      setSearchTerm("");
+                    }
+                    return next;
+                  });
+                }}
+                style={{
+                  width: "46px",
+                  height: "46px",
+                  borderRadius: "50%",
+                  border: "1px solid rgba(255,255,255,0.22)",
+                  background: isDockSearchExpanded
+                    ? "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.16) 100%)"
+                    : "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)",
+                  color: "#fff",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 6px 18px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.24)",
+                  transform: isDockSearchExpanded ? "translateY(0) scale(1.03)" : "translateY(0) scale(1)",
+                  transition: `background 360ms ${DOCK_GENTLE_EASE}, transform 480ms ${DOCK_GENTLE_EASE}, box-shadow 360ms ${DOCK_GENTLE_EASE}`,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.18) 100%)";
+                  e.currentTarget.style.transform = isDockSearchExpanded ? "translateY(-1px) scale(1.03)" : "translateY(-1px) scale(1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = isDockSearchExpanded
+                    ? "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.16) 100%)"
+                    : "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)";
+                  e.currentTarget.style.transform = isDockSearchExpanded ? "translateY(0) scale(1.03)" : "translateY(0) scale(1)";
+                }}
+                aria-label={isDockSearchExpanded ? "Hide search" : "Show search"}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Country cards horizontal scroll */}
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                gap: "0.72rem",
+                overflowX: "auto",
+                padding: "0.4rem 0.25rem 0.2rem",
+                scrollSnapType: "x mandatory",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
             {filteredCountries.map((country) => {
               const isActive = selectedCountry?.name === country.name;
               return (
                 <button
                   key={country.name}
                   onClick={() => {
+                    markDockInteraction();
                     handleSelectCountry(country);
                     setIsMenuOpen(false);
+                    setIsDockSearchExpanded(false);
+                    setSearchTerm("");
+                  }}
+                  onPointerEnter={() => {
+                    markDockInteraction();
+                    handleCountryHover(country.name);
+                  }}
+                  onPointerLeave={() => {
+                    handleCountryHover(null);
+                  }}
+                  onPointerCancel={() => {
+                    handleCountryHover(null);
+                  }}
+                  onPointerDown={() => {
+                    markDockInteraction();
+                    handleCountryHover(country.name);
                   }}
                   style={{
                     flex: "0 0 auto",
-                    width: "132px",
-                    padding: "0.85rem 0.75rem 0.7rem",
+                    width: "124px",
+                    minHeight: "68px",
+                    padding: "0.4rem 0.62rem 0.28rem",
                     borderRadius: "16px",
-                    background: isActive ? "rgba(135, 185, 64, 0.3)" : "rgba(255, 255, 255, 0.08)",
-                    border: isActive ? "2px solid rgba(135, 185, 64, 0.6)" : "1px solid rgba(255, 255, 255, 0.1)",
+                    background: isActive
+                      ? "linear-gradient(180deg, rgba(222, 248, 170, 0.4) 0%, rgba(255,255,255,0.26) 36%, rgba(186, 230, 96, 0.26) 100%)"
+                      : "linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 100%)",
+                    border: isActive ? "1px solid rgba(214, 255, 163, 0.9)" : "1px solid rgba(255,255,255,0.34)",
+                    boxShadow: isActive
+                      ? "0 10px 20px rgba(68, 95, 33, 0.24), inset 0 1px 0 rgba(255,255,255,0.56), inset 0 -8px 18px rgba(190, 242, 100, 0.18)"
+                      : "0 10px 20px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46), inset 0 -8px 18px rgba(147, 197, 253, 0.12)",
                     cursor: "pointer",
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: "0.45rem",
+                    justifyContent: "center",
+                    gap: "0.1rem",
                     scrollSnapAlign: "start",
-                    transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-                  }}
-                  onMouseEnter={(e) => {
-                    handleCountryHover(country.name);
-                    if (!isActive) {
-                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
-                      e.currentTarget.style.transform = "translateY(-2px)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    handleCountryHover(null);
-                    if (!isActive) {
-                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
-                      e.currentTarget.style.transform = "translateY(0)";
-                    }
+                    transition: "none",
                   }}
                 >
                   <img
                     src={`https://flagcdn.com/w80/${country.countryCode || "xx"}.png`}
                     alt=""
                     style={{
-                      width: "46px",
-                      height: "30px",
+                      width: "42px",
+                      height: "26px",
                       borderRadius: "5px",
                       objectFit: "cover",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                      border: "1px solid rgba(255,255,255,0.55)",
+                      boxShadow: "0 2px 8px rgba(15,23,42,0.24)",
                     }}
                   />
                   <span
                     style={{
                       fontSize: "0.79rem",
-                      fontWeight: 500,
-                      color: "#fff",
+                      fontWeight: 620,
+                      color: "#f8fafc",
                       textAlign: "center",
-                      lineHeight: 1.14,
-                      letterSpacing: "-0.01em",
+                      lineHeight: 1.02,
+                      letterSpacing: "0.005em",
+                      textShadow: "0 1px 0 rgba(2,6,23,0.65)",
                     }}
                   >
                     {country.name}
@@ -2897,44 +3488,64 @@ export default function App() {
                 </button>
               );
             })}
-          </div>
+            </div>
 
-          {/* Close button */}
-          <button
-            onClick={() => {
-              setIsMenuClosing(true);
-              setTimeout(() => {
-                setIsMenuOpen(false);
-                setIsMenuClosing(false);
-              }, 300);
-            }}
-            style={{
-              position: "absolute",
-              top: "1.5rem",
-              right: "2rem",
-              width: "44px",
-              height: "44px",
-              borderRadius: "50%",
-              border: "none",
-              background: "rgba(255,255,255,0.1)",
-              color: "#fff",
-              fontSize: "1.5rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "all 200ms ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.2)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.1)";
-            }}
-            aria-label="Close"
-          >
-            ×
-          </button>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                flexShrink: 0,
+                paddingRight: "0.2rem",
+                opacity: isMenuClosing ? 0 : 1,
+                transform: isMenuClosing
+                  ? "translateX(10px) translateY(8px)"
+                  : "translateX(0) translateY(0)",
+                transition: `opacity 420ms ${DOCK_SOFT_EASE}, transform 560ms ${DOCK_GENTLE_EASE}`,
+              }}
+            >
+              <button
+                onClick={() => {
+                  handleCountryHover(null);
+                  setIsDockSearchExpanded(false);
+                  setSearchTerm("");
+                  setIsMenuClosing(true);
+                  clearDockSearchTimer();
+                  setTimeout(() => {
+                    setIsMenuOpen(false);
+                    setIsMenuClosing(false);
+                  }, 300);
+                }}
+                style={{
+                  width: "46px",
+                  height: "46px",
+                  borderRadius: "50%",
+                  border: "1px solid rgba(255,255,255,0.22)",
+                  background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)",
+                  color: "#fff",
+                  fontSize: "1.45rem",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 6px 18px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.24)",
+                  transform: "translateY(0)",
+                  transition: `background 360ms ${DOCK_GENTLE_EASE}, transform 480ms ${DOCK_GENTLE_EASE}`,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.16) 100%)";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+          </div>
         </div>
       )}
         <div
@@ -2972,8 +3583,11 @@ export default function App() {
           <MapContainer
             center={COMMONWEALTH_VIEW.center}
             zoom={COMMONWEALTH_VIEW.zoom}
-            minZoom={2.2}
+            minZoom={COMMONWEALTH_MIN_ZOOM}
             maxZoom={12}
+            maxBounds={COMMONWEALTH_MAP_BOUNDS}
+            maxBoundsViscosity={0.92}
+            worldCopyJump={false}
             zoomControl={false}
             style={{ height: "100%", width: "100%", position: "relative", zIndex: 2, background: "rgba(156, 148, 122, 0)" }}
           >
@@ -3002,6 +3616,9 @@ export default function App() {
           isPanelOpen={isPanelOpen}
           onCountryHover={handleCountryHover}
         />
+        {isAttractMode && attractRouteSwoosh ? (
+          <AttractSeaRouteSwoosh route={attractRouteSwoosh} />
+        ) : null}
         </MapContainer>
 
         <div
@@ -3023,15 +3640,15 @@ export default function App() {
         onClick={(event) => event.stopPropagation()}
         style={{
           position: "absolute",
-          bottom: "2rem",
+          top: "50%",
           left: "50%",
-          transform: isPanelVisible ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(100px)",
+          transform: isPanelVisible
+            ? "translate(-50%, -50%)"
+            : "translate(-50%, calc(-50% + 90px))",
           width: "min(900px, 92vw)",
           maxHeight: "75vh",
-          background: "rgba(26, 31, 46, 0.92)",
-          backdropFilter: "blur(40px) saturate(180%)",
-          WebkitBackdropFilter: "blur(40px) saturate(180%)",
-          boxShadow: "0 32px 80px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.3)",
+          background: "linear-gradient(180deg, rgba(15, 23, 42, 0.97) 0%, rgba(2, 6, 23, 0.97) 100%)",
+          boxShadow: "0 40px 100px rgba(0, 0, 0, 0.55), 0 12px 28px rgba(0, 0, 0, 0.32)",
           borderRadius: "32px",
           opacity: isPanelVisible ? 1 : 0,
           transition: "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1)",
@@ -3040,7 +3657,7 @@ export default function App() {
           overflowX: "hidden",
           zIndex: 1000,
           color: "#fff",
-          border: "1px solid rgba(255, 255, 255, 0.1)",
+          border: "1px solid rgba(148, 163, 184, 0.34)",
         }}
       >
         {selectedCountry ? (
@@ -3063,9 +3680,8 @@ export default function App() {
                 width: "48px",
                 height: "48px",
                 borderRadius: "50%",
-                border: "none",
-                background: "rgba(255,255,255,0.15)",
-                backdropFilter: "blur(10px)",
+                border: "1px solid rgba(148, 163, 184, 0.42)",
+                background: "rgba(15, 23, 42, 0.92)",
                 color: "#fff",
                 fontSize: "1.5rem",
                 cursor: "pointer",
@@ -3074,14 +3690,14 @@ export default function App() {
                 justifyContent: "center",
                 transition: "all 200ms ease",
                 zIndex: 10,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                boxShadow: "0 6px 14px rgba(2,6,23,0.45)",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+                e.currentTarget.style.background = "rgba(30, 41, 59, 0.98)";
                 e.currentTarget.style.transform = "scale(1.1)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.15)";
+                e.currentTarget.style.background = "rgba(15, 23, 42, 0.92)";
                 e.currentTarget.style.transform = "scale(1)";
               }}
               aria-label="Close"
@@ -3229,8 +3845,9 @@ export default function App() {
                       key={item.label}
                       style={{
                         borderRadius: "16px",
-                        background: "rgba(255,255,255,0.08)",
-                        border: "1px solid rgba(255,255,255,0.1)",
+                        background: "linear-gradient(180deg, rgba(17, 24, 39, 0.9) 0%, rgba(15, 23, 42, 0.82) 100%)",
+                        border: "1px solid rgba(148, 163, 184, 0.34)",
+                        boxShadow: "inset 0 1px 0 rgba(226,232,240,0.12), 0 10px 22px rgba(2,6,23,0.34)",
                         padding: "1rem 1.25rem",
                         display: "flex",
                         flexDirection: "column",
@@ -3238,10 +3855,10 @@ export default function App() {
                       }}
                     >
                       <div style={{ marginBottom: "0.4rem", display: "flex", alignItems: "center" }}>{renderStatIcon(item.label)}</div>
-                      <div style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.5)", marginBottom: "0.3rem", fontWeight: 600 }}>
+                      <div style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(226,232,240,0.76)", marginBottom: "0.3rem", fontWeight: 700 }}>
                         {item.label}
                       </div>
-                      <div style={{ fontSize: "1.1rem", fontWeight: 600, color: "#fff" }}>{item.value}</div>
+                      <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#f8fafc", textShadow: "0 1px 0 rgba(2,6,23,0.55)" }}>{item.value}</div>
                     </div>
                   ))}
                 </div>
