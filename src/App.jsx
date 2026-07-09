@@ -231,14 +231,18 @@ const FAMILYSEARCH_COLLECTION_SETTINGS_BY_COUNTRY = {
   zambia: { region: "Zambia" },
 };
 const COMMONWEALTH_VIEW = {
-  center: [18, 20],
-  zoom: 2.8,
+  center: [22, 25],
+  zoom: 2.6,
+};
+const ATTRACT_MODE_VIEW = {
+  center: [22, 25],
+  zoom: 3.6,
 };
 const COMMONWEALTH_MAP_BOUNDS = [
   [-62, -178],
   [84, 178],
 ];
-const COMMONWEALTH_MIN_ZOOM = 2.8;
+const COMMONWEALTH_MIN_ZOOM = 2.6;
 const KIOSK_IDLE_TIMEOUT_MS = 70_000;
 const KIOSK_DOCK_SEARCH_IDLE_TIMEOUT_MS = 30_000;
 const DOCK_SOFT_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
@@ -437,6 +441,7 @@ const smallCountries = [
   "Antigua and Barbuda",
   "Barbados",
   "Dominica",
+  "Fiji",
   "Grenada",
   "Kiribati",
   "Maldives",
@@ -467,18 +472,18 @@ function findCountryByFeature(feature, commonwealthNames) {
 
   for (const name of names) {
     const normalized = normalizeName(name);
-    
+
     // Direct match
     if (commonwealthNames.has(normalized)) {
       return countries.find((c) => normalizeName(c.name) === normalized);
     }
-    
+
     // Check aliases
     const aliasMatch = countryAliases[normalized];
     if (aliasMatch) {
       return countries.find((c) => normalizeName(c.name) === aliasMatch);
     }
-    
+
     // Reverse alias check - check if any commonwealth country matches via alias
     for (const country of countries) {
       const countryNormalized = normalizeName(country.name);
@@ -838,16 +843,30 @@ function getFamilySearchCollectionsForFallback(collections = []) {
   };
 }
 
-function MapBounds() {
+function MapBounds({ isAttractMode }) {
   const map = useMap();
 
   useEffect(() => {
     // Only constrain minimum zoom to prevent zooming out too far.
     // No maxBounds — let the map feel open and premium like Apple Maps.
-    // The app controls all meaningful camera movement via flyTo.
     map.setMinZoom(COMMONWEALTH_MIN_ZOOM);
     map.options.worldCopyJump = false;
   }, [map]);
+
+  useEffect(() => {
+    if (!map) return;
+    if (isAttractMode) {
+      // Disable user zoom during the attract/idle screen — camera is scripted
+      map.scrollWheelZoom.disable();
+      map.touchZoom.disable();
+      map.doubleClickZoom.disable();
+    } else {
+      // Restore user zoom during exploration
+      map.scrollWheelZoom.enable();
+      map.touchZoom.enable();
+      map.doubleClickZoom.enable();
+    }
+  }, [map, isAttractMode]);
 
   return null;
 }
@@ -901,7 +920,7 @@ function AttractCountryPulse({ countryName, countryLayerRefs }) {
 
     const normalized = normalizeName(countryName);
     const layer = countryLayerRefs.current?.[normalized];
-    
+
     if (!layer) {
       return;
     }
@@ -921,10 +940,10 @@ function AttractCountryPulse({ countryName, countryLayerRefs }) {
       const pulse = Math.sin(progress * Math.PI * 2) * 0.5 + 0.5;
       const scale = 1 + pulse * 0.08;
       const glowIntensity = pulse * 0.4;
-      
+
       element.style.transform = `scale(${scale})`;
       element.style.filter = `drop-shadow(0 0 ${8 + pulse * 12}px rgba(241, 100, 88, ${glowIntensity}))`;
-      
+
       animationFrame = requestAnimationFrame(animate);
     };
 
@@ -948,7 +967,7 @@ function VintageMapDecorations() {
   useEffect(() => {
     // Add subtle grid lines (latitude/longitude)
     const gridLines = L.layerGroup();
-    
+
     // Latitude lines every 20 degrees
     for (let lat = -60; lat <= 80; lat += 20) {
       const line = L.polyline(
@@ -962,9 +981,9 @@ function VintageMapDecorations() {
       );
       gridLines.addLayer(line);
     }
-    
-    // Longitude lines every 20 degrees
-    for (let lng = -160; lng <= 160; lng += 20) {
+
+    // Longitude lines every 20 degrees — cover full ±180° range
+    for (let lng = -180; lng <= 180; lng += 20) {
       const line = L.polyline(
         [[-90, lng], [90, lng]],
         {
@@ -976,7 +995,7 @@ function VintageMapDecorations() {
       );
       gridLines.addLayer(line);
     }
-    
+
     gridLines.addTo(map);
 
     // Add compass rose in lower-right corner
@@ -1109,7 +1128,7 @@ function AttractSeaRouteSwoosh({ route }) {
 
       const clampedOpacity = Math.max(0, Math.min(maxLineOpacity, opacity));
       line.setStyle({ opacity: clampedOpacity });
-      glow.setStyle({ 
+      glow.setStyle({
         opacity: Math.max(0, Math.min(maxGlowOpacity, clampedOpacity * 0.92)),
         weight: glowWeight,
       });
@@ -1152,13 +1171,23 @@ function SmallCountryMarkers({
   const markersRef = useRef(null);
   const markerDataRef = useRef(new Map());
 
+  const selectedCountryRef = useRef(selectedCountry);
+  const onSelectCountryRef = useRef(onSelectCountry);
+  const onCountryHoverRef = useRef(onCountryHover);
+
+  useEffect(() => {
+    selectedCountryRef.current = selectedCountry;
+    onSelectCountryRef.current = onSelectCountry;
+    onCountryHoverRef.current = onCountryHover;
+  }, [selectedCountry, onSelectCountry, onCountryHover]);
+
   const commonwealthNames = new Set(countries.map((c) => normalizeName(c.name)));
   const hoveredCountryNormalized = normalizeName(hoveredCountry || "");
 
   // Get marker style that mirrors getCountryStyle for polygons
   const getMarkerStyle = (country, options = {}) => {
     const isSelected = Boolean(
-      country && selectedCountry?.name && country.name === selectedCountry.name
+      country && selectedCountryRef.current?.name && country.name === selectedCountryRef.current.name
     );
     const isActivatedSelected = Boolean(
       isSelected && activatedCountryName && country.name === activatedCountryName
@@ -1174,47 +1203,49 @@ function SmallCountryMarkers({
     if (isActivatedSelected) {
       const selectedColor = isPanelOpen ? "#F16458" : "#333536";
       return {
-        radius: 10,
+        radius: 5.5,
         fillColor: selectedColor,
-        color: selectedColor,
+        color: isPanelOpen ? "#F16458" : "#97d749",
         weight: 1.5,
         opacity: 1,
-        fillOpacity: 0.7,
+        fillOpacity: 0.75,
       };
     }
 
-    // Selected state
+    // Selected state — match coral when panel is open (mirrors polygon style)
     if (isSelected) {
+      const selColor = isPanelOpen ? "#F16458" : "#87B940";
+      const selBorder = isPanelOpen ? "#F16458" : "#97d749";
       return {
-        radius: 10,
-        fillColor: "#87B940",
-        color: "#87B940",
-        weight: 0.45,
+        radius: 5.5,
+        fillColor: selColor,
+        color: selBorder,
+        weight: 1.5,
         opacity: 1,
-        fillOpacity: 1,
+        fillOpacity: 0.75,
       };
     }
 
     // Hovered state
     if (isHovered) {
       return {
-        radius: 10,
+        radius: 5.5,
         fillColor: "#F16458",
         color: "#F16458",
-        weight: 0.9,
+        weight: 1.5,
         opacity: 1,
-        fillOpacity: 1,
+        fillOpacity: 0.65,
       };
     }
 
     // Default state
     return {
-      radius: 8,
+      radius: 4,
       fillColor: "#87B940",
-      color: "#87B940",
-      weight: 0.3,
-      opacity: 1,
-      fillOpacity: 1,
+      color: "#97d749",
+      weight: 1.0,
+      opacity: 0.95,
+      fillOpacity: 0.35,
     };
   };
 
@@ -1222,6 +1253,21 @@ function SmallCountryMarkers({
     if (!geojson || !map) {
       return;
     }
+
+    // Create a dedicated pane for small country markers so they render in their
+    // own SVG context and don't get caught in the main overlay pane's scale
+    // transform during flyTo animations. zIndex 455 puts them just above polygons.
+    const paneName = "small-markers-pane";
+    if (!map.getPane(paneName)) {
+      const pane = map.createPane(paneName);
+      pane.style.zIndex = "455";
+      // pointer-events must stay on the pane itself so individual markers
+      // can receive click/hover — the SVG <path> elements handle their own events
+    }
+
+    // Shared SVG renderer with 0.5-tile padding buffer — prevents markers on
+    // the edge of the visible area from vanishing during pan/zoom.
+    const renderer = L.svg({ padding: 0.5 });
 
     const markers = L.layerGroup();
     markersRef.current = markers;
@@ -1252,12 +1298,15 @@ function SmallCountryMarkers({
 
       // Create circular marker with default style
       const marker = L.circleMarker(center, {
-        radius: 8,
+        radius: 4,
         fillColor: "#87B940",
-        color: "#87B940",
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 1,
+        color: "#97d749",
+        weight: 1.0,
+        opacity: 0.95,
+        fillOpacity: 0.35,
+        className: "small-country-marker",
+        pane: paneName,
+        renderer,
       });
 
       // Store country data with marker
@@ -1268,7 +1317,7 @@ function SmallCountryMarkers({
         const element = marker.getElement();
         if (element) {
           element.style.transition =
-            `fill ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, r ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, filter ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}`;
+            `fill ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, fill-opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, filter ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}`;
         }
       };
 
@@ -1282,21 +1331,33 @@ function SmallCountryMarkers({
       });
 
       marker.on("mouseover", () => {
+        if (selectedCountryRef.current) {
+          marker.closeTooltip();
+          const element = marker.getElement();
+          if (element) {
+            element.style.cursor = "default";
+          }
+          return;
+        }
         const element = marker.getElement();
         if (element) {
           element.style.cursor = "pointer";
         }
-        onCountryHover?.(country.name);
+        onCountryHoverRef.current?.(country.name);
       });
 
       marker.on("mouseout", () => {
-        onCountryHover?.(null);
+        if (selectedCountryRef.current) return;
+        onCountryHoverRef.current?.(null);
       });
 
       marker.on("click", (event) => {
         L.DomEvent.stopPropagation(event);
-        onCountryHover?.(null);
-        onSelectCountry(country);
+        if (selectedCountryRef.current) {
+          return;
+        }
+        onCountryHoverRef.current?.(null);
+        onSelectCountryRef.current(country);
       });
 
       markers.addLayer(marker);
@@ -1308,7 +1369,7 @@ function SmallCountryMarkers({
       markers.remove();
       markerDataRef.current.clear();
     };
-  }, [geojson, map, onSelectCountry, onCountryHover]);
+  }, [geojson, map]);
 
   // Update marker styles based on state (hover, selection, etc.)
   useEffect(() => {
@@ -1359,16 +1420,6 @@ function SmallCountryMarkers({
       // Apply glow effect matching polygons
       if (element) {
         element.style.transition = `fill ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, fill-opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke-width ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, filter ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, r ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}`;
-
-        if (isAttractMode) {
-          element.style.filter = "none";
-        } else if (newState === "activated") {
-          element.style.filter = "drop-shadow(0 0 8px rgba(241, 100, 88, 0.5)) drop-shadow(0 0 16px rgba(241, 100, 88, 0.25))";
-        } else if (newState === "hovered") {
-          element.style.filter = "drop-shadow(0 0 6px rgba(241, 100, 88, 0.35)) drop-shadow(0 0 12px rgba(241, 100, 88, 0.18))";
-        } else {
-          element.style.filter = "none";
-        }
       }
     });
   }, [hoveredCountry, selectedCountry, activatedCountryName, isPanelOpen, isAttractMode, hoveredCountryNormalized]);
@@ -1384,10 +1435,9 @@ function SmallCountryMarkers({
       const showMarkers = zoom < 4.5;
 
       markersRef.current.eachLayer((layer) => {
-        if (showMarkers) {
-          layer.setStyle({ opacity: 1, fillOpacity: 1 });
-        } else {
-          layer.setStyle({ opacity: 0, fillOpacity: 0 });
+        const element = layer.getElement?.();
+        if (element) {
+          element.style.display = showMarkers ? "" : "none";
         }
       });
     };
@@ -1421,13 +1471,32 @@ function WorldGeoLayer({
   const [geojson, setGeojson] = useState(null);
   const geojsonRef = useRef(null);
 
+  const selectedCountryRef = useRef(selectedCountry);
+  const onSelectCountryRef = useRef(onSelectCountry);
+  const onCountryHoverRef = useRef(onCountryHover);
+
+  useEffect(() => {
+    selectedCountryRef.current = selectedCountry;
+    onSelectCountryRef.current = onSelectCountry;
+    onCountryHoverRef.current = onCountryHover;
+  }, [selectedCountry, onSelectCountry, onCountryHover]);
+
+  useEffect(() => {
+    if (!map) return;
+    if (selectedCountry) {
+      map.dragging.disable();
+    } else {
+      map.dragging.enable();
+    }
+  }, [map, selectedCountry]);
+
   const commonwealthNames = new Set(countries.map((c) => normalizeName(c.name)));
   const hoveredCountryNormalized = normalizeName(hoveredCountry || "");
 
   const getCountryStyle = (feature, options = {}) => {
     const country = findCountryByFeature(feature, commonwealthNames);
     const isCommonwealth = Boolean(country);
-    const isSelected = Boolean(country && selectedCountry?.name && country.name === selectedCountry.name);
+    const isSelected = Boolean(country && selectedCountryRef.current?.name && country.name === selectedCountryRef.current.name);
     const isActivatedSelected = Boolean(
       isSelected && activatedCountryName && country.name === activatedCountryName
     );
@@ -1440,54 +1509,53 @@ function WorldGeoLayer({
       const selectedColor = isPanelOpen ? "#F16458" : "#333536";
       return {
         color: selectedColor,
-        weight: 1.5,
+        weight: 1.8,
         fillColor: selectedColor,
-        fillOpacity: 0.7,
+        fillOpacity: 0.75,
         opacity: 1,
-        noClip: true,
       };
     }
 
     if (isSelected) {
+      // When the panel is open, the selected country should feel intentional and
+      // match the coral/red theme of the side card — same as activated state.
+      const selColor = isPanelOpen ? "#F16458" : "#87B940";
+      const selBorder = isPanelOpen ? "#F16458" : "#97d749";
       return {
-        color: "#87B940",
-        weight: 0.45,
-        fillColor: "#87B940",
-        fillOpacity: 1,
+        color: selBorder,
+        weight: 1.8,
+        fillColor: selColor,
+        fillOpacity: 0.75,
         opacity: 1,
-        noClip: true,
       };
     }
 
     if (isHovered) {
       return {
         color: "#F16458",
-        weight: 0.9,
+        weight: 1.5,
         fillColor: "#F16458",
-        fillOpacity: 1,
+        fillOpacity: 0.65,
         opacity: 1,
-        noClip: true,
       };
     }
 
     if (isCommonwealth) {
       return {
-        color: "#87B940",
-        weight: 0.3,
+        color: "#97d749",
+        weight: 1.0,
         fillColor: "#87B940",
-        fillOpacity: 1,
-        opacity: 1,
-        noClip: true,
+        fillOpacity: 0.35,
+        opacity: 0.95,
       };
     }
 
     return {
-      color: "#E8E5E0",
-      weight: 0.15,
-      fillColor: "#F3F1EE",
-      fillOpacity: 0.85,
-      opacity: 1,
-      noClip: true,
+      color: "rgba(255, 255, 255, 0.2)",
+      weight: 1.0,
+      fillColor: "#202738",
+      fillOpacity: 0.35,
+      opacity: 0.95,
     };
   };
 
@@ -1507,13 +1575,15 @@ function WorldGeoLayer({
               country && hoveredCountryNormalized && normalizeName(country.name) === hoveredCountryNormalized
             );
             element.style.transition = `fill ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, fill-opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke-width ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, filter ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}`;
-            
+
             if (isAttractMode) {
               element.style.filter = "none";
             } else if (isActivated) {
-              element.style.filter = "drop-shadow(0 0 8px rgba(241, 100, 88, 0.5)) drop-shadow(0 0 16px rgba(241, 100, 88, 0.25))";
+              element.style.filter = "drop-shadow(0 2px 6px rgba(0,0,0,0.45)) drop-shadow(0 0 12px rgba(241, 100, 88, 0.5))";
             } else if (isHovered) {
-              element.style.filter = "drop-shadow(0 0 6px rgba(241, 100, 88, 0.35)) drop-shadow(0 0 12px rgba(241, 100, 88, 0.18))";
+              element.style.filter = "drop-shadow(0 2px 4px rgba(0,0,0,0.3)) drop-shadow(0 0 8px rgba(241, 100, 88, 0.35))";
+            } else if (selectedCountry?.name === country.name) {
+              element.style.filter = "drop-shadow(0 2px 4px rgba(0,0,0,0.3)) drop-shadow(0 0 8px rgba(151, 215, 73, 0.5))";
             } else {
               element.style.filter = "none";
             }
@@ -1572,12 +1642,12 @@ function WorldGeoLayer({
           setGeojson(data);
           onGeojsonLoad(data);
           onGeojsonError?.("");
-          
+
           // Comprehensive GeoJSON Audit
           const auditResults = [];
           const missingFromGeoJSON = [];
           const foundInGeoJSON = [];
-          
+
           // Build a map of all GeoJSON country names for lookup
           const geojsonNameMap = new Map();
           data.features?.forEach((feature) => {
@@ -1589,7 +1659,7 @@ function WorldGeoLayer({
               props.name_long,
               props.NAME_LONG,
             ].filter(Boolean);
-            
+
             names.forEach(name => {
               const normalized = normalizeName(name);
               if (!geojsonNameMap.has(normalized)) {
@@ -1597,13 +1667,13 @@ function WorldGeoLayer({
               }
             });
           });
-          
+
           // Check each Commonwealth country
           countries.forEach(country => {
             const countryNormalized = normalizeName(country.name);
             let found = false;
             let geojsonName = "-";
-            
+
             // Check if country exists in GeoJSON
             if (geojsonNameMap.has(countryNormalized)) {
               found = true;
@@ -1616,20 +1686,20 @@ function WorldGeoLayer({
                 geojsonName = geojsonNameMap.get(aliasMatch);
               }
             }
-            
+
             auditResults.push({
               name: country.name,
               found,
               geojsonName
             });
-            
+
             if (found) {
               foundInGeoJSON.push(country.name);
             } else {
               missingFromGeoJSON.push(country.name);
             }
           });
-          
+
           // Output comprehensive report
           console.group("GeoJSON Dataset Audit Report");
           console.log("=".repeat(80));
@@ -1637,26 +1707,26 @@ function WorldGeoLayer({
           console.log(`Total countries found in GeoJSON: ${foundInGeoJSON.length}`);
           console.log(`Total countries missing from GeoJSON: ${missingFromGeoJSON.length}`);
           console.log("=".repeat(80));
-          
+
           console.log("\nDetailed Country Audit:");
           console.table(auditResults.map(r => ({
             Country: r.name,
             Found: r.found ? "Yes" : "No",
             GeoJSON_Name: r.geojsonName
           })));
-          
+
           if (missingFromGeoJSON.length > 0) {
             console.group("\n❌ Missing Countries (Not in GeoJSON):");
             missingFromGeoJSON.forEach(name => console.log(`  - ${name}`));
             console.groupEnd();
           }
-          
+
           if (foundInGeoJSON.length > 0) {
             console.group("\n✅ Found Countries (In GeoJSON):");
             foundInGeoJSON.forEach(name => console.log(`  - ${name}`));
             console.groupEnd();
           }
-          
+
           console.groupEnd();
         }
       })
@@ -1679,7 +1749,7 @@ function WorldGeoLayer({
 
   return (
     <GeoJSON
-      key={selectedCountry?.name || "default"}
+      key="world-geojson"
       ref={geojsonRef}
       data={geojson}
       style={(feature) => getCountryStyle(feature)}
@@ -1708,29 +1778,38 @@ function WorldGeoLayer({
         countryLayerRefs.current[normalized] = layer;
 
         layer.on("mouseover", () => {
+          if (selectedCountryRef.current) {
+            layer.getElement()?.style?.setProperty("cursor", "default");
+            return;
+          }
           applySoftTransition("in");
           layer.setStyle(getCountryStyle(feature, { isHovered: true }));
           layer.getElement()?.style?.setProperty("cursor", "pointer");
-          onCountryHover?.(country.name);
+          onCountryHoverRef.current?.(country.name);
         });
 
         layer.on("mouseout", () => {
+          if (selectedCountryRef.current) return;
           applySoftTransition("out");
           layer.setStyle(getCountryStyle(feature));
-          onCountryHover?.(null);
+          onCountryHoverRef.current?.(null);
         });
 
         layer.on("click", (event) => {
           event.originalEvent?.stopPropagation();
           L.DomEvent.stopPropagation(event);
 
+          if (selectedCountryRef.current) {
+            return;
+          }
+
           const country = findCountryByFeature(feature, commonwealthNames);
           if (!country) {
             return;
           }
 
-          onCountryHover?.(null);
-          onSelectCountry(country);
+          onCountryHoverRef.current?.(null);
+          onSelectCountryRef.current(country);
         });
       }}
     />
@@ -1776,6 +1855,7 @@ export default function App() {
   const [achievementUnlocked, setAchievementUnlocked] = useState(null);
   const [isVoyagerExpanded, setIsVoyagerExpanded] = useState(false);
   const [voyagerBadgeAnimToken, setVoyagerBadgeAnimToken] = useState(0);
+  const [voyagerAuraToken, setVoyagerAuraToken] = useState(0);
   const mapRef = useRef(null);
   const mapAtmosphereRef = useRef(null);
   const mapDriftStateRef = useRef({ x: 0, y: 0, scale: 1 });
@@ -1806,6 +1886,8 @@ export default function App() {
   const voyagerCompletionTimeoutRef = useRef(null);
   const visitedVoyagerCountriesRef = useRef([]);
   const achievementUnlockTimeoutRef = useRef(null);
+  const voyagerAuraIntervalRef = useRef(null);
+  const voyagerAuraTimeoutRef = useRef(null);
 
   const commonwealthCountries = [...countries].sort((a, b) => a.name.localeCompare(b.name));
   const filteredCountries = commonwealthCountries.filter((country) =>
@@ -1856,6 +1938,15 @@ export default function App() {
 
   const resetVoyagerProgress = () => {
     clearVoyagerProgressTimers();
+    // Clear aura timers
+    if (voyagerAuraIntervalRef.current) {
+      clearTimeout(voyagerAuraIntervalRef.current);
+      voyagerAuraIntervalRef.current = null;
+    }
+    if (voyagerAuraTimeoutRef.current) {
+      clearTimeout(voyagerAuraTimeoutRef.current);
+      voyagerAuraTimeoutRef.current = null;
+    }
     visitedVoyagerCountriesRef.current = [];
     setVisitedVoyagerCountries([]);
     setVoyagerNotice(null);
@@ -1884,6 +1975,15 @@ export default function App() {
   useEffect(() => {
     if (isIdleAttractMode) {
       resetVoyagerProgress();
+    }
+  }, [isIdleAttractMode]);
+
+  useEffect(() => {
+    if (isIdleAttractMode && mapRef.current) {
+      mapRef.current.flyTo(ATTRACT_MODE_VIEW.center, ATTRACT_MODE_VIEW.zoom, {
+        duration: 2.0,
+        easeLinearity: 0.15,
+      });
     }
   }, [isIdleAttractMode]);
 
@@ -2040,11 +2140,13 @@ export default function App() {
         40: "Way to go World Voyager",
         56: "You're a Golden Commonwealth Explorer"
       };
-      
+
       const reachedMilestone = milestoneCounts.find(m => nextVisitedCountries.length === m);
-      
+
       if (reachedMilestone) {
         setVoyagerBadgeAnimToken((value) => value + 1);
+        // Fire aura immediately on milestone
+        setVoyagerAuraToken((t) => t + 1);
 
         // Show achievement unlock animation
         setAchievementUnlocked({
@@ -2058,6 +2160,13 @@ export default function App() {
           setAchievementUnlocked(null);
           achievementUnlockTimeoutRef.current = null;
         }, 4000);
+      } else {
+        // Fire aura 800ms after a regular new country discovery
+        if (voyagerAuraTimeoutRef.current) clearTimeout(voyagerAuraTimeoutRef.current);
+        voyagerAuraTimeoutRef.current = window.setTimeout(() => {
+          setVoyagerAuraToken((t) => t + 1);
+          voyagerAuraTimeoutRef.current = null;
+        }, 800);
       }
 
       if (nextVisitedCountries.length >= VOYAGER_TOTAL_COUNTRIES) {
@@ -2146,6 +2255,19 @@ export default function App() {
     clearAttractPresentation();
     setIsMenuOpen(false);
     setIsMenuClosing(false);
+
+    // Fly back to the default overview so the user starts with the full map
+    if (mapRef?.current) {
+      mapRef.current.stop();
+      mapRef.current.invalidateSize();
+      mapRef.current.flyTo(COMMONWEALTH_VIEW.center, COMMONWEALTH_VIEW.zoom, {
+        duration: 1.2,
+        easeLinearity: 0.15,
+      });
+    }
+
+    // Start periodic idle aura ticks while exploring
+    scheduleVoyagerAuraIdleTick();
   };
 
   const openCountryDock = () => {
@@ -2276,160 +2398,160 @@ export default function App() {
 
     const requestPromise = (async () => {
       try {
-      let url = familySearchCollectionUrlCacheRef.current[cacheKey] || null;
-      const candidateUrls = [];
-      let genealogyFallbackCollections = null;
-      const countryTerms = getCountryMatchTerms(countryName);
+        let url = familySearchCollectionUrlCacheRef.current[cacheKey] || null;
+        const candidateUrls = [];
+        let genealogyFallbackCollections = null;
+        const countryTerms = getCountryMatchTerms(countryName);
 
-      const filterCollectionsByCountryRelevance = (collections = []) => {
-        if (!countryTerms.length) {
-          return collections;
-        }
-
-        return collections.filter((collection) => {
-          const title = (collection?.title || "").toLowerCase();
-          const link = decodeURIComponent(collection?.link || "").toLowerCase();
-          const haystack = `${title} ${link}`;
-
-          return countryTerms.some((term) => {
-            const normalizedTerm = term.toLowerCase();
-            const compactTerm = normalizedTerm.replace(/\s+/g, "");
-            const hyphenatedTerm = normalizedTerm.replace(/\s+/g, "-");
-            const underscoredTerm = normalizedTerm.replace(/\s+/g, "_");
-
-            return (
-              haystack.includes(normalizedTerm) ||
-              haystack.includes(compactTerm) ||
-              haystack.includes(hyphenatedTerm) ||
-              haystack.includes(underscoredTerm)
-            );
-          });
-        });
-      };
-
-      let locationPageText = "";
-      let locationSectionCollections = { records: [], genealogies: [] };
-
-      if (locationUrl) {
-        const locationFetchUrl = toFamilySearchFetchUrl(locationUrl);
-
-        if (locationFetchUrl) {
-          const locationResponse = await fetch(locationFetchUrl, {
-            headers: { Accept: "text/plain, text/html, */*" },
-          });
-          locationPageText = await locationResponse.text();
-          locationSectionCollections = parseFamilySearchCollectionsFromLocationPage(locationPageText);
-
-          if (locationSectionCollections.records.length > 0) {
-            familySearchCollectionsCacheRef.current[cacheKey] = locationSectionCollections.records;
-            persistFamilySearchCache();
-            return locationSectionCollections.records;
+        const filterCollectionsByCountryRelevance = (collections = []) => {
+          if (!countryTerms.length) {
+            return collections;
           }
 
-          if (locationSectionCollections.genealogies.length > 0) {
-            genealogyFallbackCollections = locationSectionCollections.genealogies;
-          }
+          return collections.filter((collection) => {
+            const title = (collection?.title || "").toLowerCase();
+            const link = decodeURIComponent(collection?.link || "").toLowerCase();
+            const haystack = `${title} ${link}`;
 
-          const genealogySeeAllUrl = parseGenealogySeeAllUrlFromLocationPage(locationPageText);
-          if (genealogySeeAllUrl) {
-            const seeAllGenealogyFallback = buildFamilySearchGenealogyFallback(countryName);
-            seeAllGenealogyFallback[0].link = genealogySeeAllUrl;
+            return countryTerms.some((term) => {
+              const normalizedTerm = term.toLowerCase();
+              const compactTerm = normalizedTerm.replace(/\s+/g, "");
+              const hyphenatedTerm = normalizedTerm.replace(/\s+/g, "-");
+              const underscoredTerm = normalizedTerm.replace(/\s+/g, "_");
 
-            if (!genealogyFallbackCollections?.length) {
-              genealogyFallbackCollections = seeAllGenealogyFallback;
+              return (
+                haystack.includes(normalizedTerm) ||
+                haystack.includes(compactTerm) ||
+                haystack.includes(hyphenatedTerm) ||
+                haystack.includes(underscoredTerm)
+              );
+            });
+          });
+        };
+
+        let locationPageText = "";
+        let locationSectionCollections = { records: [], genealogies: [] };
+
+        if (locationUrl) {
+          const locationFetchUrl = toFamilySearchFetchUrl(locationUrl);
+
+          if (locationFetchUrl) {
+            const locationResponse = await fetch(locationFetchUrl, {
+              headers: { Accept: "text/plain, text/html, */*" },
+            });
+            locationPageText = await locationResponse.text();
+            locationSectionCollections = parseFamilySearchCollectionsFromLocationPage(locationPageText);
+
+            if (locationSectionCollections.records.length > 0) {
+              familySearchCollectionsCacheRef.current[cacheKey] = locationSectionCollections.records;
+              persistFamilySearchCache();
+              return locationSectionCollections.records;
             }
-          }
 
-          const constructedGenealogyFallback = buildFamilySearchGenealogyFallback(countryName);
-          const constructedGenealogyUrl = constructedGenealogyFallback[0].link;
-          const genealogySearchFetchUrl = toFamilySearchFetchUrl(constructedGenealogyUrl);
+            if (locationSectionCollections.genealogies.length > 0) {
+              genealogyFallbackCollections = locationSectionCollections.genealogies;
+            }
 
-          if (genealogySearchFetchUrl) {
-            try {
-              const genealogySearchResponse = await fetch(genealogySearchFetchUrl, {
-                headers: { Accept: "text/plain, text/html, */*" },
-              });
-              const genealogySearchText = await genealogySearchResponse.text();
+            const genealogySeeAllUrl = parseGenealogySeeAllUrlFromLocationPage(locationPageText);
+            if (genealogySeeAllUrl) {
+              const seeAllGenealogyFallback = buildFamilySearchGenealogyFallback(countryName);
+              seeAllGenealogyFallback[0].link = genealogySeeAllUrl;
 
-              if (hasFamilySearchGenealogyResults(genealogySearchText)) {
+              if (!genealogyFallbackCollections?.length) {
+                genealogyFallbackCollections = seeAllGenealogyFallback;
+              }
+            }
+
+            const constructedGenealogyFallback = buildFamilySearchGenealogyFallback(countryName);
+            const constructedGenealogyUrl = constructedGenealogyFallback[0].link;
+            const genealogySearchFetchUrl = toFamilySearchFetchUrl(constructedGenealogyUrl);
+
+            if (genealogySearchFetchUrl) {
+              try {
+                const genealogySearchResponse = await fetch(genealogySearchFetchUrl, {
+                  headers: { Accept: "text/plain, text/html, */*" },
+                });
+                const genealogySearchText = await genealogySearchResponse.text();
+
+                if (hasFamilySearchGenealogyResults(genealogySearchText)) {
+                  if (!genealogyFallbackCollections?.length) {
+                    genealogyFallbackCollections = constructedGenealogyFallback;
+                  }
+                }
+              } catch (_) {
+                // If genealogy verification is blocked upstream, still provide the direct genealogy search link.
                 if (!genealogyFallbackCollections?.length) {
                   genealogyFallbackCollections = constructedGenealogyFallback;
                 }
               }
-            } catch (_) {
-              // If genealogy verification is blocked upstream, still provide the direct genealogy search link.
-              if (!genealogyFallbackCollections?.length) {
-                genealogyFallbackCollections = constructedGenealogyFallback;
-              }
+            }
+
+            const canonicalAbsoluteUrl = parseCanonicalCollectionsUrlFromLocationPage(locationPageText);
+
+            if (!url && canonicalAbsoluteUrl) {
+              url = canonicalAbsoluteUrl;
             }
           }
+        }
 
-          const canonicalAbsoluteUrl = parseCanonicalCollectionsUrlFromLocationPage(locationPageText);
+        if (url) {
+          candidateUrls.push(url);
+        }
 
-          if (!url && canonicalAbsoluteUrl) {
-            url = canonicalAbsoluteUrl;
+        if (!url) {
+          url = strictFallbackUrl || broadFallbackUrl;
+        }
+
+        if (strictFallbackUrl && !candidateUrls.includes(strictFallbackUrl)) {
+          candidateUrls.push(strictFallbackUrl);
+        }
+
+        if (broadFallbackUrl && !candidateUrls.includes(broadFallbackUrl)) {
+          candidateUrls.push(broadFallbackUrl);
+        }
+
+        if (!candidateUrls.length) {
+          console.log("Collection URL:", null);
+          console.log("Collections found:", 0);
+          familySearchCollectionsCacheRef.current[cacheKey] = [];
+          persistFamilySearchCache();
+          return [];
+        }
+
+        for (const candidateUrl of candidateUrls) {
+          console.log("Collection URL:", candidateUrl);
+
+          const fetchUrl = toFamilySearchFetchUrl(candidateUrl) || candidateUrl;
+
+          const response = await fetch(fetchUrl, {
+            headers: { Accept: "text/plain, text/html, */*" },
+          });
+          const pageText = await response.text();
+          let collections = parseFamilySearchCollections(pageText);
+
+          if (!strictFallbackUrl && broadFallbackUrl && candidateUrl === broadFallbackUrl) {
+            collections = filterCollectionsByCountryRelevance(collections);
+          }
+
+          console.log("Collections found:", collections.length);
+
+          if (collections.length > 0) {
+            familySearchCollectionUrlCacheRef.current[cacheKey] = candidateUrl;
+            familySearchCollectionsCacheRef.current[cacheKey] = collections;
+            persistFamilySearchCache();
+            return collections;
           }
         }
-      }
 
-      if (url) {
-        candidateUrls.push(url);
-      }
+        if (genealogyFallbackCollections?.length) {
+          familySearchCollectionsCacheRef.current[cacheKey] = genealogyFallbackCollections;
+          persistFamilySearchCache();
+          return genealogyFallbackCollections;
+        }
 
-      if (!url) {
-        url = strictFallbackUrl || broadFallbackUrl;
-      }
-
-      if (strictFallbackUrl && !candidateUrls.includes(strictFallbackUrl)) {
-        candidateUrls.push(strictFallbackUrl);
-      }
-
-      if (broadFallbackUrl && !candidateUrls.includes(broadFallbackUrl)) {
-        candidateUrls.push(broadFallbackUrl);
-      }
-
-      if (!candidateUrls.length) {
-        console.log("Collection URL:", null);
-        console.log("Collections found:", 0);
-        familySearchCollectionsCacheRef.current[cacheKey] = [];
+        delete familySearchCollectionsCacheRef.current[cacheKey];
         persistFamilySearchCache();
         return [];
-      }
-
-      for (const candidateUrl of candidateUrls) {
-        console.log("Collection URL:", candidateUrl);
-
-        const fetchUrl = toFamilySearchFetchUrl(candidateUrl) || candidateUrl;
-
-        const response = await fetch(fetchUrl, {
-          headers: { Accept: "text/plain, text/html, */*" },
-        });
-        const pageText = await response.text();
-        let collections = parseFamilySearchCollections(pageText);
-
-        if (!strictFallbackUrl && broadFallbackUrl && candidateUrl === broadFallbackUrl) {
-          collections = filterCollectionsByCountryRelevance(collections);
-        }
-
-        console.log("Collections found:", collections.length);
-
-        if (collections.length > 0) {
-          familySearchCollectionUrlCacheRef.current[cacheKey] = candidateUrl;
-          familySearchCollectionsCacheRef.current[cacheKey] = collections;
-          persistFamilySearchCache();
-          return collections;
-        }
-      }
-
-      if (genealogyFallbackCollections?.length) {
-        familySearchCollectionsCacheRef.current[cacheKey] = genealogyFallbackCollections;
-        persistFamilySearchCache();
-        return genealogyFallbackCollections;
-      }
-
-      delete familySearchCollectionsCacheRef.current[cacheKey];
-      persistFamilySearchCache();
-      return [];
       } catch (error) {
         console.error("Failed to fetch FamilySearch collections:", error);
         delete familySearchCollectionsCacheRef.current[cacheKey];
@@ -2780,18 +2902,18 @@ export default function App() {
 
   const detailItems = selectedCountry
     ? (() => {
-        const data = selectedCountry ? getCountryData(selectedCountry) : null;
-        const items = data
-          ? [
-              { label: "Capital", value: data.capital },
-              { label: "Population", value: data.population ? formatPopulation(data.population) : "Not available" },
-            ]
-          : [];
-        if (selectedCountryMetadata?.memberSince) {
-          items.push({ label: "Member Since", value: String(selectedCountryMetadata.memberSince) });
-        }
-        return items;
-      })()
+      const data = selectedCountry ? getCountryData(selectedCountry) : null;
+      const items = data
+        ? [
+          { label: "Capital", value: data.capital },
+          { label: "Population", value: data.population ? formatPopulation(data.population) : "Not available" },
+        ]
+        : [];
+      if (selectedCountryMetadata?.memberSince) {
+        items.push({ label: "Member Since", value: String(selectedCountryMetadata.memberSince) });
+      }
+      return items;
+    })()
     : [];
   const detailStatItems = detailItems.filter((item) => item.label !== "Member Since");
   const familySearchLocationUrl = selectedCountry
@@ -3213,17 +3335,17 @@ export default function App() {
     5: { // Curious Explorer - Compass
       icon: (
         <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#compassGrad)" stroke="rgba(135,185,64,0.72)" strokeWidth="1.5"/>
-          <circle cx="32" cy="32" r="22" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
-          <path d="M32 8L34.5 27.5L32 32L29.5 27.5L32 8Z" fill="rgba(255,255,255,0.95)"/>
-          <path d="M32 56L34.5 36.5L32 32L29.5 36.5L32 56Z" fill="rgba(255,255,255,0.5)"/>
-          <path d="M8 32L27.5 29.5L32 32L27.5 34.5L8 32Z" fill="rgba(255,255,255,0.5)"/>
-          <path d="M56 32L36.5 29.5L32 32L36.5 34.5L56 32Z" fill="rgba(255,255,255,0.5)"/>
-          <circle cx="32" cy="32" r="3" fill="rgba(135,185,64,0.9)"/>
+          <circle cx="32" cy="32" r="28" fill="url(#compassGrad)" stroke="rgba(135,185,64,0.72)" strokeWidth="1.5" />
+          <circle cx="32" cy="32" r="22" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
+          <path d="M32 8L34.5 27.5L32 32L29.5 27.5L32 8Z" fill="rgba(255,255,255,0.95)" />
+          <path d="M32 56L34.5 36.5L32 32L29.5 36.5L32 56Z" fill="rgba(255,255,255,0.5)" />
+          <path d="M8 32L27.5 29.5L32 32L27.5 34.5L8 32Z" fill="rgba(255,255,255,0.5)" />
+          <path d="M56 32L36.5 29.5L32 32L36.5 34.5L56 32Z" fill="rgba(255,255,255,0.5)" />
+          <circle cx="32" cy="32" r="3" fill="rgba(135,185,64,0.9)" />
           <defs>
             <linearGradient id="compassGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#87b940"/>
-              <stop offset="1" stopColor="#5f8f24"/>
+              <stop stopColor="#87b940" />
+              <stop offset="1" stopColor="#5f8f24" />
             </linearGradient>
           </defs>
         </svg>
@@ -3232,9 +3354,9 @@ export default function App() {
     10: { // Commonwealth Traveller - Ship Wheel
       icon: (
         <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#wheelGrad)" stroke="rgba(156,148,122,0.72)" strokeWidth="1.5"/>
-          <circle cx="32" cy="32" r="6" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"/>
-          <circle cx="32" cy="32" r="2" fill="rgba(255,255,255,0.8)"/>
+          <circle cx="32" cy="32" r="28" fill="url(#wheelGrad)" stroke="rgba(156,148,122,0.72)" strokeWidth="1.5" />
+          <circle cx="32" cy="32" r="6" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+          <circle cx="32" cy="32" r="2" fill="rgba(255,255,255,0.8)" />
           {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => {
             const rad = (angle * Math.PI) / 180;
             const innerR = 10;
@@ -3244,13 +3366,13 @@ export default function App() {
             const x2 = 32 + outerR * Math.sin(rad);
             const y2 = 32 - outerR * Math.cos(rad);
             return (
-              <line key={angle} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round"/>
+              <line key={angle} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" />
             );
           })}
           <defs>
             <linearGradient id="wheelGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#9c947a"/>
-              <stop offset="1" stopColor="#6f6a58"/>
+              <stop stopColor="#9c947a" />
+              <stop offset="1" stopColor="#6f6a58" />
             </linearGradient>
           </defs>
         </svg>
@@ -3259,16 +3381,16 @@ export default function App() {
     25: { // Global Navigator - Sextant
       icon: (
         <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#sextantGrad)" stroke="rgba(241,100,88,0.72)" strokeWidth="1.5"/>
-          <path d="M32 12L33.5 32L32 52L30.5 32L32 12Z" fill="rgba(255,255,255,0.3)"/>
-          <path d="M12 32L30.5 30.5L32 32L30.5 33.5L12 32Z" fill="rgba(255,255,255,0.3)"/>
-          <path d="M52 32L33.5 30.5L32 32L33.5 33.5L52 32Z" fill="rgba(255,255,255,0.3)"/>
-          <path d="M32 48C35.3137 48 38 45.3137 38 42C38 38.6863 35.3137 36 32 36C28.6863 36 26 38.6863 26 42C26 45.3137 28.6863 48 32 48Z" fill="rgba(255,255,255,0.6)"/>
-          <circle cx="32" cy="32" r="2" fill="rgba(241,100,88,0.95)"/>
+          <circle cx="32" cy="32" r="28" fill="url(#sextantGrad)" stroke="rgba(241,100,88,0.72)" strokeWidth="1.5" />
+          <path d="M32 12L33.5 32L32 52L30.5 32L32 12Z" fill="rgba(255,255,255,0.3)" />
+          <path d="M12 32L30.5 30.5L32 32L30.5 33.5L12 32Z" fill="rgba(255,255,255,0.3)" />
+          <path d="M52 32L33.5 30.5L32 32L33.5 33.5L52 32Z" fill="rgba(255,255,255,0.3)" />
+          <path d="M32 48C35.3137 48 38 45.3137 38 42C38 38.6863 35.3137 36 32 36C28.6863 36 26 38.6863 26 42C26 45.3137 28.6863 48 32 48Z" fill="rgba(255,255,255,0.6)" />
+          <circle cx="32" cy="32" r="2" fill="rgba(241,100,88,0.95)" />
           <defs>
             <linearGradient id="sextantGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#f16458"/>
-              <stop offset="1" stopColor="#c84f45"/>
+              <stop stopColor="#f16458" />
+              <stop offset="1" stopColor="#c84f45" />
             </linearGradient>
           </defs>
         </svg>
@@ -3277,22 +3399,22 @@ export default function App() {
     40: { // World Voyager - Historic Map
       icon: (
         <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#mapGrad)" stroke="rgba(39,196,244,0.72)" strokeWidth="1.5"/>
-          <rect x="16" y="16" width="32" height="32" rx="2" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/>
-          <path d="M16 24H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
-          <path d="M16 32H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
-          <path d="M16 40H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
-          <path d="M24 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
-          <path d="M32 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
-          <path d="M40 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
-          <circle cx="24" cy="24" r="2" fill="rgba(39,196,244,0.92)"/>
-          <circle cx="40" cy="32" r="2" fill="rgba(39,196,244,0.92)"/>
-          <circle cx="32" cy="40" r="2" fill="rgba(39,196,244,0.92)"/>
-          <path d="M20 44L24 40L28 44L32 40L36 44L40 40L44 44" stroke="rgba(255,255,255,0.3)" strokeWidth="0.75" fill="none"/>
+          <circle cx="32" cy="32" r="28" fill="url(#mapGrad)" stroke="rgba(39,196,244,0.72)" strokeWidth="1.5" />
+          <rect x="16" y="16" width="32" height="32" rx="2" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
+          <path d="M16 24H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
+          <path d="M16 32H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
+          <path d="M16 40H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
+          <path d="M24 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
+          <path d="M32 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
+          <path d="M40 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
+          <circle cx="24" cy="24" r="2" fill="rgba(39,196,244,0.92)" />
+          <circle cx="40" cy="32" r="2" fill="rgba(39,196,244,0.92)" />
+          <circle cx="32" cy="40" r="2" fill="rgba(39,196,244,0.92)" />
+          <path d="M20 44L24 40L28 44L32 40L36 44L40 40L44 44" stroke="rgba(255,255,255,0.3)" strokeWidth="0.75" fill="none" />
           <defs>
             <linearGradient id="mapGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#27c4f4"/>
-              <stop offset="1" stopColor="#198fb2"/>
+              <stop stopColor="#27c4f4" />
+              <stop offset="1" stopColor="#198fb2" />
             </linearGradient>
           </defs>
         </svg>
@@ -3301,23 +3423,23 @@ export default function App() {
     56: { // Golden Commonwealth Explorer - Gold Compass Rose
       icon: (
         <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#goldGrad)" stroke="rgba(153,103,153,0.84)" strokeWidth="2"/>
-          <circle cx="32" cy="32" r="24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.75"/>
-          <circle cx="32" cy="32" r="18" fill="none" stroke="rgba(255,215,0,0.3)" strokeWidth="0.5"/>
-          <path d="M32 6L35 29L32 32L29 29L32 6Z" fill="rgba(255,255,255,0.95)"/>
-          <path d="M32 58L35 35L32 32L29 35L32 58Z" fill="rgba(153,103,153,0.72)"/>
-          <path d="M6 32L29 29L32 32L29 35L6 32Z" fill="rgba(153,103,153,0.72)"/>
-          <path d="M58 32L35 29L32 32L35 35L58 32Z" fill="rgba(153,103,153,0.72)"/>
+          <circle cx="32" cy="32" r="28" fill="url(#goldGrad)" stroke="rgba(153,103,153,0.84)" strokeWidth="2" />
+          <circle cx="32" cy="32" r="24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.75" />
+          <circle cx="32" cy="32" r="18" fill="none" stroke="rgba(255,215,0,0.3)" strokeWidth="0.5" />
+          <path d="M32 6L35 29L32 32L29 29L32 6Z" fill="rgba(255,255,255,0.95)" />
+          <path d="M32 58L35 35L32 32L29 35L32 58Z" fill="rgba(153,103,153,0.72)" />
+          <path d="M6 32L29 29L32 32L29 35L6 32Z" fill="rgba(153,103,153,0.72)" />
+          <path d="M58 32L35 29L32 32L35 35L58 32Z" fill="rgba(153,103,153,0.72)" />
           <text x="32" y="4" textAnchor="middle" fontSize="5" fill="rgba(255,255,255,0.8)" fontFamily="serif" fontWeight="bold">N</text>
           <text x="32" y="62" textAnchor="middle" fontSize="5" fill="rgba(255,215,0,0.8)" fontFamily="serif" fontWeight="bold">S</text>
           <text x="4" y="34" textAnchor="middle" fontSize="5" fill="rgba(255,215,0,0.8)" fontFamily="serif" fontWeight="bold">W</text>
           <text x="60" y="34" textAnchor="middle" fontSize="5" fill="rgba(255,215,0,0.8)" fontFamily="serif" fontWeight="bold">E</text>
-          <circle cx="32" cy="32" r="2.5" fill="rgba(153,103,153,0.95)"/>
+          <circle cx="32" cy="32" r="2.5" fill="rgba(153,103,153,0.95)" />
           <defs>
             <linearGradient id="goldGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#996799"/>
-              <stop offset="0.5" stopColor="#b881b8"/>
-              <stop offset="1" stopColor="#744b74"/>
+              <stop stopColor="#996799" />
+              <stop offset="0.5" stopColor="#b881b8" />
+              <stop offset="1" stopColor="#744b74" />
             </linearGradient>
           </defs>
         </svg>
@@ -3349,7 +3471,7 @@ export default function App() {
     };
 
     const colors = badgeColors[badgeLevel];
-    
+
     return (
       <div style={{
         width: isSmall ? "32px" : "64px",
@@ -3398,6 +3520,77 @@ export default function App() {
   const getVoyagerBrandColor = (count) => {
     if (count >= 5) return "#87B940";
     return "#87B940";
+  };
+
+  // Returns a conic-gradient CSS string that reflects voyage progress.
+  // Low progress → neutral silvers/warm whites.
+  // Mid progress → silver-sage blend.
+  // High / Platinum → FamilySearch green shimmer.
+  const getVoyagerAuraGradient = (percent) => {
+    const p = Math.min(Math.max(percent, 0), 100);
+
+    if (p >= 100) {
+      // Platinum — full green with holographic shimmer
+      return `conic-gradient(from 0deg,
+        rgba(134,185,64,0) 0%,
+        rgba(175,207,104,0.9) 8%,
+        rgba(134,185,64,0.75) 22%,
+        rgba(255,255,255,0.55) 30%,
+        rgba(134,185,64,0.6) 42%,
+        rgba(175,207,104,0.85) 56%,
+        rgba(255,255,255,0.4) 64%,
+        rgba(134,185,64,0.5) 78%,
+        rgba(134,185,64,0) 100%)`;
+    }
+
+    if (p >= 50) {
+      // Mid–high: balanced greens and silvers
+      const g = `rgba(134,185,64,${0.55 + (p - 50) * 0.006})`;
+      return `conic-gradient(from 0deg,
+        rgba(187,183,177,0) 0%,
+        ${g} 10%,
+        rgba(255,255,255,0.5) 20%,
+        rgba(156,148,122,0.3) 38%,
+        ${g} 55%,
+        rgba(255,255,255,0.35) 65%,
+        rgba(187,183,177,0.2) 80%,
+        rgba(187,183,177,0) 100%)`;
+    }
+
+    if (p >= 15) {
+      // Low–mid: mostly warm silver with a hint of sage
+      return `conic-gradient(from 0deg,
+        rgba(187,183,177,0) 0%,
+        rgba(255,255,255,0.6) 8%,
+        rgba(187,183,177,0.45) 20%,
+        rgba(156,148,122,0.25) 36%,
+        rgba(175,207,104,0.35) 50%,
+        rgba(255,255,255,0.45) 62%,
+        rgba(187,183,177,0.3) 78%,
+        rgba(187,183,177,0) 100%)`;
+    }
+
+    // Very early: pure elegant silver/white
+    return `conic-gradient(from 0deg,
+      rgba(187,183,177,0) 0%,
+      rgba(255,255,255,0.7) 8%,
+      rgba(187,183,177,0.5) 22%,
+      rgba(156,148,122,0.2) 45%,
+      rgba(255,255,255,0.55) 62%,
+      rgba(187,183,177,0.35) 80%,
+      rgba(187,183,177,0) 100%)`;
+  };
+
+  // Schedules a randomised idle aura trigger (20–40 s) while exploring
+  const scheduleVoyagerAuraIdleTick = () => {
+    if (voyagerAuraIntervalRef.current) {
+      clearTimeout(voyagerAuraIntervalRef.current);
+    }
+    const delay = 20000 + Math.random() * 20000; // 20–40 s
+    voyagerAuraIntervalRef.current = window.setTimeout(() => {
+      setVoyagerAuraToken((t) => t + 1);
+      scheduleVoyagerAuraIdleTick(); // reschedule
+    }, delay);
   };
 
   const renderStatIcon = (label = "") => {
@@ -3522,29 +3715,29 @@ export default function App() {
     : null;
   const galleryItems = selectedCountry
     ? [
-        {
-          id: `${selectedCountry.name}-photo-main`,
-          type: "photo",
-          title: `${selectedCountry.name} Photo`,
-          thumbnailUrl: validatedHeroImage || selectedCountryHeroImage,
-          sourceUrl: validatedHeroImage || selectedCountryHeroImage,
-        },
-        {
-          id: `${selectedCountry.name}-photo-flag`,
-          type: "photo",
-          title: `${selectedCountry.name} Flag`,
-          thumbnailUrl: `https://flagcdn.com/w640/${selectedCountry.countryCode || "xx"}.png`,
-          sourceUrl: `https://flagcdn.com/w1280/${selectedCountry.countryCode || "xx"}.png`,
-        },
-        {
-          id: `${selectedCountry.name}-video`,
-          type: "video",
-          title: `${selectedCountry.name} Video`,
-          thumbnailUrl: `https://img.youtube.com/vi/${galleryVideoId}/hqdefault.jpg`,
-          sourceUrl: `https://www.youtube.com/watch?v=${galleryVideoId}`,
-          videoId: galleryVideoId,
-        },
-      ]
+      {
+        id: `${selectedCountry.name}-photo-main`,
+        type: "photo",
+        title: `${selectedCountry.name} Photo`,
+        thumbnailUrl: validatedHeroImage || selectedCountryHeroImage,
+        sourceUrl: validatedHeroImage || selectedCountryHeroImage,
+      },
+      {
+        id: `${selectedCountry.name}-photo-flag`,
+        type: "photo",
+        title: `${selectedCountry.name} Flag`,
+        thumbnailUrl: `https://flagcdn.com/w640/${selectedCountry.countryCode || "xx"}.png`,
+        sourceUrl: `https://flagcdn.com/w1280/${selectedCountry.countryCode || "xx"}.png`,
+      },
+      {
+        id: `${selectedCountry.name}-video`,
+        type: "video",
+        title: `${selectedCountry.name} Video`,
+        thumbnailUrl: `https://img.youtube.com/vi/${galleryVideoId}/hqdefault.jpg`,
+        sourceUrl: `https://www.youtube.com/watch?v=${galleryVideoId}`,
+        videoId: galleryVideoId,
+      },
+    ]
     : [];
   const lightboxIndex = lightboxItem
     ? galleryItems.findIndex((item) => item.id === lightboxItem.id)
@@ -3968,7 +4161,9 @@ export default function App() {
           justifyContent: "flex-start",
           pointerEvents: isAttractMode ? "auto" : "none",
           opacity: isAttractMode ? 1 : 0,
-          transition: "opacity 800ms cubic-bezier(0.22, 1, 0.36, 1)",
+          transition: isAttractMode
+            ? "opacity 800ms cubic-bezier(0.22, 1, 0.36, 1)"
+            : "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1) 150ms",
         }}
       >
         {/* Subtle left-aligned mask and general light vignette */}
@@ -4000,7 +4195,9 @@ export default function App() {
             height: "800px",
             pointerEvents: "none",
             opacity: isAttractMode ? 0.22 : 0,
-            transition: "opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1)",
+            transition: isAttractMode
+              ? "opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1)"
+              : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1)",
             zIndex: 0,
           }}
         >
@@ -4016,15 +4213,15 @@ export default function App() {
               <circle cx="400" cy="400" r="160" strokeDasharray="3,12" />
               <circle cx="400" cy="400" r="280" strokeDasharray="6,18" />
               <circle cx="400" cy="400" r="380" strokeDasharray="1,24" />
-              
+
               <line x1="400" y1="120" x2="400" y2="680" strokeDasharray="4,8" />
               <line x1="120" y1="400" x2="680" y2="400" strokeDasharray="4,8" />
-              
+
               <circle cx="400" cy="120" r="5" fill="#ffd080" style={{ filter: "drop-shadow(0 0 6px #ffd080)" }} />
               <circle cx="400" cy="680" r="4" fill="#87b940" style={{ filter: "drop-shadow(0 0 6px #87b940)" }} />
               <circle cx="120" cy="400" r="4" fill="#87b940" style={{ filter: "drop-shadow(0 0 6px #87b940)" }} />
               <circle cx="680" cy="400" r="5" fill="#ffd080" style={{ filter: "drop-shadow(0 0 6px #ffd080)" }} />
-              
+
               <circle cx="302" cy="230" r="3" fill="rgba(255,255,255,0.4)" />
               <circle cx="498" cy="570" r="3.5" fill="rgba(255,255,255,0.3)" />
               <circle cx="498" cy="230" r="4" fill="#ffd080" style={{ filter: "drop-shadow(0 0 4px #ffd080)" }} />
@@ -4056,9 +4253,11 @@ export default function App() {
             style={{
               opacity: isAttractMode ? 0.95 : 0,
               transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
-              transition: "opacity 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms, transform 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms",
+              transition: isAttractMode
+                ? "opacity 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms, transform 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms"
+                : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
               marginBottom: "2rem",
-              pointerEvents: "auto",
+              pointerEvents: isAttractMode ? "auto" : "none",
             }}
           >
             <img
@@ -4079,10 +4278,11 @@ export default function App() {
               display: "flex",
               flexDirection: "column",
               gap: "0.4rem",
-              pointerEvents: "auto",
+              pointerEvents: isAttractMode ? "auto" : "none",
             }}
           >
             <span
+              ref={attractEyebrowRef}
               style={{
                 fontFamily: "var(--heading)",
                 fontSize: "clamp(2.4rem, 4.6vw, 3.8rem)",
@@ -4091,13 +4291,16 @@ export default function App() {
                 lineHeight: 1.1,
                 letterSpacing: "-0.015em",
                 opacity: isAttractMode ? 1 : 0,
-                transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
-                transition: "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 240ms, transform 1400ms cubic-bezier(0.22, 1, 0.36, 1) 240ms",
+                transform: isAttractMode ? undefined : "translateY(16px)",
+                transition: isAttractMode
+                  ? "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 100ms"
+                  : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
               }}
             >
               One Commonwealth.
             </span>
             <span
+              ref={attractTitleRef}
               style={{
                 fontFamily: "var(--heading)",
                 fontSize: "clamp(2.4rem, 4.6vw, 3.8rem)",
@@ -4106,8 +4309,10 @@ export default function App() {
                 lineHeight: 1.1,
                 letterSpacing: "-0.015em",
                 opacity: isAttractMode ? 1 : 0,
-                transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
-                transition: "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 360ms, transform 1400ms cubic-bezier(0.22, 1, 0.36, 1) 360ms",
+                transform: isAttractMode ? undefined : "translateY(16px)",
+                transition: isAttractMode
+                  ? "opacity 1500ms cubic-bezier(0.22, 1, 0.36, 1) 240ms"
+                  : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
               }}
             >
               Millions of Stories.
@@ -4116,6 +4321,7 @@ export default function App() {
 
           {/* Body Copy */}
           <p
+            ref={attractSubRef}
             style={{
               fontFamily: "var(--sans)",
               fontSize: "clamp(1.05rem, 1.8vw, 1.25rem)",
@@ -4125,9 +4331,11 @@ export default function App() {
               maxWidth: "460px",
               margin: "1.8rem 0 2.5rem 0",
               opacity: isAttractMode ? 1 : 0,
-              transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
-              transition: "opacity 1600ms cubic-bezier(0.22, 1, 0.36, 1) 480ms, transform 1600ms cubic-bezier(0.22, 1, 0.36, 1) 480ms",
-              pointerEvents: "auto",
+              transform: isAttractMode ? undefined : "translateY(16px)",
+              transition: isAttractMode
+                ? "opacity 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms"
+                : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
+              pointerEvents: isAttractMode ? "auto" : "none",
             }}
           >
             Explore 56 nations and discover the people, connections and records that unite them.
@@ -4138,8 +4346,10 @@ export default function App() {
             style={{
               opacity: isAttractMode ? 1 : 0,
               transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
-              transition: "opacity 1800ms cubic-bezier(0.22, 1, 0.36, 1) 600ms, transform 1800ms cubic-bezier(0.22, 1, 0.36, 1) 600ms",
-              pointerEvents: "auto",
+              transition: isAttractMode
+                ? "opacity 1800ms cubic-bezier(0.22, 1, 0.36, 1) 600ms, transform 1800ms cubic-bezier(0.22, 1, 0.36, 1) 600ms"
+                : "opacity 350ms cubic-bezier(0.25, 1, 0.5, 1), transform 350ms cubic-bezier(0.25, 1, 0.5, 1)",
+              pointerEvents: isAttractMode ? "auto" : "none",
             }}
           >
             <button
@@ -4203,8 +4413,10 @@ export default function App() {
               marginBottom: "1rem",
               opacity: isAttractMode ? 1 : 0,
               transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
-              transition: "opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1) 720ms, transform 2000ms cubic-bezier(0.22, 1, 0.36, 1) 720ms",
-              pointerEvents: "auto",
+              transition: isAttractMode
+                ? "opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1) 720ms, transform 2000ms cubic-bezier(0.22, 1, 0.36, 1) 720ms"
+                : "opacity 300ms cubic-bezier(0.25, 1, 0.5, 1), transform 300ms cubic-bezier(0.25, 1, 0.5, 1)",
+              pointerEvents: isAttractMode ? "auto" : "none",
             }}
           >
             <div>
@@ -4236,7 +4448,9 @@ export default function App() {
             gap: "6px",
             opacity: isAttractMode && attractActiveJourney ? 0.85 : 0,
             transform: isAttractMode && attractActiveJourney ? "translateY(0)" : "translateY(16px)",
-            transition: "opacity 1000ms cubic-bezier(0.22, 1, 0.36, 1), transform 1000ms cubic-bezier(0.22, 1, 0.36, 1)",
+            transition: isAttractMode
+              ? "opacity 1000ms cubic-bezier(0.22, 1, 0.36, 1), transform 1000ms cubic-bezier(0.22, 1, 0.36, 1)"
+              : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
             pointerEvents: "none",
             zIndex: 10,
           }}
@@ -4286,8 +4500,8 @@ export default function App() {
           if (!node) return;
           const lift = ctaLiftRef.current;
           const press = ctaPressAmountRef.current;
-          const ty = -2 * lift;
-          const scale = (1 + 0.01 * lift) * (1 - 0.045 * press);
+          const ty = -3 * lift;
+          const scale = (1 + 0.04 * lift) * (1 - 0.06 * press);
           node.style.transform = `translateX(-50%) ${baseExploreTransform} translateY(${ty.toFixed(2)}px) scale(${scale.toFixed(4)})`;
         };
 
@@ -4309,6 +4523,7 @@ export default function App() {
         return (
           <button
             className={`explore-cta-button ${isExploreButtonVisible ? "explore-cta-visible" : "explore-cta-hidden"}${isAttractMode ? " explore-cta-button-attract" : ""}`}
+            aria-label={isAttractMode ? undefined : "Explore by Country"}
             onClick={(event) => {
               event.stopPropagation();
               handleExploreCommonwealthPress();
@@ -4373,11 +4588,16 @@ export default function App() {
               position: "fixed",
               left: "50%",
               top: isAttractMode ? "72%" : "auto",
-              bottom: isAttractMode ? "auto" : "1.2rem",
+              bottom: isAttractMode ? "auto" : "2.2rem",
               transform: `translateX(-50%) ${baseExploreTransform}`,
               zIndex: 910,
-              padding: isAttractMode ? "1rem 2rem" : "0.9rem 1.7rem",
-              borderRadius: "999px",
+              width: isAttractMode ? "auto" : "48px",
+              height: isAttractMode ? "auto" : "48px",
+              padding: isAttractMode ? "1rem 2rem" : "0",
+              borderRadius: isAttractMode ? "999px" : "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               border: "1px solid rgba(255,255,255,0.3)",
               background: "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.26) 100%)",
               backdropFilter: "blur(28px) saturate(200%)",
@@ -4406,17 +4626,17 @@ export default function App() {
               style={{
                 position: "absolute",
                 inset: 0,
-                borderRadius: "999px",
+                borderRadius: isAttractMode ? "999px" : "50%",
                 background: "radial-gradient(circle at 45% 35%, rgba(0,0,0,0.24) 0%, rgba(0,0,0,0.08) 58%, rgba(0,0,0,0.01) 100%)",
                 pointerEvents: "none",
                 zIndex: 0,
               }}
             />
-            <span className="explore-cta-rim" aria-hidden="true" />
+            <span className="explore-cta-rim" aria-hidden="true" style={{ borderRadius: isAttractMode ? "999px" : "50%" }} />
             <span className="explore-cta-sheen" aria-hidden="true" />
-            <span style={{ position: "relative", zIndex: 2, display: "inline-flex", alignItems: "center", gap: "0.52rem" }}>
-              {renderGlobeIcon(isAttractMode ? 18 : 16)}
-              <span>{exploreButtonLabel}</span>
+            <span style={{ position: "relative", zIndex: 2, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              {renderGlobeIcon(isAttractMode ? 18 : 20)}
+              {isAttractMode && <span>{exploreButtonLabel}</span>}
             </span>
           </button>
         );
@@ -4469,29 +4689,29 @@ export default function App() {
 
       {/* VOYAGER PROGRESS - Top right corner */}
       {!isAttractMode ? (
-      <div
-        onClick={() => setIsVoyagerExpanded((value) => !value)}
-        style={{
-          position: "fixed",
-          top: "1.5rem",
-          right: "1.5rem",
-          zIndex: 820,
-          width: isVoyagerExpanded ? "min(320px, calc(100vw - 3rem))" : "auto",
-          padding: isVoyagerExpanded ? "1rem 1.1rem 0.9rem" : "0.58rem 0.95rem",
-          borderRadius: isVoyagerExpanded ? "22px" : "999px",
-          border: "1px solid rgba(255,255,255,0.52)",
-          background: "linear-gradient(180deg, rgba(255,255,255,0.68) 0%, rgba(255,255,255,0.5) 100%)",
-          backdropFilter: "blur(28px) saturate(200%)",
-          WebkitBackdropFilter: "blur(28px) saturate(200%)",
-          boxShadow: "0 14px 30px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.65)",
-          color: "rgba(15,23,42,0.94)",
-          pointerEvents: "auto",
-          overflow: "hidden",
-          isolation: "isolate",
-          cursor: "pointer",
-          transition: "all 500ms cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
-      >
+        <div
+          onClick={() => setIsVoyagerExpanded((value) => !value)}
+          style={{
+            position: "fixed",
+            top: "1.5rem",
+            right: "1.5rem",
+            zIndex: 820,
+            width: isVoyagerExpanded ? "min(320px, calc(100vw - 3rem))" : "auto",
+            padding: isVoyagerExpanded ? "1rem 1.1rem 0.9rem" : "0.58rem 0.95rem",
+            borderRadius: isVoyagerExpanded ? "22px" : "999px",
+            border: "1px solid rgba(255,255,255,0.52)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.68) 0%, rgba(255,255,255,0.5) 100%)",
+            backdropFilter: "blur(28px) saturate(200%)",
+            WebkitBackdropFilter: "blur(28px) saturate(200%)",
+            boxShadow: "0 14px 30px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.65)",
+            color: "rgba(15,23,42,0.94)",
+            pointerEvents: "auto",
+            overflow: "hidden",
+            isolation: "isolate",
+            cursor: "pointer",
+            transition: "all 500ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
           {/* Subtle dark internal underlay for readability over bright backgrounds */}
           <div
             style={{
@@ -4502,15 +4722,25 @@ export default function App() {
               pointerEvents: "none",
             }}
           />
-          
+
+          {/* Progress aura ring — replays animation on every token change */}
+          <div
+            key={`voyager-aura-${voyagerAuraToken}`}
+            className={`voyager-aura-ring${voyagerAuraToken > 0 ? (voyagerProgressPercent >= 100 ? " aura-platinum" : " aura-active") : ""}`}
+            style={{
+              "--aura-gradient": getVoyagerAuraGradient(voyagerProgressPercent),
+              borderRadius: isVoyagerExpanded ? "22px" : "999px",
+            }}
+          />
+
           {isVoyagerExpanded ? (
             <>
               {/* Badge Icon */}
-              <div style={{ 
-                position: "relative", 
-                zIndex: 1, 
-                display: "flex", 
-                alignItems: "center", 
+              <div style={{
+                position: "relative",
+                zIndex: 1,
+                display: "flex",
+                alignItems: "center",
                 justifyContent: "center",
                 marginBottom: "0.6rem"
               }}>
@@ -4521,42 +4751,42 @@ export default function App() {
                   {renderVoyagerBadge(voyagerProgressCount, "full", true)}
                 </div>
               </div>
-              
+
               {/* Title */}
-              <div style={{ 
-                position: "relative", 
-                zIndex: 1, 
-                fontSize: "0.68rem", 
-                letterSpacing: "0.22em", 
-                textTransform: "uppercase", 
-                color: "rgba(15,23,42,0.82)", 
-                fontWeight: 700, 
+              <div style={{
+                position: "relative",
+                zIndex: 1,
+                fontSize: "0.68rem",
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "rgba(15,23,42,0.82)",
+                fontWeight: 700,
                 textAlign: "center",
-                textShadow: "none" 
+                textShadow: "none"
               }}>
                 {voyagerProgressCount >= 5 ? voyagerProgressTitle : "Commonwealth Explorer"}
               </div>
-              
+
               {/* Progress Count */}
-              <div style={{ 
-                marginTop: "0.5rem", 
+              <div style={{
+                marginTop: "0.5rem",
                 textAlign: "center",
-                position: "relative", 
+                position: "relative",
                 zIndex: 1,
-                fontSize: "1.1rem", 
-                fontWeight: 650, 
+                fontSize: "1.1rem",
+                fontWeight: 650,
                 letterSpacing: "-0.02em",
                 color: "rgba(15,23,42,0.92)",
-                textShadow: "none" 
+                textShadow: "none"
               }}>
                 {voyagerProgressCount} / {VOYAGER_TOTAL_COUNTRIES}
               </div>
-              
+
               {/* Milestone Progress Bar */}
-              <div style={{ 
+              <div style={{
                 marginTop: "0.75rem",
                 position: "relative",
-                zIndex: 1 
+                zIndex: 1
               }}>
                 {/* Progress track */}
                 <div style={{
@@ -4576,9 +4806,9 @@ export default function App() {
                     boxShadow: `0 0 8px ${getVoyagerBrandColor(voyagerProgressCount)}66`
                   }} />
                 </div>
-                
+
                 {/* Milestone markers */}
-                <div style={{ 
+                <div style={{
                   position: "relative",
                   marginTop: "0.4rem",
                   height: "18px",
@@ -4591,7 +4821,7 @@ export default function App() {
                     { count: 56, label: "56" }
                   ].map((milestone) => {
                     const isReached = voyagerProgressCount >= milestone.count;
-                    
+
                     return (
                       <div
                         key={milestone.count}
@@ -4701,7 +4931,7 @@ export default function App() {
             bottom: "1.1rem",
             left: "50%",
             transform: isDockTransitioning
-              ? "translateX(-50%) translateY(18px) scale(0.995)"
+              ? "translateX(-50%) translateY(24px) scale(0.985)"
               : "translateX(-50%) translateY(0) scale(1)",
             width: "min(1360px, 98vw)",
             zIndex: 900,
@@ -4713,7 +4943,7 @@ export default function App() {
             borderRadius: "30px",
             boxShadow: "0 20px 44px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.32)",
             opacity: isDockTransitioning ? 0 : 1,
-            transition: `opacity ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}, transform ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}`,
+            transition: `opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1)`,
           }}
         >
           <div
@@ -4729,89 +4959,89 @@ export default function App() {
               transition: `opacity 420ms ${DOCK_SOFT_EASE}, transform 520ms ${DOCK_GENTLE_EASE}, max-height 520ms ${DOCK_GENTLE_EASE}, margin 520ms ${DOCK_GENTLE_EASE}`,
             }}
           >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{
-                  position: "absolute",
-                  left: "1.25rem",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "rgba(255,255,255,0.5)",
-                  pointerEvents: "none",
-                }}
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
-              <input
-                value={searchTerm}
-                onChange={(event) => {
-                  setSearchTerm(event.target.value);
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                position: "absolute",
+                left: "1.25rem",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "rgba(255,255,255,0.5)",
+                pointerEvents: "none",
+              }}
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              value={searchTerm}
+              onChange={(event) => {
+                setSearchTerm(event.target.value);
+                markDockInteraction();
+              }}
+              onFocus={markDockInteraction}
+              onKeyDown={markDockInteraction}
+              placeholder="Search countries..."
+              style={{
+                width: "100%",
+                border: "1px solid rgba(255,255,255,0.22)",
+                borderRadius: "100px",
+                padding: "1rem 1.25rem 1rem 3.5rem",
+                fontSize: "1.1rem",
+                color: "#fff",
+                background: "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.12) 100%)",
+                outline: "none",
+                boxSizing: "border-box",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.24), 0 6px 18px rgba(0,0,0,0.18)",
+                fontWeight: 400,
+                letterSpacing: "-0.01em",
+                transition: "background 200ms ease",
+              }}
+              onFocusCapture={(e) => {
+                e.target.style.background = "linear-gradient(180deg, rgba(255,255,255,0.31) 0%, rgba(255,255,255,0.16) 100%)";
+              }}
+              onBlur={(e) => {
+                e.target.style.background = "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.12) 100%)";
+              }}
+            />
+            {searchTerm ? (
+              <button
+                onClick={() => {
+                  setSearchTerm("");
                   markDockInteraction();
                 }}
-                onFocus={markDockInteraction}
-                onKeyDown={markDockInteraction}
-                placeholder="Search countries..."
                 style={{
-                  width: "100%",
-                  border: "1px solid rgba(255,255,255,0.22)",
-                  borderRadius: "100px",
-                  padding: "1rem 1.25rem 1rem 3.5rem",
-                  fontSize: "1.1rem",
+                  position: "absolute",
+                  right: "1rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  border: "none",
+                  background: "rgba(255,255,255,0.2)",
                   color: "#fff",
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.12) 100%)",
-                  outline: "none",
-                  boxSizing: "border-box",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.24), 0 6px 18px rgba(0,0,0,0.18)",
-                  fontWeight: 400,
-                  letterSpacing: "-0.01em",
-                  transition: "background 200ms ease",
+                  fontSize: "1rem",
+                  cursor: "pointer",
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  lineHeight: 1,
+                  padding: 0,
                 }}
-                onFocusCapture={(e) => {
-                  e.target.style.background = "linear-gradient(180deg, rgba(255,255,255,0.31) 0%, rgba(255,255,255,0.16) 100%)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.background = "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.12) 100%)";
-                }}
-              />
-              {searchTerm ? (
-                <button
-                  onClick={() => {
-                    setSearchTerm("");
-                    markDockInteraction();
-                  }}
-                  style={{
-                    position: "absolute",
-                    right: "1rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    border: "none",
-                    background: "rgba(255,255,255,0.2)",
-                    color: "#fff",
-                    fontSize: "1rem",
-                    cursor: "pointer",
-                    width: "28px",
-                    height: "28px",
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    lineHeight: 1,
-                    padding: 0,
-                  }}
-                  aria-label="Clear search"
-                >
-                  ×
-                </button>
-              ) : null}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            ) : null}
           </div>
 
           <div
@@ -4828,11 +5058,6 @@ export default function App() {
                 gap: "0.45rem",
                 flexShrink: 0,
                 paddingLeft: "0.2rem",
-                opacity: isDockTransitioning ? 0 : 1,
-                transform: isDockTransitioning
-                  ? "translateX(-10px) translateY(8px)"
-                  : "translateX(0) translateY(0)",
-                transition: `opacity 420ms ${DOCK_SOFT_EASE}, transform 560ms ${DOCK_GENTLE_EASE}`,
               }}
             >
               <button
@@ -4900,8 +5125,7 @@ export default function App() {
                 alignSelf: "center",
                 background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.34) 20%, rgba(255,255,255,0.34) 80%, rgba(255,255,255,0.06) 100%)",
                 boxShadow: "0 0 0 1px rgba(255,255,255,0.06)",
-                opacity: isDockTransitioning ? 0 : 0.9,
-                transition: `opacity 420ms ${DOCK_SOFT_EASE}`,
+                opacity: 0.9,
                 flexShrink: 0,
               }}
             />
@@ -4920,96 +5144,96 @@ export default function App() {
                 WebkitOverflowScrolling: "touch",
               }}
             >
-            {filteredCountries.map((country) => {
-              const isActive = selectedCountry?.name === country.name;
-              return (
-                <button
-                  key={country.name}
-                  onClick={() => {
-                    markDockInteraction();
-                    handleSelectCountry(country);
-                    setIsDockSearchExpanded(false);
-                    setSearchTerm("");
-                  }}
-                  onPointerEnter={() => {
-                    markDockInteraction();
-                    handleCountryHover(country.name);
-                  }}
-                  onPointerLeave={() => {
-                    handleCountryHover(null);
-                  }}
-                  onPointerCancel={() => {
-                    handleCountryHover(null);
-                  }}
-                  onPointerDown={() => {
-                    markDockInteraction();
-                    handleCountryHover(country.name);
-                  }}
-                  style={{
-                    flex: "0 0 auto",
-                    width: "124px",
-                    minHeight: "68px",
-                    padding: "0.4rem 0.62rem 0.28rem",
-                    borderRadius: "16px",
-                    background: isActive
-                      ? "linear-gradient(180deg, rgba(222, 248, 170, 0.4) 0%, rgba(255,255,255,0.26) 36%, rgba(186, 230, 96, 0.26) 100%)"
-                      : "linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 100%)",
-                    border: isActive ? "1px solid rgba(214, 255, 163, 0.9)" : "1px solid rgba(255,255,255,0.34)",
-                    boxShadow: isActive
-                      ? "0 10px 20px rgba(68, 95, 33, 0.24), inset 0 1px 0 rgba(255,255,255,0.56), inset 0 -8px 18px rgba(190, 242, 100, 0.18)"
-                      : "0 10px 20px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46), inset 0 -8px 18px rgba(147, 197, 253, 0.12)",
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "0.1rem",
-                    scrollSnapAlign: "start",
-                    transform: isActive ? "translateY(-2px) scale(1.02)" : "translateY(0) scale(1)",
-                    transition: "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1), background 280ms cubic-bezier(0.22, 1, 0.36, 1), border 280ms cubic-bezier(0.22, 1, 0.36, 1)",
-                    willChange: "transform",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.transform = "translateY(-3px) scale(1.03)";
-                      e.currentTarget.style.boxShadow = "0 14px 28px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.56), inset 0 -8px 18px rgba(147, 197, 253, 0.18)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.transform = "translateY(0) scale(1)";
-                      e.currentTarget.style.boxShadow = "0 10px 20px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46), inset 0 -8px 18px rgba(147, 197, 253, 0.12)";
-                    }
-                  }}
-                >
-                  <img
-                    src={`https://flagcdn.com/w80/${country.countryCode || "xx"}.png`}
-                    alt=""
-                    style={{
-                      width: "42px",
-                      height: "26px",
-                      borderRadius: "5px",
-                      objectFit: "cover",
-                      border: "1px solid rgba(255,255,255,0.55)",
-                      boxShadow: "0 2px 8px rgba(15,23,42,0.24)",
+              {filteredCountries.map((country) => {
+                const isActive = selectedCountry?.name === country.name;
+                return (
+                  <button
+                    key={country.name}
+                    onClick={() => {
+                      markDockInteraction();
+                      handleSelectCountry(country);
+                      setIsDockSearchExpanded(false);
+                      setSearchTerm("");
                     }}
-                  />
-                  <span
+                    onPointerEnter={() => {
+                      markDockInteraction();
+                      handleCountryHover(country.name);
+                    }}
+                    onPointerLeave={() => {
+                      handleCountryHover(null);
+                    }}
+                    onPointerCancel={() => {
+                      handleCountryHover(null);
+                    }}
+                    onPointerDown={() => {
+                      markDockInteraction();
+                      handleCountryHover(country.name);
+                    }}
                     style={{
-                      fontSize: "0.79rem",
-                      fontWeight: 620,
-                      color: "#f8fafc",
-                      textAlign: "center",
-                      lineHeight: 1.02,
-                      letterSpacing: "0.005em",
-                      textShadow: "0 1px 0 rgba(2,6,23,0.65)",
+                      flex: "0 0 auto",
+                      width: "124px",
+                      minHeight: "68px",
+                      padding: "0.4rem 0.62rem 0.28rem",
+                      borderRadius: "16px",
+                      background: isActive
+                        ? "linear-gradient(180deg, rgba(222, 248, 170, 0.4) 0%, rgba(255,255,255,0.26) 36%, rgba(186, 230, 96, 0.26) 100%)"
+                        : "linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 100%)",
+                      border: isActive ? "1px solid rgba(214, 255, 163, 0.9)" : "1px solid rgba(255,255,255,0.34)",
+                      boxShadow: isActive
+                        ? "0 10px 20px rgba(68, 95, 33, 0.24), inset 0 1px 0 rgba(255,255,255,0.56), inset 0 -8px 18px rgba(190, 242, 100, 0.18)"
+                        : "0 10px 20px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46), inset 0 -8px 18px rgba(147, 197, 253, 0.12)",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.1rem",
+                      scrollSnapAlign: "start",
+                      transform: isActive ? "translateY(-2px) scale(1.02)" : "translateY(0) scale(1)",
+                      transition: "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1), background 280ms cubic-bezier(0.22, 1, 0.36, 1), border 280ms cubic-bezier(0.22, 1, 0.36, 1)",
+                      willChange: "transform",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.transform = "translateY(-3px) scale(1.03)";
+                        e.currentTarget.style.boxShadow = "0 14px 28px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.56), inset 0 -8px 18px rgba(147, 197, 253, 0.18)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.transform = "translateY(0) scale(1)";
+                        e.currentTarget.style.boxShadow = "0 10px 20px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46), inset 0 -8px 18px rgba(147, 197, 253, 0.12)";
+                      }
                     }}
                   >
-                    {country.name}
-                  </span>
-                </button>
-              );
-            })}
+                    <img
+                      src={`https://flagcdn.com/w80/${country.countryCode || "xx"}.png`}
+                      alt=""
+                      style={{
+                        width: "42px",
+                        height: "26px",
+                        borderRadius: "5px",
+                        objectFit: "cover",
+                        border: "1px solid rgba(255,255,255,0.55)",
+                        boxShadow: "0 2px 8px rgba(15,23,42,0.24)",
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: "0.79rem",
+                        fontWeight: 620,
+                        color: "#f8fafc",
+                        textAlign: "center",
+                        lineHeight: 1.02,
+                        letterSpacing: "0.005em",
+                        textShadow: "0 1px 0 rgba(2,6,23,0.65)",
+                      }}
+                    >
+                      {country.name}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             <div
@@ -5020,8 +5244,7 @@ export default function App() {
                 alignSelf: "center",
                 background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.34) 20%, rgba(255,255,255,0.34) 80%, rgba(255,255,255,0.06) 100%)",
                 boxShadow: "0 0 0 1px rgba(255,255,255,0.06)",
-                opacity: isDockTransitioning ? 0 : 0.9,
-                transition: `opacity 420ms ${DOCK_SOFT_EASE}`,
+                opacity: 0.9,
                 flexShrink: 0,
               }}
             />
@@ -5033,11 +5256,6 @@ export default function App() {
                 gap: "0.45rem",
                 flexShrink: 0,
                 paddingRight: "0.2rem",
-                opacity: isDockTransitioning ? 0 : 1,
-                transform: isDockTransitioning
-                  ? "translateX(6px) translateY(6px)"
-                  : "translateX(0) translateY(0)",
-                transition: `opacity 380ms cubic-bezier(0.4, 0, 0.2, 1), transform 380ms cubic-bezier(0.4, 0, 0.2, 1)`,
               }}
             >
               <button
@@ -5084,90 +5302,90 @@ export default function App() {
           </div>
         </div>
       )}
+      <div
+        ref={mapAtmosphereRef}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          boxSizing: "border-box",
+          overflow: "hidden",
+          transformOrigin: "50% 50%",
+          willChange: "transform",
+        }}
+      >
         <div
-          ref={mapAtmosphereRef}
           style={{
             position: "absolute",
             inset: 0,
             width: "100%",
             height: "100%",
-            boxSizing: "border-box",
-            overflow: "hidden",
-            transformOrigin: "50% 50%",
-            willChange: "transform",
+            backgroundColor: "#202738",
+            pointerEvents: "none",
+            zIndex: 0,
           }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            background: "rgba(156, 148, 122, 0.12)",
+            mixBlendMode: "overlay",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        />
+        <MapContainer
+          center={ATTRACT_MODE_VIEW.center}
+          zoom={ATTRACT_MODE_VIEW.zoom}
+          minZoom={COMMONWEALTH_MIN_ZOOM}
+          maxZoom={12}
+          worldCopyJump={false}
+          zoomControl={false}
+          scrollWheelZoom={true}
+          touchZoom={true}
+          doubleClickZoom={true}
+          dragging={true}
+          style={{ height: "100%", width: "100%", position: "relative", zIndex: 2, background: "#202738" }}
         >
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              backgroundColor: "rgba(156, 148, 122, 0.08)",
-              pointerEvents: "none",
-              zIndex: 0,
-            }}
+          <MapArtOverlay imageUrl={MAP_BACKGROUND_ART_URL} opacity={0.28} />
+          <MapBounds isAttractMode={isAttractMode} />
+          <VintageMapDecorations />
+          <WorldGeoLayer
+            onSelectCountry={handleSelectCountry}
+            onBackgroundClick={handleReset}
+            mapRef={mapRef}
+            selectedCountry={selectedCountry}
+            activatedCountryName={activatedCountryName}
+            isPanelOpen={isPanelOpen}
+            isAttractMode={isAttractMode}
+            hoveredCountry={hoveredCountry}
+            onCountryHover={handleCountryHover}
+            countryLayerRefs={countryLayerRefs}
+            onGeojsonLoad={handleGeojsonLoad}
+            onGeojsonError={handleGeojsonError}
           />
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              background: "rgba(156, 148, 122, 0.3)",
-              mixBlendMode: "multiply",
-              pointerEvents: "none",
-              zIndex: 1,
-            }}
+          <SmallCountryMarkers
+            geojson={geojson}
+            onSelectCountry={handleSelectCountry}
+            selectedCountry={selectedCountry}
+            hoveredCountry={hoveredCountry}
+            activatedCountryName={activatedCountryName}
+            isPanelOpen={isPanelOpen}
+            isAttractMode={isAttractMode}
+            onCountryHover={handleCountryHover}
           />
-          <MapContainer
-            center={COMMONWEALTH_VIEW.center}
-            zoom={COMMONWEALTH_VIEW.zoom}
-            minZoom={COMMONWEALTH_MIN_ZOOM}
-            maxZoom={12}
-            worldCopyJump={false}
-            zoomControl={false}
-            scrollWheelZoom={false}
-            touchZoom={false}
-            doubleClickZoom={false}
-            dragging={true}
-            style={{ height: "100%", width: "100%", position: "relative", zIndex: 2, background: "rgba(156, 148, 122, 0)" }}
-          >
-        <MapArtOverlay imageUrl={MAP_BACKGROUND_ART_URL} opacity={0.28} />
-        <MapBounds />
-        <VintageMapDecorations />
-        <WorldGeoLayer
-          onSelectCountry={handleSelectCountry}
-          onBackgroundClick={handleReset}
-          mapRef={mapRef}
-          selectedCountry={selectedCountry}
-          activatedCountryName={activatedCountryName}
-          isPanelOpen={isPanelOpen}
-          isAttractMode={isAttractMode}
-          hoveredCountry={hoveredCountry}
-          onCountryHover={handleCountryHover}
-          countryLayerRefs={countryLayerRefs}
-          onGeojsonLoad={handleGeojsonLoad}
-          onGeojsonError={handleGeojsonError}
-        />
-        <SmallCountryMarkers
-          geojson={geojson}
-          onSelectCountry={handleSelectCountry}
-          selectedCountry={selectedCountry}
-          hoveredCountry={hoveredCountry}
-          activatedCountryName={activatedCountryName}
-          isPanelOpen={isPanelOpen}
-          isAttractMode={isAttractMode}
-          onCountryHover={handleCountryHover}
-        />
-        {isAttractMode
-          ? attractRouteSwooshes.map((route) => (
+          {isAttractMode
+            ? attractRouteSwooshes.map((route) => (
               <AttractSeaRouteSwoosh key={route.id} route={route} />
             ))
-          : null}
-        {isAttractMode && attractHeroRoute ? (
-          <AttractSeaRouteSwoosh key={attractHeroRoute.id} route={attractHeroRoute} />
-        ) : null}
+            : null}
+          {isAttractMode && attractHeroRoute ? (
+            <AttractSeaRouteSwoosh key={attractHeroRoute.id} route={attractHeroRoute} />
+          ) : null}
         </MapContainer>
 
         {!geojson ? (
@@ -5378,12 +5596,12 @@ export default function App() {
                       fontWeight: 500,
                     }}
                   >
-                    Image by {selectedCountry.imageSource === "wikipedia" ? "Wikipedia" : 
-                             selectedCountry.imageSource === "wikimedia-commons" ? "Wikimedia" :
-                             selectedCountry.imageSource === "unsplash" ? "Unsplash" :
-                             selectedCountry.imageSource === "pexels" ? "Pexels" :
-                             selectedCountry.imageSource === "pixabay" ? "Pixabay" :
-                             selectedCountry.imageSource}
+                    Image by {selectedCountry.imageSource === "wikipedia" ? "Wikipedia" :
+                      selectedCountry.imageSource === "wikimedia-commons" ? "Wikimedia" :
+                        selectedCountry.imageSource === "unsplash" ? "Unsplash" :
+                          selectedCountry.imageSource === "pexels" ? "Pexels" :
+                            selectedCountry.imageSource === "pixabay" ? "Pixabay" :
+                              selectedCountry.imageSource}
                   </span>
                 </div>
               )}
@@ -5400,29 +5618,29 @@ export default function App() {
                 }}
               >
                 <div style={{ minWidth: 0, ...getRevealStyle(1) }}>
-                <div style={{ display: "grid", gap: "0.38rem" }}>
-                  {displayedFamilySearchPreferredCollections.length ? (
-                    <>
-                      <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginTop: "0.12rem" }}>
-                        {isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}
-                      </div>
-                      {displayedFamilySearchPreferredCollections.map((collection, index) => (
-                        <a
-                          key={`${isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}-${collection.title}-${collection.link}`}
-                          href={collection.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={familySearchRecordLinkStyle}
-                          onMouseEnter={handleFamilySearchRecordMouseEnter}
-                          onMouseLeave={handleFamilySearchRecordMouseLeave}
-                        >
-                          <span
-                            ref={(element) => {
-                              recordTitleRefs.current[index] = element;
-                            }}
-                            style={
-                              isGenealogyCollectionsView
-                                ? {
+                  <div style={{ display: "grid", gap: "0.38rem" }}>
+                    {displayedFamilySearchPreferredCollections.length ? (
+                      <>
+                        <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginTop: "0.12rem" }}>
+                          {isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}
+                        </div>
+                        {displayedFamilySearchPreferredCollections.map((collection, index) => (
+                          <a
+                            key={`${isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}-${collection.title}-${collection.link}`}
+                            href={collection.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={familySearchRecordLinkStyle}
+                            onMouseEnter={handleFamilySearchRecordMouseEnter}
+                            onMouseLeave={handleFamilySearchRecordMouseLeave}
+                          >
+                            <span
+                              ref={(element) => {
+                                recordTitleRefs.current[index] = element;
+                              }}
+                              style={
+                                isGenealogyCollectionsView
+                                  ? {
                                     minWidth: 0,
                                     display: "-webkit-box",
                                     WebkitLineClamp: 2,
@@ -5432,73 +5650,73 @@ export default function App() {
                                     wordBreak: "break-word",
                                     overflowWrap: "anywhere",
                                   }
-                                : { minWidth: 0, whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere", display: "block" }
-                            }
-                          >
-                            {collection.title}
-                          </span>
-                        </a>
-                      ))}
-                    </>
-                  ) : null}
+                                  : { minWidth: 0, whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere", display: "block" }
+                              }
+                            >
+                              {collection.title}
+                            </span>
+                          </a>
+                        ))}
+                      </>
+                    ) : null}
 
-                  {!hasFamilySearchRecordCollections && !hasFamilySearchGenealogyCollections ? (
-                    <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No FamilySearch collections available.</div>
-                  ) : null}
-                </div>
-                {familySearchLocationUrl ? (
-                  <a
-                    href={familySearchLocationUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      marginTop: "0.72rem",
-                      ...seeMoreLikeLinkStyle,
-                    }}
-                    onMouseEnter={handleSeeMoreLikeLinkMouseEnter}
-                    onMouseLeave={handleSeeMoreLikeLinkMouseLeave}
-                  >
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}>
-                      {renderLinkArrowIcon()}
-                      <span>See more</span>
-                    </span>
-                  </a>
-                ) : (
-                  <div style={{ marginTop: "0.72rem", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.9rem", textAlign: "left" }}>
-                    Country research page not available.
+                    {!hasFamilySearchRecordCollections && !hasFamilySearchGenealogyCollections ? (
+                      <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No FamilySearch collections available.</div>
+                    ) : null}
                   </div>
-                )}
-              </div>
-
-              <div style={{ minWidth: 0, ...getRevealStyle(2) }}>
-                <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontWeight: 700 }}>
-                  Research Help
-                </h3>
-                <div style={{ display: "grid", gap: "0.38rem" }}>
-                  {researchHelpEntries.length ? (
-                    researchHelpEntries.map((entry) => (
-                      <a
-                        key={`${entry.key}-${entry.value.url}`}
-                        href={entry.value.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={researchHelpLinkStyle}
-                        onMouseEnter={handleResearchHelpMouseEnter}
-                        onMouseLeave={handleResearchHelpMouseLeave}
-                        title={entry.value.title || entry.label}
-                      >
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", minWidth: 0, maxWidth: "100%" }}>
-                          {renderLinkArrowIcon()}
-                          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{entry.label}</span>
-                        </span>
-                      </a>
-                    ))
+                  {familySearchLocationUrl ? (
+                    <a
+                      href={familySearchLocationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        marginTop: "0.72rem",
+                        ...seeMoreLikeLinkStyle,
+                      }}
+                      onMouseEnter={handleSeeMoreLikeLinkMouseEnter}
+                      onMouseLeave={handleSeeMoreLikeLinkMouseLeave}
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}>
+                        {renderLinkArrowIcon()}
+                        <span>See more</span>
+                      </span>
+                    </a>
                   ) : (
-                    <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No research help links available.</div>
+                    <div style={{ marginTop: "0.72rem", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.9rem", textAlign: "left" }}>
+                      Country research page not available.
+                    </div>
                   )}
                 </div>
+
+                <div style={{ minWidth: 0, ...getRevealStyle(2) }}>
+                  <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontWeight: 700 }}>
+                    Research Help
+                  </h3>
+                  <div style={{ display: "grid", gap: "0.38rem" }}>
+                    {researchHelpEntries.length ? (
+                      researchHelpEntries.map((entry) => (
+                        <a
+                          key={`${entry.key}-${entry.value.url}`}
+                          href={entry.value.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={researchHelpLinkStyle}
+                          onMouseEnter={handleResearchHelpMouseEnter}
+                          onMouseLeave={handleResearchHelpMouseLeave}
+                          title={entry.value.title || entry.label}
+                        >
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", minWidth: 0, maxWidth: "100%" }}>
+                            {renderLinkArrowIcon()}
+                            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{entry.label}</span>
+                          </span>
+                        </a>
+                      ))
+                    ) : (
+                      <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No research help links available.</div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
             </div>
 
             {/* Gallery before reading content */}
@@ -5514,106 +5732,106 @@ export default function App() {
               }}
             >
               <div style={{ position: "relative" }}>
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  bottom: "8px",
-                  width: "32px",
-                  background: "linear-gradient(90deg, rgba(2,6,23,0.56) 0%, rgba(2,6,23,0) 100%)",
-                  pointerEvents: "none",
-                  zIndex: 2,
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  top: 0,
-                  bottom: "8px",
-                  width: "32px",
-                  background: "linear-gradient(270deg, rgba(2,6,23,0.56) 0%, rgba(2,6,23,0) 100%)",
-                  pointerEvents: "none",
-                  zIndex: 2,
-                }}
-              />
-              <div
-                ref={galleryTrackRef}
-                style={{
-                  display: "flex",
-                  gap: "0.75rem",
-                  overflowX: "auto",
-                  overflowY: "hidden",
-                  paddingTop: "2px",
-                  paddingBottom: "10px",
-                  flex: 1,
-                  minHeight: 0,
-                  alignItems: "stretch",
-                  scrollBehavior: "smooth",
-                  WebkitOverflowScrolling: "touch",
-                  touchAction: "pan-x",
-                  scrollSnapType: "x mandatory",
-                  scrollbarWidth: "none",
-                  msOverflowStyle: "none",
-                }}
-              >
-                {galleryItems.map((item, index) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setLightboxItem(item)}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      padding: 0,
-                      borderRadius: "14px",
-                      overflow: "hidden",
-                      cursor: "pointer",
-                      position: "relative",
-                      flex: "0 0 76%",
-                      minWidth: "0",
-                      height: "182px",
-                      transform: "translateY(0)",
-                      transition: "transform 240ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, filter 240ms ease",
-                      boxShadow: index === galleryActiveIndex
-                        ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
-                        : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)",
-                      scrollSnapAlign: "center",
-                      opacity: index === galleryActiveIndex ? 1 : 0.72,
-                      filter: index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)",
-                    }}
-                    onMouseEnter={(event) => {
-                      event.currentTarget.style.transform = "translateY(-2px)";
-                      event.currentTarget.style.boxShadow = "0 20px 38px rgba(15,23,42,0.42), inset 0 0 0 1px rgba(255,255,255,0.26)";
-                      event.currentTarget.style.opacity = "1";
-                      event.currentTarget.style.filter = "saturate(1.12)";
-                    }}
-                    onMouseLeave={(event) => {
-                      event.currentTarget.style.transform = "translateY(0)";
-                      event.currentTarget.style.boxShadow = index === galleryActiveIndex
-                        ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
-                        : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)";
-                      event.currentTarget.style.opacity = index === galleryActiveIndex ? "1" : "0.72";
-                      event.currentTarget.style.filter = index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)";
-                    }}
-                  >
-                    <img
-                      src={item.thumbnailUrl}
-                      alt={item.title}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", background: "#1a1a1a", display: "block" }}
-                    />
-                    {item.type === "video" ? (
-                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(255,255,255,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="#c4302b">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    bottom: "8px",
+                    width: "32px",
+                    background: "linear-gradient(90deg, rgba(2,6,23,0.56) 0%, rgba(2,6,23,0) 100%)",
+                    pointerEvents: "none",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: 0,
+                    bottom: "8px",
+                    width: "32px",
+                    background: "linear-gradient(270deg, rgba(2,6,23,0.56) 0%, rgba(2,6,23,0) 100%)",
+                    pointerEvents: "none",
+                    zIndex: 2,
+                  }}
+                />
+                <div
+                  ref={galleryTrackRef}
+                  style={{
+                    display: "flex",
+                    gap: "0.75rem",
+                    overflowX: "auto",
+                    overflowY: "hidden",
+                    paddingTop: "2px",
+                    paddingBottom: "10px",
+                    flex: 1,
+                    minHeight: 0,
+                    alignItems: "stretch",
+                    scrollBehavior: "smooth",
+                    WebkitOverflowScrolling: "touch",
+                    touchAction: "pan-x",
+                    scrollSnapType: "x mandatory",
+                    scrollbarWidth: "none",
+                    msOverflowStyle: "none",
+                  }}
+                >
+                  {galleryItems.map((item, index) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setLightboxItem(item)}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        padding: 0,
+                        borderRadius: "14px",
+                        overflow: "hidden",
+                        cursor: "pointer",
+                        position: "relative",
+                        flex: "0 0 76%",
+                        minWidth: "0",
+                        height: "182px",
+                        transform: "translateY(0)",
+                        transition: "transform 240ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, filter 240ms ease",
+                        boxShadow: index === galleryActiveIndex
+                          ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
+                          : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)",
+                        scrollSnapAlign: "center",
+                        opacity: index === galleryActiveIndex ? 1 : 0.72,
+                        filter: index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)",
+                      }}
+                      onMouseEnter={(event) => {
+                        event.currentTarget.style.transform = "translateY(-2px)";
+                        event.currentTarget.style.boxShadow = "0 20px 38px rgba(15,23,42,0.42), inset 0 0 0 1px rgba(255,255,255,0.26)";
+                        event.currentTarget.style.opacity = "1";
+                        event.currentTarget.style.filter = "saturate(1.12)";
+                      }}
+                      onMouseLeave={(event) => {
+                        event.currentTarget.style.transform = "translateY(0)";
+                        event.currentTarget.style.boxShadow = index === galleryActiveIndex
+                          ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
+                          : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)";
+                        event.currentTarget.style.opacity = index === galleryActiveIndex ? "1" : "0.72";
+                        event.currentTarget.style.filter = index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)";
+                      }}
+                    >
+                      <img
+                        src={item.thumbnailUrl}
+                        alt={item.title}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", background: "#1a1a1a", display: "block" }}
+                      />
+                      {item.type === "video" ? (
+                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(255,255,255,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="#c4302b">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </div>
                         </div>
-                      </div>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
               </div>
               {galleryItems.length > 1 ? (
                 <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", marginTop: "0.45rem" }}>
@@ -5828,7 +6046,7 @@ export default function App() {
             <div style={{ animation: "badgeScale 620ms cubic-bezier(0.34, 1.56, 0.64, 1), badgeGlow 2s ease-in-out, celebrationPulse 1.2s ease-in-out 620ms 1" }}>
               {achievementUnlocked.badge}
             </div>
-            
+
             {/* Title with fade-in */}
             <div
               style={{

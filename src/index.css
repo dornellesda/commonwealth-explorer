@@ -55,6 +55,8 @@
 body {
   margin: 0;
   overflow: hidden;
+  /* Match the Leaflet map ocean background for seamless edges */
+  background-color: #202738;
 }
 
 #root {
