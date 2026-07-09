@@ -472,3 +472,31 @@
   animation: exploreButtonRevealWipe 760ms cubic-bezier(0.22, 1, 0.36, 1) 1,
     attractButtonSheen 5.6s ease-in-out 760ms infinite;
 }
+
+@keyframes slowRotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.celestial-orbit {
+  animation: slowRotate 140s linear infinite;
+}
+
+@keyframes logoSoftGlow {
+  0%, 100% {
+    filter: drop-shadow(0 4px 20px rgba(135, 185, 64, 0.45)) drop-shadow(0 0 10px rgba(255, 255, 255, 0.15));
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 6px 28px rgba(135, 185, 64, 0.65)) drop-shadow(0 0 16px rgba(255, 255, 255, 0.25));
+    transform: translateY(-4px) scale(1.02);
+  }
+}
+
+.attract-logo-glow {
+  animation: logoSoftGlow 8s ease-in-out infinite;
+}

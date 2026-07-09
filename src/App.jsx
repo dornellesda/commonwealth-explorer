@@ -3972,103 +3972,183 @@ export default function App() {
           }}
         />
         
+        {/* Glowing Slow-Spinning Orbit Backdrop */}
+        <div
+          className="celestial-orbit"
+          style={{
+            position: "absolute",
+            width: "800px",
+            height: "800px",
+            pointerEvents: "none",
+            opacity: isAttractMode ? 0.28 : 0,
+            transition: "opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1)",
+            zIndex: 0,
+            transformOrigin: "center center",
+          }}
+        >
+          <svg viewBox="0 0 800 800" width="100%" height="100%" style={{ stroke: "rgba(255,255,255,0.12)", strokeWidth: 0.75, fill: "none" }}>
+            <circle cx="400" cy="400" r="160" strokeDasharray="3,12" />
+            <circle cx="400" cy="400" r="280" strokeDasharray="6,18" />
+            <circle cx="400" cy="400" r="380" strokeDasharray="1,24" />
+            
+            <line x1="400" y1="120" x2="400" y2="680" strokeDasharray="4,8" />
+            <line x1="120" y1="400" x2="680" y2="400" strokeDasharray="4,8" />
+            
+            <circle cx="400" cy="120" r="5" fill="#ffd080" style={{ filter: "drop-shadow(0 0 6px #ffd080)" }} />
+            <circle cx="400" cy="680" r="4" fill="#87b940" style={{ filter: "drop-shadow(0 0 6px #87b940)" }} />
+            <circle cx="120" cy="400" r="4" fill="#87b940" style={{ filter: "drop-shadow(0 0 6px #87b940)" }} />
+            <circle cx="680" cy="400" r="5" fill="#ffd080" style={{ filter: "drop-shadow(0 0 6px #ffd080)" }} />
+            
+            <circle cx="302" cy="230" r="3" fill="rgba(255,255,255,0.4)" />
+            <circle cx="498" cy="570" r="3.5" fill="rgba(255,255,255,0.3)" />
+            <circle cx="498" cy="230" r="4" fill="#ffd080" style={{ filter: "drop-shadow(0 0 4px #ffd080)" }} />
+            <circle cx="302" cy="570" r="3" fill="#87b940" style={{ filter: "drop-shadow(0 0 4px #87b940)" }} />
+          </svg>
+        </div>
+
         {/* Headline and invitation */}
         <div
           style={{
             position: "relative",
             textAlign: "center",
             color: "#fff",
-            maxWidth: "1120px",
-            padding: "0 2.25rem",
+            maxWidth: "680px",
+            padding: "3.5rem 3rem",
             display: "grid",
-            gap: "1.3rem",
+            gap: "1.2rem",
+            zIndex: 1,
             animation: isAttractMode ? "attractHeroFloat 6s ease-in-out infinite" : "none",
           }}
         >
+          {/* Glass-morphic Backdrop Card */}
           <div
             style={{
               position: "absolute",
-              inset: "-30px -42px -34px",
-              background: "radial-gradient(70% 56% at 50% 44%, rgba(0,0,0,0.54) 0%, rgba(0,0,0,0.24) 40%, rgba(0,0,0,0) 100%)",
-              filter: "blur(10px)",
+              inset: 0,
+              background: "rgba(10, 16, 32, 0.42)",
+              backdropFilter: "blur(32px) saturate(140%)",
+              WebkitBackdropFilter: "blur(32px) saturate(140%)",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+              borderRadius: "28px",
+              boxShadow: "0 30px 70px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)",
               pointerEvents: "none",
               zIndex: 0,
-              borderRadius: "30px",
             }}
           />
+
+          {/* Premium FamilySearch Tree Logo Badge */}
+          <div
+            className={isAttractMode ? "attract-logo-glow" : ""}
+            style={{
+              position: "relative",
+              zIndex: 1,
+              display: "flex",
+              justifyContent: "center",
+              marginBottom: "0.25rem",
+              opacity: isAttractMode ? 0.95 : 0,
+              transition: "opacity 1200ms cubic-bezier(0.22, 1, 0.36, 1) 100ms",
+            }}
+          >
+            <div
+              style={{
+                width: "60px",
+                height: "60px",
+                borderRadius: "50%",
+                background: "rgba(255, 255, 255, 0.06)",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2), 0 8px 16px rgba(0,0,0,0.2)",
+              }}
+            >
+              <img
+                src={FAMILYSEARCH_LOGO_URL}
+                alt="FamilySearch Logo"
+                style={{
+                  width: "34px",
+                  height: "34px",
+                  filter: "brightness(0) invert(1)",
+                }}
+              />
+            </div>
+          </div>
+
           <h1
             style={{
               position: "relative",
               zIndex: 1,
-              fontFamily: "'Museo Slab', 'Roboto Slab', Rockwell, serif",
-              fontSize: "clamp(3.1rem, 8.2vw, 8rem)",
-              fontWeight: 520,
-              letterSpacing: "0.02em",
-              lineHeight: 0.95,
-              textTransform: "lowercase",
               margin: 0,
-              color: "#f5f9ff",
-              textShadow: "0 16px 34px rgba(3, 6, 14, 0.78), 0 5px 16px rgba(3, 6, 14, 0.62), 0 0 22px rgba(147, 204, 255, 0.18)",
-              opacity: isAttractMode ? 1 : 0,
-              transform: isAttractMode ? "translateY(0)" : "translateY(12px)",
-              transition: "opacity 1300ms cubic-bezier(0.22, 1, 0.36, 1) 220ms, transform 1300ms cubic-bezier(0.22, 1, 0.36, 1) 220ms",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.35rem",
             }}
           >
+            {/* Elegant wide-spaced Sage/Green Eyebrow */}
             <div
               ref={attractEyebrowRef}
               style={{
                 position: "relative",
                 zIndex: 1,
-                fontSize: "clamp(2.2rem, 5.2vw, 5rem)",
-                letterSpacing: "0.08em",
+                fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
+                fontSize: "clamp(0.85rem, 1.8vw, 1.15rem)",
+                fontWeight: 600,
+                letterSpacing: "0.3em",
                 textTransform: "uppercase",
-                color: "rgba(244, 251, 255, 0.92)",
-                marginBottom: "0.22rem",
-                textShadow: "0 2px 10px rgba(5, 8, 16, 0.46)",
+                color: "#97d749", // Signature high-end FamilySearch Green
+                textShadow: "0 0 10px rgba(151, 215, 73, 0.25)",
                 opacity: isAttractMode ? 1 : 0,
                 transform: "translateY(10px)",
-                transition: "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 100ms",
+                transition: "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 200ms, transform 1400ms cubic-bezier(0.22, 1, 0.36, 1) 200ms",
               }}
             >
               One Commonwealth
             </div>
+
+            {/* Giant Breathtaking Peach-Gold Serif Title */}
             <div
               ref={attractTitleRef}
               style={{
                 position: "relative",
                 zIndex: 1,
-                fontSize: "clamp(1.5rem, 3.8vw, 3.3rem)",
-                letterSpacing: "0.11em",
-                textTransform: "uppercase",
-                color: "rgba(235, 246, 255, 0.82)",
-                marginBottom: "0.78rem",
-                textShadow: "0 2px 10px rgba(5, 8, 16, 0.46)",
+                fontFamily: "'Museo Slab', 'Roboto Slab', Rockwell, serif",
+                fontSize: "clamp(2.4rem, 5.2vw, 4.2rem)",
+                fontWeight: 700,
+                letterSpacing: "-0.01em",
+                lineHeight: 1.1,
+                background: "linear-gradient(135deg, #ffffff 30%, #ffd080 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                textShadow: "0 8px 24px rgba(0, 0, 0, 0.3)",
                 opacity: isAttractMode ? 1 : 0,
                 transform: "translateY(10px)",
-                transition: "opacity 1500ms cubic-bezier(0.22, 1, 0.36, 1) 240ms",
+                transition: "opacity 1500ms cubic-bezier(0.22, 1, 0.36, 1) 360ms, transform 1500ms cubic-bezier(0.22, 1, 0.36, 1) 360ms",
               }}
             >
               Many Families
             </div>
           </h1>
+
+          {/* Clean, Welcoming, Joyful Subtitle */}
           <p
             ref={attractSubRef}
             style={{
               position: "relative",
               zIndex: 1,
               margin: 0,
-              fontFamily: "'Museo Slab', 'Roboto Slab', Rockwell, serif",
-              fontSize: "clamp(1rem, 1.9vw, 1.55rem)",
-              color: "rgba(238, 248, 255, 0.74)",
+              fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
+              fontSize: "clamp(1rem, 2vw, 1.25rem)",
+              fontWeight: 300,
+              color: "rgba(255, 255, 255, 0.82)",
               letterSpacing: "0.02em",
-              lineHeight: 1.25,
-              textShadow: "0 2px 10px rgba(5, 8, 16, 0.48)",
+              lineHeight: 1.45,
+              textShadow: "0 2px 8px rgba(0, 0, 0, 0.4)",
               opacity: isAttractMode ? 1 : 0,
               transform: "translateY(8px)",
-              transition: "opacity 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms",
+              transition: "opacity 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms, transform 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms",
             }}
           >
-            Discover the stories that connect us.
+            Discover the stories, records, and connections that unite us across generations.
           </p>
         </div>
 
