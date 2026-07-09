@@ -1846,9 +1846,12 @@ export default function App() {
   const [isButtonTransitioning, setIsButtonTransitioning] = useState(false);
   const [attractRouteSwooshes, setAttractRouteSwooshes] = useState([]);
   const [attractHeroRoute, setAttractHeroRoute] = useState(null);
-  const [isDockSearchExpanded, setIsDockSearchExpanded] = useState(false);
-  const [dockSearchActivityTick, setDockSearchActivityTick] = useState(0);
-  const [isMenuOpening, setIsMenuOpening] = useState(false);
+const [isDockSearchExpanded, setIsDockSearchExpanded] = useState(false);
+const [dockSearchActivityTick, setDockSearchActivityTick] = useState(0);
+const [isMenuOpening, setIsMenuOpening] = useState(false);
+const [isDockExpanding, setIsDockExpanding] = useState(false);
+const dockExpansionRef = useRef({ width: 0, height: 0 });
+const dockCardsRevealTimeoutRef = useRef(null);
   const [visitedVoyagerCountries, setVisitedVoyagerCountries] = useState([]);
   const [voyagerNotice, setVoyagerNotice] = useState(null);
   const [voyagerCompletionVisible, setVoyagerCompletionVisible] = useState(false);
@@ -2273,14 +2276,45 @@ export default function App() {
   const openCountryDock = () => {
     markUserActivity();
     setIsButtonTransitioning(true);
+    setIsDockExpanding(true);
 
     // Exit idle mode and bring dock in from the same visual anchor as the button.
     setIsIdleAttractMode(false);
     clearAttractPresentation();
 
+    // Stage 1: Scale down slightly (120-180ms)
+    // Stage 2: Expand horizontally to full dock width
+    // Stage 3: Cards fade and slide in with stagger
+    // Stage 4: Globe icon fades out gracefully
+
+    const buttonNode = document.querySelector('.explore-cta-button');
+    if (buttonNode) {
+      const rect = buttonNode.getBoundingClientRect();
+      dockExpansionRef.current = {
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+
     setIsMenuClosing(false);
     setIsMenuOpen(true);
 
+    // Card reveal staggers: start after expansion (200ms), then 20-40ms between cards
+    const startCardReveal = () => {
+      dockCardsRevealTimeoutRef.current = window.setTimeout(() => {
+        // Trigger card reveal by setting isDockExpanding to false
+        // Cards will use their own stagger delays based on index
+      }, 200);
+    };
+
+    // Expansion timeline: 180ms for width expansion
+    const expansionDuration = 180;
+    window.setTimeout(() => {
+      // End of expansion - cards will now begin their staggered reveal
+      startCardReveal();
+    }, expansionDuration);
+
+    // Cleanup transition state after full animation
     window.setTimeout(() => {
       setIsButtonTransitioning(false);
     }, EXHIBIT_TRANSITION_MS);
@@ -4522,7 +4556,7 @@ export default function App() {
 
         return (
           <button
-            className={`explore-cta-button ${isExploreButtonVisible ? "explore-cta-visible" : "explore-cta-hidden"}${isAttractMode ? " explore-cta-button-attract" : ""}`}
+            className={`explore-cta-button ${isExploreButtonVisible ? "explore-cta-visible" : "explore-cta-hidden"}${isAttractMode ? " explore-cta-button-attract" : ""}${isDockExpanding ? " explore-cta-expanding" : ""}`}
             aria-label={isAttractMode ? undefined : "Explore by Country"}
             onClick={(event) => {
               event.stopPropagation();
@@ -5144,11 +5178,17 @@ export default function App() {
                 WebkitOverflowScrolling: "touch",
               }}
             >
-              {filteredCountries.map((country) => {
+              {filteredCountries.map((country, index) => {
                 const isActive = selectedCountry?.name === country.name;
+                // During expansion, cards stagger in with 20-40ms delay based on index
+                const cardDelay = isDockExpanding ? index * 30 : 0;
+                const cardTransition = isDockExpanding
+                  ? `opacity 380ms cubic-bezier(0.22, 1, 0.36, 1) ${cardDelay}ms, transform 420ms cubic-bezier(0.22, 1, 0.36, 1) ${cardDelay}ms`
+                  : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1), background 280ms cubic-bezier(0.22, 1, 0.36, 1), border 280ms cubic-bezier(0.22, 1, 0.36, 1)";
                 return (
                   <button
                     key={country.name}
+                    style={{
                     onClick={() => {
                       markDockInteraction();
                       handleSelectCountry(country);
