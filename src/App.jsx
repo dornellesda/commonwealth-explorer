@@ -1322,6 +1322,27 @@ function SmallCountryMarkers({
         return;
       }
 
+      const isSelected = Boolean(
+        country && selectedCountry?.name && country.name === selectedCountry.name
+      );
+      const isActivatedSelected = Boolean(
+        isSelected && activatedCountryName && country.name === activatedCountryName
+      );
+      const isHovered = Boolean(
+        country && hoveredCountryNormalized && normalizeName(country.name) === hoveredCountryNormalized
+      );
+
+      // Determine state string to prevent redundant updates which cause jitter/shaking
+      let newState = "default";
+      if (isActivatedSelected) newState = "activated";
+      else if (isSelected) newState = "selected";
+      else if (isHovered) newState = "hovered";
+
+      if (marker._customState === newState) {
+        return;
+      }
+      marker._customState = newState;
+
       const style = getMarkerStyle(country);
       const element = marker.getElement();
 
@@ -1337,27 +1358,20 @@ function SmallCountryMarkers({
 
       // Apply glow effect matching polygons
       if (element) {
-        const isActivated = Boolean(
-          selectedCountry?.name && country.name === selectedCountry.name && activatedCountryName === country.name
-        );
-        const isHovered = Boolean(
-          country && hoveredCountryNormalized && normalizeName(country.name) === hoveredCountryNormalized
-        );
-        
         element.style.transition = `fill ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, fill-opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke-width ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, filter ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, r ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}`;
 
         if (isAttractMode) {
           element.style.filter = "none";
-        } else if (isActivated) {
+        } else if (newState === "activated") {
           element.style.filter = "drop-shadow(0 0 8px rgba(241, 100, 88, 0.5)) drop-shadow(0 0 16px rgba(241, 100, 88, 0.25))";
-        } else if (isHovered) {
+        } else if (newState === "hovered") {
           element.style.filter = "drop-shadow(0 0 6px rgba(241, 100, 88, 0.35)) drop-shadow(0 0 12px rgba(241, 100, 88, 0.18))";
         } else {
           element.style.filter = "none";
         }
       }
     });
-  }, [hoveredCountry, selectedCountry, activatedCountryName, isPanelOpen, isAttractMode]);
+  }, [hoveredCountry, selectedCountry, activatedCountryName, isPanelOpen, isAttractMode, hoveredCountryNormalized]);
 
   // Update marker visibility based on zoom
   useEffect(() => {
@@ -1735,6 +1749,7 @@ export default function App() {
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const [isContentVisible, setIsContentVisible] = useState(false);
   const [attractAutoCountryName, setAttractAutoCountryName] = useState("");
+  const [attractActiveJourney, setAttractActiveJourney] = useState(null);
   const [activatedCountryName, setActivatedCountryName] = useState(null);
   const [heroMotionSeed, setHeroMotionSeed] = useState(0);
   const [hoveredCountry, setHoveredCountry] = useState(null);
@@ -1854,6 +1869,7 @@ export default function App() {
     setAttractAutoCountryName("");
     setAttractRouteSwooshes([]);
     setAttractHeroRoute(null);
+    setAttractActiveJourney(null);
   };
 
   const exitIdleAttractMode = () => {
@@ -3861,6 +3877,14 @@ export default function App() {
 
         setHoveredCountry(nextCountry.name);
         setAttractAutoCountryName(nextCountry.name);
+        if (previousCountry && nextCountry) {
+          setAttractActiveJourney({
+            from: previousCountry.name,
+            to: nextCountry.name,
+          });
+        } else {
+          setAttractActiveJourney(null);
+        }
 
         const routeKey = `${previousCountry?.name || ""}|${nextCountry.name}`;
         const canShowRoute =
@@ -3903,6 +3927,7 @@ export default function App() {
       setAttractAutoCountryName("");
       setAttractRouteSwooshes([]);
       setAttractHeroRoute(null);
+      setAttractActiveJourney(null);
       setHoveredCountry((current) => (current && !selectedCountry ? null : current));
     };
   }, [isAttractMode, selectedCountry]);
@@ -3938,28 +3963,20 @@ export default function App() {
           inset: 0,
           zIndex: 800,
           display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
+          flexDirection: "row",
+          alignItems: "stretch",
+          justifyContent: "flex-start",
           pointerEvents: isAttractMode ? "auto" : "none",
           opacity: isAttractMode ? 1 : 0,
           transition: "opacity 800ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
+        {/* Subtle left-aligned mask and general light vignette */}
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 26%, rgba(255,255,255,0) 62%)",
-            pointerEvents: "none",
-          }}
-        />
-        {/* Subtle atmospheric overlays to preserve map as hero */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "radial-gradient(125% 92% at 50% 44%, rgba(5, 10, 18, 0.1) 0%, rgba(5, 10, 18, 0.34) 60%, rgba(5, 10, 18, 0.56) 100%)",
+            background: "linear-gradient(90deg, rgba(8, 11, 20, 0.85) 0%, rgba(8, 11, 20, 0.5) 30%, rgba(8, 11, 20, 0) 65%)",
             pointerEvents: "none",
           }}
         />
@@ -3967,196 +3984,296 @@ export default function App() {
           style={{
             position: "absolute",
             inset: 0,
-            background: "radial-gradient(62% 44% at 50% 43%, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.14) 38%, rgba(0, 0, 0, 0) 100%)",
+            background: "radial-gradient(120% 100% at 50% 50%, rgba(8, 11, 20, 0) 40%, rgba(8, 11, 20, 0.35) 100%)",
             pointerEvents: "none",
           }}
         />
-        
+
         {/* Glowing Slow-Spinning Orbit Backdrop */}
         <div
-          className="celestial-orbit"
           style={{
             position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
             width: "800px",
             height: "800px",
             pointerEvents: "none",
-            opacity: isAttractMode ? 0.28 : 0,
+            opacity: isAttractMode ? 0.22 : 0,
             transition: "opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1)",
             zIndex: 0,
-            transformOrigin: "center center",
           }}
         >
-          <svg viewBox="0 0 800 800" width="100%" height="100%" style={{ stroke: "rgba(255,255,255,0.12)", strokeWidth: 0.75, fill: "none" }}>
-            <circle cx="400" cy="400" r="160" strokeDasharray="3,12" />
-            <circle cx="400" cy="400" r="280" strokeDasharray="6,18" />
-            <circle cx="400" cy="400" r="380" strokeDasharray="1,24" />
-            
-            <line x1="400" y1="120" x2="400" y2="680" strokeDasharray="4,8" />
-            <line x1="120" y1="400" x2="680" y2="400" strokeDasharray="4,8" />
-            
-            <circle cx="400" cy="120" r="5" fill="#ffd080" style={{ filter: "drop-shadow(0 0 6px #ffd080)" }} />
-            <circle cx="400" cy="680" r="4" fill="#87b940" style={{ filter: "drop-shadow(0 0 6px #87b940)" }} />
-            <circle cx="120" cy="400" r="4" fill="#87b940" style={{ filter: "drop-shadow(0 0 6px #87b940)" }} />
-            <circle cx="680" cy="400" r="5" fill="#ffd080" style={{ filter: "drop-shadow(0 0 6px #ffd080)" }} />
-            
-            <circle cx="302" cy="230" r="3" fill="rgba(255,255,255,0.4)" />
-            <circle cx="498" cy="570" r="3.5" fill="rgba(255,255,255,0.3)" />
-            <circle cx="498" cy="230" r="4" fill="#ffd080" style={{ filter: "drop-shadow(0 0 4px #ffd080)" }} />
-            <circle cx="302" cy="570" r="3" fill="#87b940" style={{ filter: "drop-shadow(0 0 4px #87b940)" }} />
-          </svg>
+          <div
+            className="celestial-orbit"
+            style={{
+              width: "100%",
+              height: "100%",
+              transformOrigin: "center center",
+            }}
+          >
+            <svg viewBox="0 0 800 800" width="100%" height="100%" style={{ stroke: "rgba(255,255,255,0.12)", strokeWidth: 0.75, fill: "none" }}>
+              <circle cx="400" cy="400" r="160" strokeDasharray="3,12" />
+              <circle cx="400" cy="400" r="280" strokeDasharray="6,18" />
+              <circle cx="400" cy="400" r="380" strokeDasharray="1,24" />
+              
+              <line x1="400" y1="120" x2="400" y2="680" strokeDasharray="4,8" />
+              <line x1="120" y1="400" x2="680" y2="400" strokeDasharray="4,8" />
+              
+              <circle cx="400" cy="120" r="5" fill="#ffd080" style={{ filter: "drop-shadow(0 0 6px #ffd080)" }} />
+              <circle cx="400" cy="680" r="4" fill="#87b940" style={{ filter: "drop-shadow(0 0 6px #87b940)" }} />
+              <circle cx="120" cy="400" r="4" fill="#87b940" style={{ filter: "drop-shadow(0 0 6px #87b940)" }} />
+              <circle cx="680" cy="400" r="5" fill="#ffd080" style={{ filter: "drop-shadow(0 0 6px #ffd080)" }} />
+              
+              <circle cx="302" cy="230" r="3" fill="rgba(255,255,255,0.4)" />
+              <circle cx="498" cy="570" r="3.5" fill="rgba(255,255,255,0.3)" />
+              <circle cx="498" cy="230" r="4" fill="#ffd080" style={{ filter: "drop-shadow(0 0 4px #ffd080)" }} />
+              <circle cx="302" cy="570" r="3" fill="#87b940" style={{ filter: "drop-shadow(0 0 4px #87b940)" }} />
+            </svg>
+          </div>
         </div>
 
-        {/* Headline and invitation */}
+        {/* Editorial Content Column */}
         <div
           style={{
             position: "relative",
-            textAlign: "center",
-            color: "#fff",
-            maxWidth: "680px",
-            padding: "3.5rem 3rem",
-            display: "grid",
-            gap: "1.2rem",
-            zIndex: 1,
-            animation: isAttractMode ? "attractHeroFloat 6s ease-in-out infinite" : "none",
+            zIndex: 10,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "flex-start",
+            width: "100%",
+            maxWidth: "600px",
+            height: "100%",
+            paddingLeft: "10%",
+            paddingRight: "2rem",
+            boxSizing: "border-box",
+            pointerEvents: "none",
           }}
         >
-          {/* Glass-morphic Backdrop Card */}
+          {/* Refined Brand Logo */}
           <div
             style={{
-              position: "absolute",
-              inset: 0,
-              background: "rgba(10, 16, 32, 0.42)",
-              backdropFilter: "blur(32px) saturate(140%)",
-              WebkitBackdropFilter: "blur(32px) saturate(140%)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "28px",
-              boxShadow: "0 30px 70px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)",
-              pointerEvents: "none",
-              zIndex: 0,
-            }}
-          />
-
-          {/* Premium FamilySearch Tree Logo Badge */}
-          <div
-            className={isAttractMode ? "attract-logo-glow" : ""}
-            style={{
-              position: "relative",
-              zIndex: 1,
-              display: "flex",
-              justifyContent: "center",
-              marginBottom: "0.25rem",
               opacity: isAttractMode ? 0.95 : 0,
-              transition: "opacity 1200ms cubic-bezier(0.22, 1, 0.36, 1) 100ms",
+              transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
+              transition: "opacity 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms, transform 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms",
+              marginBottom: "2rem",
+              pointerEvents: "auto",
             }}
           >
-            <div
+            <img
+              src={FAMILYSEARCH_LOGO_URL}
+              alt="FamilySearch"
               style={{
-                width: "60px",
-                height: "60px",
-                borderRadius: "50%",
-                background: "rgba(255, 255, 255, 0.06)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2), 0 8px 16px rgba(0,0,0,0.2)",
+                width: "148px",
+                height: "auto",
+                filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15))",
               }}
-            >
-              <img
-                src={FAMILYSEARCH_LOGO_URL}
-                alt="FamilySearch Logo"
-                style={{
-                  width: "34px",
-                  height: "34px",
-                  filter: "brightness(0) invert(1)",
-                }}
-              />
-            </div>
+            />
           </div>
 
+          {/* Heading */}
           <h1
             style={{
-              position: "relative",
-              zIndex: 1,
               margin: 0,
               display: "flex",
               flexDirection: "column",
-              gap: "0.35rem",
+              gap: "0.4rem",
+              pointerEvents: "auto",
             }}
           >
-            {/* Elegant wide-spaced Sage/Green Eyebrow */}
-            <div
-              ref={attractEyebrowRef}
+            <span
               style={{
-                position: "relative",
-                zIndex: 1,
-                fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
-                fontSize: "clamp(0.85rem, 1.8vw, 1.15rem)",
-                fontWeight: 600,
-                letterSpacing: "0.3em",
-                textTransform: "uppercase",
-                color: "#97d749", // Signature high-end FamilySearch Green
-                textShadow: "0 0 10px rgba(151, 215, 73, 0.25)",
-                opacity: isAttractMode ? 1 : 0,
-                transform: "translateY(10px)",
-                transition: "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 200ms, transform 1400ms cubic-bezier(0.22, 1, 0.36, 1) 200ms",
-              }}
-            >
-              One Commonwealth
-            </div>
-
-            {/* Giant Breathtaking Peach-Gold Serif Title */}
-            <div
-              ref={attractTitleRef}
-              style={{
-                position: "relative",
-                zIndex: 1,
-                fontFamily: "'Museo Slab', 'Roboto Slab', Rockwell, serif",
-                fontSize: "clamp(2.4rem, 5.2vw, 4.2rem)",
-                fontWeight: 700,
-                letterSpacing: "-0.01em",
+                fontFamily: "var(--heading)",
+                fontSize: "clamp(2.4rem, 4.6vw, 3.8rem)",
+                fontWeight: 500,
+                color: "rgba(255, 255, 255, 0.95)",
                 lineHeight: 1.1,
-                background: "linear-gradient(135deg, #ffffff 30%, #ffd080 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                textShadow: "0 8px 24px rgba(0, 0, 0, 0.3)",
+                letterSpacing: "-0.015em",
                 opacity: isAttractMode ? 1 : 0,
-                transform: "translateY(10px)",
-                transition: "opacity 1500ms cubic-bezier(0.22, 1, 0.36, 1) 360ms, transform 1500ms cubic-bezier(0.22, 1, 0.36, 1) 360ms",
+                transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
+                transition: "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 240ms, transform 1400ms cubic-bezier(0.22, 1, 0.36, 1) 240ms",
               }}
             >
-              Many Families
-            </div>
+              One Commonwealth.
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--heading)",
+                fontSize: "clamp(2.4rem, 4.6vw, 3.8rem)",
+                fontWeight: 500,
+                color: "rgba(255, 255, 255, 0.72)",
+                lineHeight: 1.1,
+                letterSpacing: "-0.015em",
+                opacity: isAttractMode ? 1 : 0,
+                transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
+                transition: "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 360ms, transform 1400ms cubic-bezier(0.22, 1, 0.36, 1) 360ms",
+              }}
+            >
+              Millions of Stories.
+            </span>
           </h1>
 
-          {/* Clean, Welcoming, Joyful Subtitle */}
+          {/* Body Copy */}
           <p
-            ref={attractSubRef}
             style={{
-              position: "relative",
-              zIndex: 1,
-              margin: 0,
-              fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
-              fontSize: "clamp(1rem, 2vw, 1.25rem)",
+              fontFamily: "var(--sans)",
+              fontSize: "clamp(1.05rem, 1.8vw, 1.25rem)",
               fontWeight: 300,
-              color: "rgba(255, 255, 255, 0.82)",
-              letterSpacing: "0.02em",
-              lineHeight: 1.45,
-              textShadow: "0 2px 8px rgba(0, 0, 0, 0.4)",
+              color: "rgba(255, 255, 255, 0.60)",
+              lineHeight: 1.5,
+              maxWidth: "460px",
+              margin: "1.8rem 0 2.5rem 0",
               opacity: isAttractMode ? 1 : 0,
-              transform: "translateY(8px)",
-              transition: "opacity 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms, transform 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms",
+              transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
+              transition: "opacity 1600ms cubic-bezier(0.22, 1, 0.36, 1) 480ms, transform 1600ms cubic-bezier(0.22, 1, 0.36, 1) 480ms",
+              pointerEvents: "auto",
             }}
           >
-            Discover the stories, records, and connections that unite us across generations.
+            Explore 56 nations and discover the people, connections and records that unite them.
           </p>
+
+          {/* Premium Glass-Pill CTA */}
+          <div
+            style={{
+              opacity: isAttractMode ? 1 : 0,
+              transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
+              transition: "opacity 1800ms cubic-bezier(0.22, 1, 0.36, 1) 600ms, transform 1800ms cubic-bezier(0.22, 1, 0.36, 1) 600ms",
+              pointerEvents: "auto",
+            }}
+          >
+            <button
+              className="premium-attract-cta"
+              onClick={(e) => {
+                e.stopPropagation();
+                beginExploration();
+              }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "1rem 2.2rem",
+                borderRadius: "100px",
+                border: "none",
+                background: "linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)",
+                backdropFilter: "blur(24px)",
+                WebkitBackdropFilter: "blur(24px)",
+                color: "rgba(255, 255, 255, 0.95)",
+                fontFamily: "var(--sans)",
+                fontSize: "1.05rem",
+                fontWeight: 500,
+                letterSpacing: "0.04em",
+                cursor: "pointer",
+                boxShadow: "0 12px 32px rgba(0, 0, 0, 0.2)",
+                whiteSpace: "nowrap",
+                transition: "all 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+                position: "relative",
+              }}
+            >
+              {/* Glowing animated gradient border */}
+              <span className="glowing-border-container">
+                <span className="glowing-border-rotating-part" />
+              </span>
+
+              {/* Green indicator dot */}
+              <span
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                  backgroundColor: "#87b940",
+                  boxShadow: "0 0 10px #87b940",
+                  display: "inline-block",
+                  animation: "attractDotBreathe 2.4s ease-in-out infinite",
+                  position: "relative",
+                  zIndex: 2,
+                }}
+              />
+              <span style={{ position: "relative", zIndex: 2 }}>Start Exploring</span>
+              <span style={{ fontSize: "1.2rem", lineHeight: 1, marginLeft: "2px", transition: "transform 300ms ease", position: "relative", zIndex: 2 }} className="cta-arrow">→</span>
+            </button>
+          </div>
+
+          {/* Quiet Information Layer */}
+          <div
+            style={{
+              display: "flex",
+              gap: "2.5rem",
+              marginTop: "3rem",
+              marginBottom: "1rem",
+              opacity: isAttractMode ? 1 : 0,
+              transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
+              transition: "opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1) 720ms, transform 2000ms cubic-bezier(0.22, 1, 0.36, 1) 720ms",
+              pointerEvents: "auto",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "var(--sans)" }}>56</div>
+              <div style={{ textTransform: "uppercase", fontSize: "0.7rem", color: "rgba(255,255,255,0.42)", letterSpacing: "0.15em", marginTop: "2px" }}>Nations</div>
+            </div>
+            <div style={{ width: "1px", height: "2.5rem", background: "rgba(255,255,255,0.12)", alignSelf: "center" }} />
+            <div>
+              <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "var(--sans)" }}>2.7B</div>
+              <div style={{ textTransform: "uppercase", fontSize: "0.7rem", color: "rgba(255,255,255,0.42)", letterSpacing: "0.15em", marginTop: "2px" }}>People</div>
+            </div>
+            <div style={{ width: "1px", height: "2.5rem", background: "rgba(255,255,255,0.12)", alignSelf: "center" }} />
+            <div>
+              <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "var(--sans)" }}>Countless</div>
+              <div style={{ textTransform: "uppercase", fontSize: "0.7rem", color: "rgba(255,255,255,0.42)", letterSpacing: "0.15em", marginTop: "2px" }}>Stories</div>
+            </div>
+          </div>
         </div>
 
+        {/* Storytelling Active Connection Overlay */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: "4.5rem",
+            right: "8%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: "6px",
+            opacity: isAttractMode && attractActiveJourney ? 0.85 : 0,
+            transform: isAttractMode && attractActiveJourney ? "translateY(0)" : "translateY(16px)",
+            transition: "opacity 1000ms cubic-bezier(0.22, 1, 0.36, 1), transform 1000ms cubic-bezier(0.22, 1, 0.36, 1)",
+            pointerEvents: "none",
+            zIndex: 10,
+          }}
+        >
+          <span style={{
+            fontSize: "0.7rem",
+            textTransform: "uppercase",
+            letterSpacing: "0.2em",
+            color: "rgba(255, 255, 255, 0.4)",
+            fontWeight: 600,
+          }}>
+            Family Journeys
+          </span>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            fontFamily: "var(--heading)",
+            fontSize: "1.3rem",
+            color: "rgba(255, 255, 255, 0.9)",
+            background: "rgba(10, 16, 32, 0.3)",
+            padding: "0.5rem 1.2rem",
+            borderRadius: "50px",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+          }}>
+            <span>{attractActiveJourney?.from}</span>
+            <span style={{ color: "#87b940", fontWeight: "bold", fontSize: "1.1rem" }}>→</span>
+            <span>{attractActiveJourney?.to}</span>
+          </div>
+        </div>
       </div>
 
       {(() => {
         const shouldShowExploreButton = !isMenuOpen && !isMenuOpening && !isMenuClosing;
-        const isExploreButtonVisible = shouldShowExploreButton && !isButtonTransitioning;
+        const isExploreButtonVisible = shouldShowExploreButton && !isButtonTransitioning && !isAttractMode;
         const hiddenExploreTransform = isAttractMode
           ? "translateY(16px) scale(0.97)"
           : "translateY(14px) scale(0.97)";
@@ -4309,14 +4426,15 @@ export default function App() {
       <div
         style={{
           position: "fixed",
-          top: "1.2rem",
-          left: "1.2rem",
+          top: "2.2rem",
+          left: "2.2rem",
           zIndex: 920,
           display: "flex",
           alignItems: "center",
           padding: 0,
           pointerEvents: "none",
-          opacity: 1,
+          opacity: isAttractMode ? 0 : 1,
+          transition: "opacity 800ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
         {/* FamilySearch logo - simple plaque */}
