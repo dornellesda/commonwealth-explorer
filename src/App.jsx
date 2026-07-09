@@ -23,6 +23,77 @@ function formatPopulation(pop) {
   return num.toString();
 }
 
+// ---------------------------------------------------------------------------
+// Liquid-glass motion helpers
+// ---------------------------------------------------------------------------
+// A tiny imperative spring integrator (mass/stiffness/damping) so attract-mode
+// elements can overshoot and settle the way real Apple UI moves, instead of
+// riding a fixed-duration cubic-bezier to a hard stop. Values are written
+// straight to element.style via rAF, matching the imperative pattern already
+// used by AttractCountryPulse / AttractSeaRouteSwoosh below, so it stays just
+// as cheap and doesn't fight React's own re-renders.
+function animateSpring({
+  from,
+  to,
+  stiffness = 210,
+  damping = 22,
+  mass = 1,
+  precision = 0.001,
+  onUpdate,
+  onComplete,
+}) {
+  let position = from;
+  let velocity = 0;
+  let frameId = null;
+  let lastTime = performance.now();
+
+  const step = (now) => {
+    const dt = Math.min(0.032, Math.max(0, (now - lastTime) / 1000));
+    lastTime = now;
+
+    const springForce = -stiffness * (position - to);
+    const dampingForce = -damping * velocity;
+    velocity += ((springForce + dampingForce) / mass) * dt;
+    position += velocity * dt;
+
+    onUpdate(position);
+
+    const settled = Math.abs(to - position) < precision && Math.abs(velocity) < precision;
+    if (settled) {
+      onUpdate(to);
+      onComplete?.();
+      return;
+    }
+    frameId = requestAnimationFrame(step);
+  };
+
+  frameId = requestAnimationFrame(step);
+  return () => {
+    if (frameId !== null) {
+      cancelAnimationFrame(frameId);
+    }
+  };
+}
+
+// Spawns a single "lensing" ripple at (x, y) inside `container` — the visual
+// acknowledgment that glass is a physical surface reacting to touch. Cleans
+// itself up after the CSS animation finishes so it never accumulates nodes.
+function spawnGlassRipple(container, x, y) {
+  if (!container) return;
+  const ripple = document.createElement("span");
+  ripple.className = "glass-ripple";
+  ripple.style.left = `${x}px`;
+  ripple.style.top = `${y}px`;
+  container.appendChild(ripple);
+  ripple.addEventListener(
+    "animationend",
+    () => {
+      ripple.remove();
+    },
+    { once: true }
+  );
+}
+
 const GEOJSON_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson";
 const GEOJSON_FALLBACK_URLS = [
   GEOJSON_URL,
@@ -1085,7 +1156,7 @@ function SmallCountryMarkers({
   const hoveredCountryNormalized = normalizeName(hoveredCountry || "");
 
   // Get marker style that mirrors getCountryStyle for polygons
-  const getMarkerStyle = (country) => {
+  const getMarkerStyle = (country, options = {}) => {
     const isSelected = Boolean(
       country && selectedCountry?.name && country.name === selectedCountry.name
     );
@@ -1097,7 +1168,7 @@ function SmallCountryMarkers({
         hoveredCountryNormalized &&
         normalizeName(country.name) === hoveredCountryNormalized
     );
-    const isHovered = Boolean(isExternallyHovered && !isSelected);
+    const isHovered = Boolean((options.isHovered || isExternallyHovered) && !isSelected);
 
     // Activated selected state (panel open/closed)
     if (isActivatedSelected) {
@@ -1106,10 +1177,9 @@ function SmallCountryMarkers({
         radius: 10,
         fillColor: selectedColor,
         color: selectedColor,
-        weight: 2,
+        weight: 1.5,
         opacity: 1,
-        fillOpacity: 1,
-        glow: isPanelOpen,
+        fillOpacity: 0.7,
       };
     }
 
@@ -1119,10 +1189,9 @@ function SmallCountryMarkers({
         radius: 10,
         fillColor: "#87B940",
         color: "#87B940",
-        weight: 2,
+        weight: 0.45,
         opacity: 1,
         fillOpacity: 1,
-        glow: false,
       };
     }
 
@@ -1132,10 +1201,9 @@ function SmallCountryMarkers({
         radius: 10,
         fillColor: "#F16458",
         color: "#F16458",
-        weight: 2,
+        weight: 0.9,
         opacity: 1,
         fillOpacity: 1,
-        glow: true,
       };
     }
 
@@ -1144,10 +1212,9 @@ function SmallCountryMarkers({
       radius: 8,
       fillColor: "#87B940",
       color: "#87B940",
-      weight: 2,
+      weight: 0.3,
       opacity: 1,
       fillOpacity: 1,
-      glow: false,
     };
   };
 
@@ -1268,13 +1335,26 @@ function SmallCountryMarkers({
         fillOpacity: style.fillOpacity,
       });
 
-      // Apply glow effect
+      // Apply glow effect matching polygons
       if (element) {
-        element.style.filter = isAttractMode
-          ? "none"
-          : style.glow
-            ? "drop-shadow(0 0 8px rgba(241, 100, 88, 0.35))"
-            : "none";
+        const isActivated = Boolean(
+          selectedCountry?.name && country.name === selectedCountry.name && activatedCountryName === country.name
+        );
+        const isHovered = Boolean(
+          country && hoveredCountryNormalized && normalizeName(country.name) === hoveredCountryNormalized
+        );
+        
+        element.style.transition = `fill ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, fill-opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke-width ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, filter ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, r ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}`;
+
+        if (isAttractMode) {
+          element.style.filter = "none";
+        } else if (isActivated) {
+          element.style.filter = "drop-shadow(0 0 8px rgba(241, 100, 88, 0.5)) drop-shadow(0 0 16px rgba(241, 100, 88, 0.25))";
+        } else if (isHovered) {
+          element.style.filter = "drop-shadow(0 0 6px rgba(241, 100, 88, 0.35)) drop-shadow(0 0 12px rgba(241, 100, 88, 0.18))";
+        } else {
+          element.style.filter = "none";
+        }
       }
     });
   }, [hoveredCountry, selectedCountry, activatedCountryName, isPanelOpen, isAttractMode]);
@@ -1682,6 +1762,15 @@ export default function App() {
   const [isVoyagerExpanded, setIsVoyagerExpanded] = useState(false);
   const [voyagerBadgeAnimToken, setVoyagerBadgeAnimToken] = useState(0);
   const mapRef = useRef(null);
+  const mapAtmosphereRef = useRef(null);
+  const mapDriftStateRef = useRef({ x: 0, y: 0, scale: 1 });
+  const attractEyebrowRef = useRef(null);
+  const attractTitleRef = useRef(null);
+  const attractSubRef = useRef(null);
+  const ctaLiftRef = useRef(0);
+  const ctaPressAmountRef = useRef(0);
+  const ctaLiftStopRef = useRef(null);
+  const ctaPressStopRef = useRef(null);
   const countryLayerRefs = useRef({});
   const loggedMissingApiMatches = useRef(new Set());
   const familySearchCollectionsCacheRef = useRef({});
@@ -3516,6 +3605,91 @@ export default function App() {
   const isAttractMode = isIdleAttractMode && !hasActiveExplorationSurface;
   const isDockTransitioning = isMenuClosing || isMenuOpening;
 
+  // Ambient Ken Burns drift on the map while idle — the same trick behind
+  // Aerial/tvOS screensavers: a slow, non-repeating pan+zoom so the "hero"
+  // frame never reads as paused, even when no route swoosh is animating.
+  // Entering/leaving the drift is spring-driven too, so it eases back to
+  // dead-center instead of snapping when a visitor steps up to the kiosk.
+  useEffect(() => {
+    const node = mapAtmosphereRef.current;
+    if (!node) return;
+
+    if (!isAttractMode) {
+      const start = { ...mapDriftStateRef.current };
+      const stop = animateSpring({
+        from: 1,
+        to: 0,
+        stiffness: 140,
+        damping: 22,
+        onUpdate: (progress) => {
+          const x = start.x * progress;
+          const y = start.y * progress;
+          const scale = 1 + (start.scale - 1) * progress;
+          node.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
+          mapDriftStateRef.current = { x, y, scale };
+        },
+      });
+      return () => stop();
+    }
+
+    let rafId;
+    const startedAt = performance.now();
+
+    const drift = (now) => {
+      const t = (now - startedAt) / 1000;
+      const scale = 1.02 + Math.sin(t / 21) * 0.011;
+      const x = Math.sin(t / 27) * 9;
+      const y = Math.sin(t / 33 + 1.4) * 6;
+      mapDriftStateRef.current = { x, y, scale };
+      node.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
+      rafId = requestAnimationFrame(drift);
+    };
+
+    rafId = requestAnimationFrame(drift);
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [isAttractMode]);
+
+  // Spring the headline block in on entry instead of easing to a flat stop,
+  // so it grows past its resting position by a couple of px and settles —
+  // the overshoot is what reads as "alive" rather than merely animated.
+  useEffect(() => {
+    if (!isAttractMode) return;
+
+    const targets = [
+      { ref: attractEyebrowRef, delay: 100, from: 10 },
+      { ref: attractTitleRef, delay: 240, from: 10 },
+      { ref: attractSubRef, delay: 560, from: 8 },
+    ];
+
+    const stopFns = [];
+    const timeoutIds = targets.map(({ ref, delay, from }) =>
+      window.setTimeout(() => {
+        if (!ref.current) return;
+        ref.current.style.transform = `translateY(${from}px)`;
+        const stop = animateSpring({
+          from,
+          to: 0,
+          stiffness: 165,
+          damping: 15,
+          mass: 1,
+          onUpdate: (value) => {
+            if (ref.current) {
+              ref.current.style.transform = `translateY(${value.toFixed(2)}px)`;
+            }
+          },
+        });
+        stopFns.push(stop);
+      }, delay)
+    );
+
+    return () => {
+      timeoutIds.forEach((id) => window.clearTimeout(id));
+      stopFns.forEach((stop) => stop());
+    };
+  }, [isAttractMode]);
+
   const clearAttractCycleTimer = () => {
     if (attractCycleTimeoutRef.current) {
       clearTimeout(attractCycleTimeoutRef.current);
@@ -3841,6 +4015,7 @@ export default function App() {
             }}
           >
             <div
+              ref={attractEyebrowRef}
               style={{
                 position: "relative",
                 zIndex: 1,
@@ -3851,13 +4026,14 @@ export default function App() {
                 marginBottom: "0.22rem",
                 textShadow: "0 2px 10px rgba(5, 8, 16, 0.46)",
                 opacity: isAttractMode ? 1 : 0,
-                transform: isAttractMode ? "translateY(0)" : "translateY(10px)",
-                transition: "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 100ms, transform 1400ms cubic-bezier(0.22, 1, 0.36, 1) 100ms",
+                transform: "translateY(10px)",
+                transition: "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 100ms",
               }}
             >
               One Commonwealth
             </div>
             <div
+              ref={attractTitleRef}
               style={{
                 position: "relative",
                 zIndex: 1,
@@ -3868,14 +4044,15 @@ export default function App() {
                 marginBottom: "0.78rem",
                 textShadow: "0 2px 10px rgba(5, 8, 16, 0.46)",
                 opacity: isAttractMode ? 1 : 0,
-                transform: isAttractMode ? "translateY(0)" : "translateY(10px)",
-                transition: "opacity 1500ms cubic-bezier(0.22, 1, 0.36, 1) 240ms, transform 1500ms cubic-bezier(0.22, 1, 0.36, 1) 240ms",
+                transform: "translateY(10px)",
+                transition: "opacity 1500ms cubic-bezier(0.22, 1, 0.36, 1) 240ms",
               }}
             >
               Many Families
             </div>
           </h1>
           <p
+            ref={attractSubRef}
             style={{
               position: "relative",
               zIndex: 1,
@@ -3887,8 +4064,8 @@ export default function App() {
               lineHeight: 1.25,
               textShadow: "0 2px 10px rgba(5, 8, 16, 0.48)",
               opacity: isAttractMode ? 1 : 0,
-              transform: isAttractMode ? "translateY(0)" : "translateY(8px)",
-              transition: "opacity 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms, transform 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms",
+              transform: "translateY(8px)",
+              transition: "opacity 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms",
             }}
           >
             Discover the stories that connect us.
@@ -3908,6 +4085,30 @@ export default function App() {
           : hiddenExploreTransform;
         const exploreButtonLabel = isAttractMode ? "Touch to Begin" : "Explore by Country";
 
+        const applyCtaTransform = (node) => {
+          if (!node) return;
+          const lift = ctaLiftRef.current;
+          const press = ctaPressAmountRef.current;
+          const ty = -2 * lift;
+          const scale = (1 + 0.01 * lift) * (1 - 0.045 * press);
+          node.style.transform = `translateX(-50%) ${baseExploreTransform} translateY(${ty.toFixed(2)}px) scale(${scale.toFixed(4)})`;
+        };
+
+        const releaseCtaPress = (node) => {
+          if (!node) return;
+          ctaPressStopRef.current?.();
+          ctaPressStopRef.current = animateSpring({
+            from: ctaPressAmountRef.current,
+            to: 0,
+            stiffness: 300,
+            damping: 14,
+            onUpdate: (value) => {
+              ctaPressAmountRef.current = value;
+              applyCtaTransform(node);
+            },
+          });
+        };
+
         return (
           <button
             className={`explore-cta-button ${isExploreButtonVisible ? "explore-cta-visible" : "explore-cta-hidden"}${isAttractMode ? " explore-cta-button-attract" : ""}`}
@@ -3915,6 +4116,62 @@ export default function App() {
               event.stopPropagation();
               handleExploreCommonwealthPress();
             }}
+            onPointerEnter={(event) => {
+              if (!isExploreButtonVisible || event.pointerType !== "mouse") return;
+              const node = event.currentTarget;
+              ctaLiftStopRef.current?.();
+              ctaLiftStopRef.current = animateSpring({
+                from: ctaLiftRef.current,
+                to: 1,
+                stiffness: 260,
+                damping: 20,
+                onUpdate: (value) => {
+                  ctaLiftRef.current = value;
+                  applyCtaTransform(node);
+                },
+              });
+              node.style.background = "linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.3) 100%)";
+              node.style.boxShadow = "0 22px 44px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.42)";
+            }}
+            onPointerLeave={(event) => {
+              const node = event.currentTarget;
+              if (isExploreButtonVisible && event.pointerType === "mouse") {
+                ctaLiftStopRef.current?.();
+                ctaLiftStopRef.current = animateSpring({
+                  from: ctaLiftRef.current,
+                  to: 0,
+                  stiffness: 260,
+                  damping: 22,
+                  onUpdate: (value) => {
+                    ctaLiftRef.current = value;
+                    applyCtaTransform(node);
+                  },
+                });
+                node.style.background = "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.26) 100%)";
+                node.style.boxShadow = "0 18px 40px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.35)";
+              }
+              releaseCtaPress(node);
+            }}
+            onPointerDown={(event) => {
+              if (!isExploreButtonVisible) return;
+              const node = event.currentTarget;
+              const rect = node.getBoundingClientRect();
+              spawnGlassRipple(node, event.clientX - rect.left, event.clientY - rect.top);
+
+              ctaPressStopRef.current?.();
+              ctaPressStopRef.current = animateSpring({
+                from: ctaPressAmountRef.current,
+                to: 1,
+                stiffness: 340,
+                damping: 26,
+                onUpdate: (value) => {
+                  ctaPressAmountRef.current = value;
+                  applyCtaTransform(node);
+                },
+              });
+            }}
+            onPointerUp={(event) => releaseCtaPress(event.currentTarget)}
+            onPointerCancel={(event) => releaseCtaPress(event.currentTarget)}
             style={{
               position: "fixed",
               left: "50%",
@@ -3941,21 +4198,10 @@ export default function App() {
               textShadow: "0 1px 2px rgba(0,0,0,0.35)",
               opacity: isExploreButtonVisible ? 1 : 0,
               pointerEvents: isExploreButtonVisible ? "auto" : "none",
-              transition: `opacity ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}, transform ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}, background 220ms ease, box-shadow 220ms ease, filter ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}`,
+              WebkitTapHighlightColor: "transparent",
+              touchAction: "manipulation",
+              transition: `opacity ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}, background 220ms ease, box-shadow 220ms ease, filter ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}`,
               filter: isExploreButtonVisible ? "blur(0px)" : "blur(0.8px)",
-            }}
-            onMouseEnter={(event) => {
-              if (!isExploreButtonVisible) {
-                return;
-              }
-              event.currentTarget.style.transform = "translateX(-50%) translateY(-2px) scale(1.01)";
-              event.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.3) 100%)";
-              event.currentTarget.style.boxShadow = "0 22px 44px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.42)";
-            }}
-            onMouseLeave={(event) => {
-              event.currentTarget.style.transform = `translateX(-50%) ${baseExploreTransform}`;
-              event.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.26) 100%)";
-              event.currentTarget.style.boxShadow = "0 18px 40px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.35)";
             }}
           >
             <span
@@ -3969,6 +4215,7 @@ export default function App() {
                 zIndex: 0,
               }}
             />
+            <span className="explore-cta-rim" aria-hidden="true" />
             <span className="explore-cta-sheen" aria-hidden="true" />
             <span style={{ position: "relative", zIndex: 2, display: "inline-flex", alignItems: "center", gap: "0.52rem" }}>
               {renderGlobeIcon(isAttractMode ? 18 : 16)}
@@ -4640,12 +4887,16 @@ export default function App() {
         </div>
       )}
         <div
+          ref={mapAtmosphereRef}
           style={{
             position: "absolute",
             inset: 0,
             width: "100%",
             height: "100%",
             boxSizing: "border-box",
+            overflow: "hidden",
+            transformOrigin: "50% 50%",
+            willChange: "transform",
           }}
         >
           <div
