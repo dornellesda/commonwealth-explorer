@@ -1,0 +1,282 @@
+{
+  "Antigua and Barbuda": {
+    "capital": "St. John's",
+    "population": 101489,
+    "source": "Wikidata"
+  },
+  "Australia": {
+    "capital": "Canberra",
+    "population": 27614411,
+    "source": "Wikidata"
+  },
+  "The Bahamas": {
+    "capital": "Nassau",
+    "population": 399440,
+    "source": "Wikidata"
+  },
+  "Bangladesh": {
+    "capital": "Dhaka",
+    "population": 171466990,
+    "source": "Wikidata"
+  },
+  "Barbados": {
+    "capital": "Bridgetown",
+    "population": 303431,
+    "source": "Wikidata"
+  },
+  "Belize": {
+    "capital": "Belmopan",
+    "population": 411106,
+    "source": "Wikidata"
+  },
+  "Botswana": {
+    "capital": "Gaborone",
+    "population": 2480244,
+    "source": "Wikidata"
+  },
+  "Brunei Darussalam": {
+    "capital": "Bandar Seri Begawan",
+    "population": 458949,
+    "source": "Wikidata"
+  },
+  "Cameroon": {
+    "capital": "Yaoundé",
+    "population": 28372687,
+    "source": "Wikidata"
+  },
+  "Canada": {
+    "capital": "Ottawa",
+    "population": 36991981,
+    "source": "Wikidata"
+  },
+  "Cyprus": {
+    "capital": "Nicosia",
+    "population": 1344976,
+    "source": "Wikidata"
+  },
+  "Dominica": {
+    "capital": "Roseau",
+    "population": 74656,
+    "source": "Wikidata"
+  },
+  "Eswatini": {
+    "capital": "Mbabane",
+    "population": 1230506,
+    "source": "Wikidata"
+  },
+  "Fiji": {
+    "capital": "Suva",
+    "population": 926276,
+    "source": "Wikidata"
+  },
+  "Gabon": {
+    "capital": "Libreville",
+    "population": 2025137,
+    "source": "Wikidata"
+  },
+  "The Gambia": {
+    "capital": "Banjul",
+    "population": 2639916,
+    "source": "Wikidata"
+  },
+  "Ghana": {
+    "capital": "Accra",
+    "population": 32833031,
+    "source": "Wikidata"
+  },
+  "Grenada": {
+    "capital": "St. George's",
+    "population": 114299,
+    "source": "Wikidata"
+  },
+  "Guyana": {
+    "capital": "Georgetown",
+    "population": 878674,
+    "source": "Wikidata"
+  },
+  "India": {
+    "capital": "New Delhi",
+    "population": 1326093247,
+    "source": "Wikidata"
+  },
+  "Jamaica": {
+    "capital": "Kingston",
+    "population": 2697983,
+    "source": "Wikidata"
+  },
+  "Kenya": {
+    "capital": "Nairobi",
+    "population": 48468138,
+    "source": "Wikidata"
+  },
+  "Kiribati": {
+    "capital": "South Tarawa",
+    "population": 134518,
+    "source": "Wikidata"
+  },
+  "Lesotho": {
+    "capital": "Maseru",
+    "population": 2007201,
+    "source": "Wikidata"
+  },
+  "Malawi": {
+    "capital": "Lilongwe",
+    "population": 17563749,
+    "source": "Wikidata"
+  },
+  "Malaysia": {
+    "capital": "Kuala Lumpur",
+    "population": 32447385,
+    "source": "Wikidata"
+  },
+  "Maldives": {
+    "capital": "Malé",
+    "population": 436330,
+    "source": "Wikidata"
+  },
+  "Malta": {
+    "capital": "Valletta",
+    "population": 553214,
+    "source": "Wikidata"
+  },
+  "Mauritius": {
+    "capital": "Port Louis",
+    "population": 1264613,
+    "source": "Wikidata"
+  },
+  "Mozambique": {
+    "capital": "Maputo",
+    "population": 29668834,
+    "source": "Wikidata"
+  },
+  "Namibia": {
+    "capital": "Windhoek",
+    "population": 2533794,
+    "source": "Wikidata"
+  },
+  "Nauru": {
+    "capital": "Yaren District",
+    "population": 13650,
+    "source": "Wikidata"
+  },
+  "New Zealand": {
+    "capital": "Wellington",
+    "population": 5307800,
+    "source": "Wikidata"
+  },
+  "Nigeria": {
+    "capital": "Abuja",
+    "population": 211400708,
+    "source": "Wikidata"
+  },
+  "Pakistan": {
+    "capital": "Islamabad",
+    "population": 223773700,
+    "source": "Wikidata"
+  },
+  "Papua New Guinea": {
+    "capital": "Port Moresby",
+    "population": 8935000,
+    "source": "Wikidata"
+  },
+  "Rwanda": {
+    "capital": "Kigali",
+    "population": 14569341,
+    "source": "Wikidata"
+  },
+  "St Kitts and Nevis": {
+    "capital": "Basseterre",
+    "population": 46922,
+    "source": "Wikidata"
+  },
+  "Saint Lucia": {
+    "capital": "Castries",
+    "population": 167591,
+    "source": "Wikidata"
+  },
+  "St Vincent and The Grenadines": {
+    "capital": "Kingstown",
+    "population": 109897,
+    "source": "Wikidata"
+  },
+  "Samoa": {
+    "capital": "Apia",
+    "population": 200010,
+    "source": "Wikidata"
+  },
+  "Seychelles": {
+    "capital": "Victoria",
+    "population": 119773,
+    "source": "Wikidata"
+  },
+  "Sierra Leone": {
+    "capital": "Freetown",
+    "population": 7557212,
+    "source": "Wikidata"
+  },
+  "Singapore": {
+    "capital": "Singapore",
+    "population": 5866139,
+    "source": "Wikidata"
+  },
+  "Solomon Islands": {
+    "capital": "Honiara",
+    "population": 611343,
+    "source": "Wikidata"
+  },
+  "South Africa": {
+    "capital": "Pretoria",
+    "population": 62027503,
+    "source": "Wikidata"
+  },
+  "Sri Lanka": {
+    "capital": "Colombo",
+    "population": 21444000,
+    "source": "Wikidata"
+  },
+  "Tonga": {
+    "capital": "Nukuʻalofa",
+    "population": 108020,
+    "source": "Wikidata"
+  },
+  "Togo": {
+    "capital": "Lomé",
+    "population": 7797694,
+    "source": "Wikidata"
+  },
+  "Trinidad and Tobago": {
+    "capital": "Port of Spain",
+    "population": 1369125,
+    "source": "Wikidata"
+  },
+  "Tuvalu": {
+    "capital": "Funafuti",
+    "population": 10643,
+    "source": "Wikidata"
+  },
+  "Uganda": {
+    "capital": "Kampala",
+    "population": 47123531,
+    "source": "Wikidata"
+  },
+  "United Kingdom": {
+    "capital": "London",
+    "population": 67326569,
+    "source": "Wikidata"
+  },
+  "United Republic of Tanzania": {
+    "capital": "Dodoma",
+    "population": 57310019,
+    "source": "Wikidata"
+  },
+  "Vanuatu": {
+    "capital": "Port Vila",
+    "population": 300019,
+    "source": "Wikidata"
+  },
+  "Zambia": {
+    "capital": "Lusaka",
+    "population": 19610769,
+    "source": "Wikidata"
+  }
+}

@@ -294,7 +294,7 @@ export default function AdminPanel() {
           minHeight: "100vh",
           background: "#f2f7ee",
           color: "#163126",
-          fontFamily: "'Segoe UI', 'Inter', sans-serif",
+          fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -340,7 +340,7 @@ export default function AdminPanel() {
         minHeight: "100vh",
         background: "#f2f7ee",
         color: "#163126",
-        fontFamily: "'Segoe UI', 'Inter', sans-serif",
+        fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
         display: "grid",
         gridTemplateColumns: "300px 1fr",
       }}

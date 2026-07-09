@@ -4,6 +4,7 @@ import { GeoJSON, MapContainer, useMap } from "react-leaflet";
 import countries from "./data/countries.json";
 import countryResearchLinks from "./data/countryResearchLinks.json";
 import commonwealthMetadata from "./data/commonwealthMetadata.json";
+import countryStats from "./data/countryStats.json";
 import "leaflet/dist/leaflet.css";
 
 // Format population number (e.g., 5771000 → "5.8 million")
@@ -23,14 +24,17 @@ function formatPopulation(pop) {
 }
 
 const GEOJSON_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson";
-const REST_COUNTRIES_URL = "https://raw.githubusercontent.com/samayo/country-json/master/src/country-by-population.json";
-const REST_COUNTRIES_CAPITAL_URL = "https://raw.githubusercontent.com/samayo/country-json/master/src/country-by-capital-city.json";
+const GEOJSON_FALLBACK_URLS = [
+  GEOJSON_URL,
+  "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_admin_0_countries.geojson",
+];
 const FAMILYSEARCH_LOGO_URL = "https://edge.fscdn.org/assets/static/media/familysearch-tree.dc22204d2135c739e39d0af7d519e182.svg";
 const MAP_BACKGROUND_ART_URL = "https://plus.unsplash.com/premium_photo-1779463020508-7cd254b1d37f?auto=format&fit=crop&w=2400&q=80";
 const FAMILYSEARCH_COLLECTIONS_BASE_URL = "https://www.familysearch.org/en/search/collection/list";
 const FAMILYSEARCH_FETCH_MIRROR_BASE_URL = "https://r.jina.ai/http://www.familysearch.org";
-const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v2";
+const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v6";
 const FAMILYSEARCH_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+const FAMILYSEARCH_GENEALOGY_KEYWORD_REGEX = /\b(genealog(?:y|ies)|family\s*tree|lineage)\b/i;
 const DEFAULT_GALLERY_VIDEO_ID = "aqz-KE-bpKQ";
 const COUNTRY_GALLERY_VIDEO_ID_BY_NAME = {
   australia: "mWl65Qriw6A",
@@ -168,6 +172,8 @@ const KIOSK_IDLE_TIMEOUT_MS = 70_000;
 const KIOSK_DOCK_SEARCH_IDLE_TIMEOUT_MS = 30_000;
 const DOCK_SOFT_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const DOCK_GENTLE_EASE = "cubic-bezier(0.2, 0.85, 0.24, 1)";
+const EXHIBIT_TRANSITION_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const EXHIBIT_TRANSITION_MS = 420;
 
 const ATTRACT_JOURNEY_SEQUENCE = [
   // Geographic storytelling path across the Commonwealth.
@@ -199,32 +205,64 @@ const ATTRACT_ROUTE_SEGMENTS = new Set([
   "Singapore|Australia",
   "Australia|New Zealand",
 ]);
-const ATTRACT_ROUTE_CHANCE = 0.35;
-const ATTRACT_ROUTE_MIN_GAP_STEPS = 3;
-const ATTRACT_ARC_DURATION_MS = 8000;
+const ATTRACT_ROUTE_CHANCE = 0.55;
+const ATTRACT_ROUTE_MIN_GAP_STEPS = 2;
+const ATTRACT_ARC_DURATION_MS = 10000;
+const ATTRACT_ARC_BREATHE = true;
+const ATTRACT_VISIBLE_ROUTE_MIN = 3;
+const ATTRACT_VISIBLE_ROUTE_MAX = 5;
+const ATTRACT_ROUTE_ROTATE_MS = 5200;
+const ATTRACT_HERO_ROUTE_INTERVAL_MIN_MS = 15000;
+const ATTRACT_HERO_ROUTE_INTERVAL_MAX_MS = 20000;
+const ATTRACT_BASE_ARC_DURATION_MS = 16000;
+const ATTRACT_HERO_ARC_DURATION_MS = 21000;
+const ATTRACT_ROUTE_LIBRARY = [
+  { from: "United Kingdom", to: "Canada" },
+  { from: "India", to: "United Kingdom" },
+  { from: "Nigeria", to: "Canada" },
+  { from: "Australia", to: "New Zealand" },
+  { from: "Jamaica", to: "United Kingdom" },
+  { from: "Kenya", to: "United Kingdom" },
+  { from: "South Africa", to: "Australia" },
+  { from: "Pakistan", to: "United Kingdom" },
+  { from: "Bangladesh", to: "United Kingdom" },
+  { from: "Malaysia", to: "Australia" },
+  { from: "Ghana", to: "Canada" },
+  { from: "Trinidad and Tobago", to: "Canada" },
+];
+const ATTRACT_HERO_ROUTE_LIBRARY = [
+  { from: "Scotland", to: "Australia" },
+  { from: "India", to: "United Kingdom" },
+  { from: "Nigeria", to: "Canada" },
+  { from: "Jamaica", to: "United Kingdom" },
+  { from: "United Kingdom", to: "New Zealand" },
+];
+const ATTRACT_CUSTOM_ROUTE_POINTS = {
+  Scotland: [56.6, -4.2],
+};
 const MAP_HIGHLIGHT_TRANSITION_MS = 520;
 const MAP_HIGHLIGHT_EASE = "cubic-bezier(0.2, 0.65, 0.25, 1)";
 const VOYAGER_TOTAL_COUNTRIES = countries.length;
 
 function getVoyagerTitle(visitedCount) {
   if (visitedCount >= 56) {
-    return "Platinum Commonwealth Voyager";
+    return "Commonwealth Explorer";
   }
 
-  if (visitedCount >= 50) {
-    return "Master Voyager";
+  if (visitedCount >= 40) {
+    return "World Voyager";
   }
 
-  if (visitedCount >= 35) {
-    return "Adventurer";
-  }
-
-  if (visitedCount >= 20) {
-    return "Navigator";
+  if (visitedCount >= 25) {
+    return "Global Navigator";
   }
 
   if (visitedCount >= 10) {
-    return "Traveller";
+    return "Commonwealth Traveller";
+  }
+
+  if (visitedCount >= 5) {
+    return "Curious Explorer";
   }
 
   return "Explorer";
@@ -302,6 +340,27 @@ const countryAliases = {
   "st vincent and the grenadines": "saint vincent and the grenadines",
   "estwatini": "eswatini",
 };
+
+function buildCountryLookupMap(dataset = {}) {
+  const map = {};
+
+  Object.entries(dataset).forEach(([countryName, value]) => {
+    getCountryLookupKeys(countryName).forEach((lookupKey) => {
+      map[lookupKey] = value;
+    });
+  });
+
+  return map;
+}
+
+function getLookupValue(lookupMap = {}, countryName = "") {
+  const lookupKeys = getCountryLookupKeys(countryName);
+  return lookupKeys.reduce((match, lookupKey) => match || lookupMap[lookupKey], null);
+}
+
+const countryStatsByLookup = buildCountryLookupMap(countryStats);
+const commonwealthMetadataByLookup = buildCountryLookupMap(commonwealthMetadata);
+const countryResearchLinksByLookup = buildCountryLookupMap(countryResearchLinks);
 
 const smallCountries = [
   "Antigua and Barbuda",
@@ -428,38 +487,115 @@ function parseCanonicalCollectionsUrlFromLocationPage(pageText = "") {
   return match ? match[1] : null;
 }
 
+function parseGenealogySeeAllUrlFromLocationPage(pageText = "") {
+  const match = pageText.match(/\[See all [^\]]*Genealogies\]\((https?:\/\/www\.familysearch\.org\/en\/search\/genealogies\/submissions\?[^)]+)\)/i);
+  return match ? match[1] : null;
+}
+
+function hasFamilySearchGenealogyResults(pageText = "") {
+  if (!pageText) {
+    return false;
+  }
+
+  const showingCountMatch = pageText.match(/Showing\s+\d+\s+of\s+([\d,]+)\s+Genealogies/i);
+  if (showingCountMatch) {
+    const total = Number.parseInt(showingCountMatch[1].replace(/,/g, ""), 10);
+    return Number.isFinite(total) && total > 0;
+  }
+
+  if (/No\s+genealog(?:y|ies)\s+found/i.test(pageText)) {
+    return false;
+  }
+
+  return /\/en\/search\/genealogies\/submission\//i.test(pageText);
+}
+
+function buildFamilySearchGenealogyFallback(countryName = "") {
+  return [
+    {
+      title: `${countryName} Genealogies`,
+      link: `https://www.familysearch.org/en/search/genealogies/submissions?q.place=${encodeURIComponent(countryName)}`,
+      updated: "",
+      updatedAt: new Date(0),
+      category: "genealogy",
+    },
+  ];
+}
+
 function parseFamilySearchCollectionsFromLocationPage(pageText = "") {
-  const seenLinks = new Set();
-  const collections = [];
+  const seenRecordLinks = new Set();
+  const seenGenealogyLinks = new Set();
+  const records = [];
+  const genealogies = [];
+  let activeSection = "";
 
   pageText.split(/\r?\n/).forEach((line) => {
     const trimmedLine = line.trim();
+    if (!trimmedLine) {
+      return;
+    }
+
+    if (/^##\s+Indexed Historical Records$/i.test(trimmedLine) || /^##\s+Image-Only Historical Records$/i.test(trimmedLine)) {
+      activeSection = "records";
+      return;
+    }
+
+    if (/^##\s+Genealogies$/i.test(trimmedLine)) {
+      activeSection = "genealogies";
+      return;
+    }
+
     if (!trimmedLine.startsWith("|")) {
       return;
     }
 
-    const match = trimmedLine.match(/^\|\s*\[([^\]]+)\]\((https?:\/\/[^)]+\/en\/search\/collection\/\d+[^)]*)\)\s*\|/i);
+    const match = trimmedLine.match(/^\|\s*\[([^\]]+)\]\((https?:\/\/[^)]+)\)\s*\|/i);
     if (!match) {
       return;
     }
 
     const title = match[1].trim();
     const link = match[2].trim();
-
-    if (!title || seenLinks.has(link)) {
+    if (!title || !link) {
       return;
     }
 
-    seenLinks.add(link);
-    collections.push({
-      title,
-      link,
-      updated: "",
-      updatedAt: new Date(0),
-    });
+    if (activeSection === "records" && /\/en\/search\/collection\/\d+/i.test(link)) {
+      if (seenRecordLinks.has(link)) {
+        return;
+      }
+
+      seenRecordLinks.add(link);
+      records.push({
+        title,
+        link,
+        updated: "",
+        updatedAt: new Date(0),
+        category: "record",
+      });
+      return;
+    }
+
+    if (activeSection === "genealogies" && /\/en\/search\/genealogies\/submission\//i.test(link)) {
+      if (seenGenealogyLinks.has(link)) {
+        return;
+      }
+
+      seenGenealogyLinks.add(link);
+      genealogies.push({
+        title,
+        link,
+        updated: "",
+        updatedAt: new Date(0),
+        category: "genealogy",
+      });
+    }
   });
 
-  return collections.slice(0, 3);
+  return {
+    records: records.slice(0, 3),
+    genealogies: genealogies.slice(0, 3),
+  };
 }
 
 function parseFamilySearchDate(value = "") {
@@ -507,6 +643,8 @@ function parseFamilySearchDate(value = "") {
 }
 
 function parseFamilySearchCollections(pageText = "") {
+  const byLink = new Map();
+
   const collections = [];
 
   pageText.split(/\r?\n/).forEach((line) => {
@@ -515,36 +653,118 @@ function parseFamilySearchCollections(pageText = "") {
       return;
     }
 
-    const match = trimmedLine.match(/^\|\s*More\s*\|\s*\[([^\]]+)\]\((https?:\/\/[^)]+)\)\s*\|\s*(.*?)\s*\|/i);
-    if (!match) {
+    const datedRowMatch = trimmedLine.match(/^\|\s*More\s*\|\s*\[([^\]]+)\]\((https?:\/\/[^)]+)\)\s*\|\s*(.*?)\s*\|/i);
+    if (datedRowMatch) {
+      const title = datedRowMatch[1].trim();
+      const link = datedRowMatch[2].trim();
+      const details = datedRowMatch[3].trim();
+      const dateMatch = details.match(/(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})/i);
+      const parsedDate = dateMatch ? parseFamilySearchDate(dateMatch[1]) : null;
+
+      if (!title || !link) {
+        return;
+      }
+
+      byLink.set(link, {
+        title,
+        link,
+        updated: dateMatch ? dateMatch[1] : "",
+        updatedAt: parsedDate || new Date(0),
+      });
       return;
     }
 
-    const title = match[1].trim();
-    const link = match[2].trim();
-    const details = match[3].trim();
-    const dateMatch = details.match(/(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})/i);
-
-    if (!dateMatch) {
+    const countRowMatch = trimmedLine.match(/^\|\s*\[([^\]]+)\]\((https?:\/\/[^)]+\/en\/search\/collection\/\d+[^)]*)\)\s*\|\s*([^|]*)\|/i);
+    if (!countRowMatch) {
       return;
     }
 
-    const updatedAt = parseFamilySearchDate(dateMatch[1]);
-    if (!updatedAt) {
+    const title = countRowMatch[1].trim();
+    const link = countRowMatch[2].trim();
+    if (!title || !link || byLink.has(link)) {
       return;
     }
 
-    collections.push({
+    byLink.set(link, {
       title,
       link,
-      updated: dateMatch[1],
-      updatedAt,
+      updated: "",
+      updatedAt: new Date(0),
     });
   });
+
+  collections.push(...byLink.values());
 
   return collections
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, 3);
+}
+
+function getFamilySearchCollectionCategory(title = "") {
+  if (FAMILYSEARCH_GENEALOGY_KEYWORD_REGEX.test(title)) {
+    return "genealogy";
+  }
+
+  return "record";
+}
+
+function splitFamilySearchCollectionsByCategory(collections = []) {
+  const records = [];
+  const genealogies = [];
+
+  collections.forEach((collection) => {
+    if (!collection?.title || !collection?.link) {
+      return;
+    }
+
+    if (collection.category === "record") {
+      records.push(collection);
+      return;
+    }
+
+    if (collection.category === "genealogy") {
+      genealogies.push(collection);
+      return;
+    }
+
+    if (getFamilySearchCollectionCategory(collection.title) === "genealogy") {
+      genealogies.push(collection);
+      return;
+    }
+
+    records.push(collection);
+  });
+
+  return { records, genealogies };
+}
+
+function getFamilySearchCollectionsForFallback(collections = []) {
+  const { records, genealogies } = splitFamilySearchCollectionsByCategory(collections);
+
+  if (records.length > 0) {
+    return {
+      categoryLabel: "Records Available",
+      collections: records,
+      hasRecords: true,
+      hasGenealogies: genealogies.length > 0,
+    };
+  }
+
+  if (genealogies.length > 0) {
+    return {
+      categoryLabel: "Genealogies Available",
+      collections: genealogies,
+      hasRecords: false,
+      hasGenealogies: true,
+    };
+  }
+
+  return {
+    categoryLabel: "",
+    collections: [],
+    hasRecords: false,
+    hasGenealogies: false,
+  };
 }
 
 function MapBounds() {
@@ -596,81 +816,6 @@ function MapArtOverlay({ imageUrl, opacity = 0.4 }) {
       overlays.forEach((overlay) => overlay.remove());
     };
   }, [map, imageUrl, opacity]);
-
-  return null;
-}
-
-function AmbientMapMotion() {
-  const map = useMap();
-
-  useEffect(() => {
-    // Apply subtle breathing to rendered map art/map pane (not tile layers).
-    const mapContainer = map.getContainer();
-    const motionTarget =
-      map.getPane("background-art-pane") ||
-      mapContainer.querySelector(".leaflet-map-pane") ||
-      mapContainer;
-
-    if (!motionTarget) {
-      return;
-    }
-
-    const previousFilter = motionTarget.style.filter;
-
-    let animationFrame;
-    let startTime = Date.now();
-
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      // Very slow breathing: 20 second cycle
-      const breathe = Math.sin(elapsed / 10000 * Math.PI) * 0.015 + 1;
-
-      motionTarget.style.filter = `brightness(${breathe})`;
-      animationFrame = requestAnimationFrame(animate);
-    };
-
-    // Start the animation
-    animationFrame = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-      }
-
-      motionTarget.style.filter = previousFilter;
-    };
-  }, [map]);
-
-  return null;
-}
-
-function AttractBreathingZoom() {
-  const map = useMap();
-
-  useEffect(() => {
-    let animationFrame;
-    let startTime = Date.now();
-
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      // Very slow zoom breathing: ±0.08 zoom over 25 seconds
-      const breathe = Math.sin(elapsed / 12500 * Math.PI) * 0.08;
-      const currentZoom = COMMONWEALTH_VIEW.zoom + breathe;
-      
-      map.setView(COMMONWEALTH_VIEW.center, currentZoom, { animate: false });
-      animationFrame = requestAnimationFrame(animate);
-    };
-
-    animationFrame = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-      }
-      // Restore default view
-      map.setView(COMMONWEALTH_VIEW.center, COMMONWEALTH_VIEW.zoom, { animate: false });
-    };
-  }, [map]);
 
   return null;
 }
@@ -847,26 +992,35 @@ function AttractSeaRouteSwoosh({ route }) {
     }
 
     const latLngs = buildSeaRouteArc(route.from, route.to);
+    const maxLineOpacity = route.hero ? 0.42 : 0.28;
+    const maxGlowOpacity = route.hero ? 0.2 : 0.12;
+    const glowWeight = route.hero ? 3.2 : 2.4;
+    const lineWeight = route.hero ? 1.5 : 1.1;
+    const glowColor = route.hero ? "#f7edd4" : "#dce8f4";
+    const lineColor = route.hero ? "#fff5de" : "#e8f1fb";
+    const dashPattern = route.hero ? "36 460" : "28 400";
+
     const glow = L.polyline(latLngs, {
       pane: paneName,
-      color: "#d9ecff",
-      weight: 1.8,
+      color: glowColor,
+      weight: glowWeight,
       opacity: 0,
+      dashArray: dashPattern,
       lineCap: "round",
       interactive: false,
     }).addTo(map);
 
     const line = L.polyline(latLngs, {
       pane: paneName,
-      color: "#e5f3ff",
-      weight: 0.9,
+      color: lineColor,
+      weight: lineWeight,
       opacity: 0,
-      dashArray: "4 20",
+      dashArray: dashPattern,
       lineCap: "round",
       interactive: false,
     }).addTo(map);
 
-    const durationMs = ATTRACT_ARC_DURATION_MS;
+    const durationMs = route.durationMs || ATTRACT_ARC_DURATION_MS;
     let rafId = null;
     const startedAt = performance.now();
 
@@ -874,23 +1028,25 @@ function AttractSeaRouteSwoosh({ route }) {
       const progress = Math.min(1, (now - startedAt) / durationMs);
       let opacity = 0;
 
-      if (progress < 0.2) {
-        opacity = (progress / 0.2) * 0.35;
-      } else if (progress < 0.75) {
-        opacity = 0.35;
+      if (progress < 0.18) {
+        opacity = (progress / 0.18) * maxLineOpacity;
+      } else if (progress < 0.82) {
+        opacity = maxLineOpacity;
       } else {
-        opacity = ((1 - progress) / 0.25) * 0.35;
+        opacity = ((1 - progress) / 0.18) * maxLineOpacity;
       }
 
-      const clampedOpacity = Math.max(0, Math.min(0.35, opacity));
+      const clampedOpacity = Math.max(0, Math.min(maxLineOpacity, opacity));
       line.setStyle({ opacity: clampedOpacity });
       glow.setStyle({ 
-        opacity: clampedOpacity * 0.6,
-        weight: 6
+        opacity: Math.max(0, Math.min(maxGlowOpacity, clampedOpacity * 0.92)),
+        weight: glowWeight,
       });
 
-      const phase = progress * 54;
-      line.setStyle({ dashOffset: `${phase}px` });
+      const phase = progress * (route.hero ? 760 : 620);
+      const dashOffset = `${Math.round(phase)}px`;
+      line.setStyle({ dashOffset });
+      glow.setStyle({ dashOffset });
 
       if (progress < 1) {
         rafId = requestAnimationFrame(animate);
@@ -906,7 +1062,7 @@ function AttractSeaRouteSwoosh({ route }) {
       glow.remove();
       line.remove();
     };
-  }, [map, route?.id]);
+  }, [map, route?.id, route?.hero, route?.durationMs]);
 
   return null;
 }
@@ -918,6 +1074,7 @@ function SmallCountryMarkers({
   hoveredCountry,
   activatedCountryName,
   isPanelOpen,
+  isAttractMode,
   onCountryHover,
 }) {
   const map = useMap();
@@ -1113,12 +1270,14 @@ function SmallCountryMarkers({
 
       // Apply glow effect
       if (element) {
-        element.style.filter = style.glow
-          ? "drop-shadow(0 0 8px rgba(241, 100, 88, 0.35))"
-          : "none";
+        element.style.filter = isAttractMode
+          ? "none"
+          : style.glow
+            ? "drop-shadow(0 0 8px rgba(241, 100, 88, 0.35))"
+            : "none";
       }
     });
-  }, [hoveredCountry, selectedCountry, activatedCountryName, isPanelOpen]);
+  }, [hoveredCountry, selectedCountry, activatedCountryName, isPanelOpen, isAttractMode]);
 
   // Update marker visibility based on zoom
   useEffect(() => {
@@ -1157,10 +1316,12 @@ function WorldGeoLayer({
   selectedCountry,
   activatedCountryName,
   isPanelOpen,
+  isAttractMode,
   hoveredCountry,
   onCountryHover,
   countryLayerRefs,
   onGeojsonLoad,
+  onGeojsonError,
 }) {
   const map = useMap();
   const [geojson, setGeojson] = useState(null);
@@ -1253,7 +1414,9 @@ function WorldGeoLayer({
             );
             element.style.transition = `fill ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, fill-opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke-width ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, filter ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}`;
             
-            if (isActivated) {
+            if (isAttractMode) {
+              element.style.filter = "none";
+            } else if (isActivated) {
               element.style.filter = "drop-shadow(0 0 8px rgba(241, 100, 88, 0.5)) drop-shadow(0 0 16px rgba(241, 100, 88, 0.25))";
             } else if (isHovered) {
               element.style.filter = "drop-shadow(0 0 6px rgba(241, 100, 88, 0.35)) drop-shadow(0 0 12px rgba(241, 100, 88, 0.18))";
@@ -1264,7 +1427,7 @@ function WorldGeoLayer({
         }
       });
     }
-  }, [selectedCountry, activatedCountryName, hoveredCountry, isPanelOpen]);
+  }, [selectedCountry, activatedCountryName, hoveredCountry, isPanelOpen, isAttractMode]);
 
   useEffect(() => {
     if (mapRef) {
@@ -1285,22 +1448,36 @@ function WorldGeoLayer({
   useEffect(() => {
     let isActive = true;
 
-    console.log("GeoJSON URL:", GEOJSON_URL);
+    const loadGeojsonWithFallback = async () => {
+      const errors = [];
 
-    fetch(GEOJSON_URL)
-      .then((response) => {
-        console.log("Fetch status:", response.status, response.statusText);
-        console.log("Response size:", response.headers.get("content-length"));
-        return response.json();
-      })
+      for (const sourceUrl of GEOJSON_FALLBACK_URLS) {
+        try {
+          const response = await fetch(sourceUrl, { headers: { Accept: "application/json, text/plain, */*" } });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+          if (!data || !Array.isArray(data.features)) {
+            throw new Error("Invalid GeoJSON payload");
+          }
+
+          return data;
+        } catch (error) {
+          errors.push(`${sourceUrl}: ${error?.message || "Unknown error"}`);
+        }
+      }
+
+      throw new Error(errors.join(" | "));
+    };
+
+    loadGeojsonWithFallback()
       .then((data) => {
         if (isActive) {
-          console.log("GeoJSON Loaded:", data.features?.length, "features");
-          console.log("GeoJSON type:", data.type);
-          console.log("First feature:", data.features?.[0]?.properties?.name || data.features?.[0]?.properties?.NAME);
-          
           setGeojson(data);
           onGeojsonLoad(data);
+          onGeojsonError?.("");
           
           // Comprehensive GeoJSON Audit
           const auditResults = [];
@@ -1392,15 +1569,15 @@ function WorldGeoLayer({
       .catch((error) => {
         if (isActive) {
           console.error("GeoJSON Fetch Error:", error.message);
-          console.error("Error details:", error);
           setGeojson(null);
+          onGeojsonError?.("Unable to load map data. Check network and refresh.");
         }
       });
 
     return () => {
       isActive = false;
     };
-  }, [setGeojson]);
+  }, [setGeojson, onGeojsonLoad, onGeojsonError]);
 
   if (!geojson) {
     return null;
@@ -1472,6 +1649,7 @@ export default function App() {
   const [isMenuClosing, setIsMenuClosing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [geojson, setGeojson] = useState(null);
+  const [mapLoadError, setMapLoadError] = useState("");
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isPanelVisible, setIsPanelVisible] = useState(false);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
@@ -1480,23 +1658,29 @@ export default function App() {
   const [activatedCountryName, setActivatedCountryName] = useState(null);
   const [heroMotionSeed, setHeroMotionSeed] = useState(0);
   const [hoveredCountry, setHoveredCountry] = useState(null);
-  const [countryDataCache, setCountryDataCache] = useState({});
+  const [countryDataCache] = useState(countryStatsByLookup);
   const [familySearchCollections, setFamilySearchCollections] = useState([]);
   const [lightboxItem, setLightboxItem] = useState(null);
   const [showGalleryNavigation, setShowGalleryNavigation] = useState(false);
+  const [galleryActiveIndex, setGalleryActiveIndex] = useState(0);
   const [isFamilySearchCacheReady, setIsFamilySearchCacheReady] = useState(false);
   const [isOverviewExpanded, setIsOverviewExpanded] = useState(false);
   const [hasOverviewOverflow, setHasOverviewOverflow] = useState(false);
   const [recordCollectionsDisplayLimit, setRecordCollectionsDisplayLimit] = useState(3);
   const [validatedHeroImage, setValidatedHeroImage] = useState(null);
   const [isIdleAttractMode, setIsIdleAttractMode] = useState(true);
-  const [attractRouteSwoosh, setAttractRouteSwoosh] = useState(null);
+  const [isButtonTransitioning, setIsButtonTransitioning] = useState(false);
+  const [attractRouteSwooshes, setAttractRouteSwooshes] = useState([]);
+  const [attractHeroRoute, setAttractHeroRoute] = useState(null);
   const [isDockSearchExpanded, setIsDockSearchExpanded] = useState(false);
   const [dockSearchActivityTick, setDockSearchActivityTick] = useState(0);
   const [isMenuOpening, setIsMenuOpening] = useState(false);
   const [visitedVoyagerCountries, setVisitedVoyagerCountries] = useState([]);
   const [voyagerNotice, setVoyagerNotice] = useState(null);
   const [voyagerCompletionVisible, setVoyagerCompletionVisible] = useState(false);
+  const [achievementUnlocked, setAchievementUnlocked] = useState(null);
+  const [isVoyagerExpanded, setIsVoyagerExpanded] = useState(false);
+  const [voyagerBadgeAnimToken, setVoyagerBadgeAnimToken] = useState(0);
   const mapRef = useRef(null);
   const countryLayerRefs = useRef({});
   const loggedMissingApiMatches = useRef(new Set());
@@ -1517,6 +1701,7 @@ export default function App() {
   const voyagerNoticeTimeoutRef = useRef(null);
   const voyagerCompletionTimeoutRef = useRef(null);
   const visitedVoyagerCountriesRef = useRef([]);
+  const achievementUnlockTimeoutRef = useRef(null);
 
   const commonwealthCountries = [...countries].sort((a, b) => a.name.localeCompare(b.name));
   const filteredCountries = commonwealthCountries.filter((country) =>
@@ -1544,6 +1729,13 @@ export default function App() {
     setDockSearchActivityTick((value) => value + 1);
   };
 
+  const clearAchievementUnlockTimer = () => {
+    if (achievementUnlockTimeoutRef.current) {
+      clearTimeout(achievementUnlockTimeoutRef.current);
+      achievementUnlockTimeoutRef.current = null;
+    }
+  };
+
   const clearVoyagerProgressTimers = () => {
     if (voyagerNoticeTimeoutRef.current) {
       clearTimeout(voyagerNoticeTimeoutRef.current);
@@ -1554,6 +1746,8 @@ export default function App() {
       clearTimeout(voyagerCompletionTimeoutRef.current);
       voyagerCompletionTimeoutRef.current = null;
     }
+
+    clearAchievementUnlockTimer();
   };
 
   const resetVoyagerProgress = () => {
@@ -1562,12 +1756,15 @@ export default function App() {
     setVisitedVoyagerCountries([]);
     setVoyagerNotice(null);
     setVoyagerCompletionVisible(false);
+    setAchievementUnlocked(null);
+    setIsVoyagerExpanded(false);
   };
 
   const clearAttractPresentation = () => {
     setHoveredCountry(null);
     setAttractAutoCountryName("");
-    setAttractRouteSwoosh(null);
+    setAttractRouteSwooshes([]);
+    setAttractHeroRoute(null);
   };
 
   const exitIdleAttractMode = () => {
@@ -1650,7 +1847,7 @@ export default function App() {
     });
   };
 
-  const handleReset = () => {
+  const handleReset = ({ reopenDock = false } = {}) => {
     markUserActivity();
     clearSelectionTimeline();
 
@@ -1666,11 +1863,18 @@ export default function App() {
     setIsOverlayVisible(false);
     setIsContentVisible(false);
     setActivatedCountryName(null);
-    // Restore Explore button after panel closes.
-    setTimeout(() => {
+
+    window.setTimeout(() => {
+      if (reopenDock) {
+        setIsMenuOpen(true);
+        setIsMenuClosing(false);
+        return;
+      }
+
       setIsMenuOpen(false);
       setIsMenuClosing(false);
     }, 200);
+
     if (mapRef?.current) {
       mapRef.current.stop();
 
@@ -1702,8 +1906,16 @@ export default function App() {
 
     setSelectedCountry(country);
     exitIdleAttractMode();
-    setIsMenuOpen(false);
-    setIsMenuClosing(false);
+    if (isMenuOpen) {
+      setIsMenuClosing(true);
+      window.setTimeout(() => {
+        setIsMenuOpen(false);
+        setIsMenuClosing(false);
+      }, EXHIBIT_TRANSITION_MS);
+    } else {
+      setIsMenuOpen(false);
+      setIsMenuClosing(false);
+    }
     const countryKey = normalizeName(country.name);
     const alreadyVisited = visitedVoyagerCountriesRef.current.includes(countryKey);
 
@@ -1713,6 +1925,35 @@ export default function App() {
       setVisitedVoyagerCountries(nextVisitedCountries);
 
       clearVoyagerProgressTimers();
+
+      // Check for milestone achievements
+      const milestoneCounts = [5, 10, 25, 40, 56];
+      const milestoneTitles = {
+        5: "It Begins as a Curious Explorer",
+        10: "That Feeling of Commonwealth Traveller",
+        25: "You're a serious Global Navigator",
+        40: "Way to go World Voyager",
+        56: "You're a Golden Commonwealth Explorer"
+      };
+      
+      const reachedMilestone = milestoneCounts.find(m => nextVisitedCountries.length === m);
+      
+      if (reachedMilestone) {
+        setVoyagerBadgeAnimToken((value) => value + 1);
+
+        // Show achievement unlock animation
+        setAchievementUnlocked({
+          count: reachedMilestone,
+          title: milestoneTitles[reachedMilestone],
+          badge: getBadgeForCount(reachedMilestone)
+        });
+
+        // Auto-dismiss after 4 seconds
+        achievementUnlockTimeoutRef.current = window.setTimeout(() => {
+          setAchievementUnlocked(null);
+          achievementUnlockTimeoutRef.current = null;
+        }, 4000);
+      }
 
       if (nextVisitedCountries.length >= VOYAGER_TOTAL_COUNTRIES) {
         setVoyagerCompletionVisible(true);
@@ -1794,13 +2035,40 @@ export default function App() {
 
   const beginExploration = () => {
     markUserActivity();
-    exitIdleAttractMode();
-    setIsMenuOpen(false);
+    setIsButtonTransitioning(true);
+
+    // Exit idle mode and bring dock in from the same visual anchor as the button.
+    setIsIdleAttractMode(false);
+    clearAttractPresentation();
+
     setIsMenuClosing(false);
+    setIsMenuOpen(true);
+
+    window.setTimeout(() => {
+      setIsButtonTransitioning(false);
+    }, EXHIBIT_TRANSITION_MS);
+  };
+
+  const handleExploreCommonwealthPress = () => {
+    if (selectedCountry) {
+      setIsButtonTransitioning(true);
+      handleReset({ reopenDock: true });
+      window.setTimeout(() => {
+        setIsButtonTransitioning(false);
+      }, EXHIBIT_TRANSITION_MS);
+      return;
+    }
+
+    beginExploration();
   };
 
   const handleGeojsonLoad = (data) => {
     setGeojson(data);
+    setMapLoadError("");
+  };
+
+  const handleGeojsonError = (message = "") => {
+    setMapLoadError(message);
   };
 
   const handleCountryHover = (countryName = null) => {
@@ -1810,72 +2078,10 @@ export default function App() {
     setHoveredCountry(countryName);
   };
 
-  // Fetch country data from public JSON datasets on app start
-  useEffect(() => {
-    const fetchCountryData = async () => {
-      try {
-        console.log("REST Countries URL:", REST_COUNTRIES_URL);
-        const [populationResponse, capitalResponse] = await Promise.all([
-          fetch(REST_COUNTRIES_URL, { headers: { Accept: "application/json" } }),
-          fetch(REST_COUNTRIES_CAPITAL_URL, { headers: { Accept: "application/json" } }),
-        ]);
-
-        console.log("REST Countries response:", populationResponse.status);
-        console.log("REST Countries capital response:", capitalResponse.status);
-
-        if (!populationResponse.ok || !capitalResponse.ok) {
-          throw new Error("Country data request failed");
-        }
-
-        const populationData = await populationResponse.json();
-        const capitalData = await capitalResponse.json();
-
-        console.log("Countries returned:", populationData.length);
-        console.log("Capital entries returned:", capitalData.length);
-        console.log("Sample country:", populationData[0]);
-
-        const capitalByCountry = new Map(
-          capitalData.map((entry) => [normalizeName(entry.country), entry.city])
-        );
-
-        const cache = {};
-        populationData.forEach((country) => {
-          const name = country.country;
-          if (name) {
-            const normalizedName = normalizeName(name);
-            const entry = {
-              capital: capitalByCountry.get(normalizedName) || null,
-              population: country.population || null,
-            };
-
-            getCountryLookupKeys(name).forEach((lookupKey) => {
-              cache[lookupKey] = entry;
-            });
-
-            if (normalizedName === "the bahamas") {
-              cache.bahamas = entry;
-            }
-          }
-        });
-
-        setCountryDataCache(cache);
-        console.log("Cached countries:", Object.keys(cache).length);
-        console.log("Country data cache ready:", Object.keys(cache).length);
-      } catch (error) {
-        console.error("Failed to fetch country data:", error);
-      }
-    };
-
-    fetchCountryData();
-  }, []);
-
-  // Get country data with API cache fallback to countries.json
+  // Get country data with Wikidata cache fallback to countries.json
   const getCountryData = (country) => {
-    console.log("Lookup country:", country.name);
     const lookupKeys = getCountryLookupKeys(country.name);
-    console.log("Lookup keys:", lookupKeys);
     const cached = lookupKeys.reduce((match, lookupKey) => match || countryDataCache[lookupKey], null);
-    console.log("Found cached result:", cached);
 
     if (cached) {
       return {
@@ -1894,13 +2100,6 @@ export default function App() {
       population: country.population || null,
     };
   };
-
-  useEffect(() => {
-    if (selectedCountry) {
-      console.log("Selected country for detail lookup:", selectedCountry.name);
-      getCountryData(selectedCountry);
-    }
-  }, [selectedCountry, countryDataCache]);
 
   const persistFamilySearchCache = () => {
     try {
@@ -1949,17 +2148,47 @@ export default function App() {
       return familySearchCollectionsInFlightRef.current[cacheKey];
     }
 
-    const fallbackUrl = buildFamilySearchCollectionUrl(countryName, { requirePlaceId: true });
+    const strictFallbackUrl = buildFamilySearchCollectionUrl(countryName, { requirePlaceId: true });
+    const broadFallbackUrl = buildFamilySearchCollectionUrl(countryName, { requirePlaceId: false });
     const locationUrl = getFamilySearchLocationUrl(countryName);
 
     const requestPromise = (async () => {
       try {
       let url = familySearchCollectionUrlCacheRef.current[cacheKey] || null;
       const candidateUrls = [];
+      let genealogyFallbackCollections = null;
+      const countryTerms = getCountryMatchTerms(countryName);
+
+      const filterCollectionsByCountryRelevance = (collections = []) => {
+        if (!countryTerms.length) {
+          return collections;
+        }
+
+        return collections.filter((collection) => {
+          const title = (collection?.title || "").toLowerCase();
+          const link = decodeURIComponent(collection?.link || "").toLowerCase();
+          const haystack = `${title} ${link}`;
+
+          return countryTerms.some((term) => {
+            const normalizedTerm = term.toLowerCase();
+            const compactTerm = normalizedTerm.replace(/\s+/g, "");
+            const hyphenatedTerm = normalizedTerm.replace(/\s+/g, "-");
+            const underscoredTerm = normalizedTerm.replace(/\s+/g, "_");
+
+            return (
+              haystack.includes(normalizedTerm) ||
+              haystack.includes(compactTerm) ||
+              haystack.includes(hyphenatedTerm) ||
+              haystack.includes(underscoredTerm)
+            );
+          });
+        });
+      };
 
       let locationPageText = "";
+      let locationSectionCollections = { records: [], genealogies: [] };
 
-      if (!url && locationUrl) {
+      if (locationUrl) {
         const locationFetchUrl = toFamilySearchFetchUrl(locationUrl);
 
         if (locationFetchUrl) {
@@ -1967,9 +2196,55 @@ export default function App() {
             headers: { Accept: "text/plain, text/html, */*" },
           });
           locationPageText = await locationResponse.text();
+          locationSectionCollections = parseFamilySearchCollectionsFromLocationPage(locationPageText);
+
+          if (locationSectionCollections.records.length > 0) {
+            familySearchCollectionsCacheRef.current[cacheKey] = locationSectionCollections.records;
+            persistFamilySearchCache();
+            return locationSectionCollections.records;
+          }
+
+          if (locationSectionCollections.genealogies.length > 0) {
+            genealogyFallbackCollections = locationSectionCollections.genealogies;
+          }
+
+          const genealogySeeAllUrl = parseGenealogySeeAllUrlFromLocationPage(locationPageText);
+          if (genealogySeeAllUrl) {
+            const seeAllGenealogyFallback = buildFamilySearchGenealogyFallback(countryName);
+            seeAllGenealogyFallback[0].link = genealogySeeAllUrl;
+
+            if (!genealogyFallbackCollections?.length) {
+              genealogyFallbackCollections = seeAllGenealogyFallback;
+            }
+          }
+
+          const constructedGenealogyFallback = buildFamilySearchGenealogyFallback(countryName);
+          const constructedGenealogyUrl = constructedGenealogyFallback[0].link;
+          const genealogySearchFetchUrl = toFamilySearchFetchUrl(constructedGenealogyUrl);
+
+          if (genealogySearchFetchUrl) {
+            try {
+              const genealogySearchResponse = await fetch(genealogySearchFetchUrl, {
+                headers: { Accept: "text/plain, text/html, */*" },
+              });
+              const genealogySearchText = await genealogySearchResponse.text();
+
+              if (hasFamilySearchGenealogyResults(genealogySearchText)) {
+                if (!genealogyFallbackCollections?.length) {
+                  genealogyFallbackCollections = constructedGenealogyFallback;
+                }
+              }
+            } catch (_) {
+              // If genealogy verification is blocked upstream, still provide the direct genealogy search link.
+              if (!genealogyFallbackCollections?.length) {
+                genealogyFallbackCollections = constructedGenealogyFallback;
+              }
+            }
+          }
+
           const canonicalAbsoluteUrl = parseCanonicalCollectionsUrlFromLocationPage(locationPageText);
 
-          if (canonicalAbsoluteUrl) {
+          if (!url && canonicalAbsoluteUrl) {
             url = canonicalAbsoluteUrl;
           }
         }
@@ -1980,11 +2255,15 @@ export default function App() {
       }
 
       if (!url) {
-        url = fallbackUrl;
+        url = strictFallbackUrl || broadFallbackUrl;
       }
 
-      if (fallbackUrl && !candidateUrls.includes(fallbackUrl)) {
-        candidateUrls.push(fallbackUrl);
+      if (strictFallbackUrl && !candidateUrls.includes(strictFallbackUrl)) {
+        candidateUrls.push(strictFallbackUrl);
+      }
+
+      if (broadFallbackUrl && !candidateUrls.includes(broadFallbackUrl)) {
+        candidateUrls.push(broadFallbackUrl);
       }
 
       if (!candidateUrls.length) {
@@ -2004,7 +2283,11 @@ export default function App() {
           headers: { Accept: "text/plain, text/html, */*" },
         });
         const pageText = await response.text();
-        const collections = parseFamilySearchCollections(pageText);
+        let collections = parseFamilySearchCollections(pageText);
+
+        if (!strictFallbackUrl && broadFallbackUrl && candidateUrl === broadFallbackUrl) {
+          collections = filterCollectionsByCountryRelevance(collections);
+        }
 
         console.log("Collections found:", collections.length);
 
@@ -2016,13 +2299,10 @@ export default function App() {
         }
       }
 
-      if (locationPageText) {
-        const fallbackCollections = parseFamilySearchCollectionsFromLocationPage(locationPageText);
-        if (fallbackCollections.length > 0) {
-          familySearchCollectionsCacheRef.current[cacheKey] = fallbackCollections;
-          persistFamilySearchCache();
-          return fallbackCollections;
-        }
+      if (genealogyFallbackCollections?.length) {
+        familySearchCollectionsCacheRef.current[cacheKey] = genealogyFallbackCollections;
+        persistFamilySearchCache();
+        return genealogyFallbackCollections;
       }
 
       delete familySearchCollectionsCacheRef.current[cacheKey];
@@ -2114,26 +2394,50 @@ export default function App() {
   useEffect(() => {
     if (!galleryTrackRef.current) {
       setShowGalleryNavigation(false);
+      setGalleryActiveIndex(0);
       return;
     }
 
     const track = galleryTrackRef.current;
-    const updateNavigationVisibility = () => {
+    const updateGalleryAffordances = () => {
       setShowGalleryNavigation(track.scrollWidth - track.clientWidth > 4);
+
+      const trackChildren = Array.from(track.children);
+      if (!trackChildren.length) {
+        setGalleryActiveIndex(0);
+        return;
+      }
+
+      const trackCenter = track.scrollLeft + track.clientWidth / 2;
+      let nearestIndex = 0;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+
+      trackChildren.forEach((child, index) => {
+        const childCenter = child.offsetLeft + child.clientWidth / 2;
+        const distance = Math.abs(childCenter - trackCenter);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestIndex = index;
+        }
+      });
+
+      setGalleryActiveIndex(nearestIndex);
     };
 
-    updateNavigationVisibility();
+    updateGalleryAffordances();
+    track.addEventListener("scroll", updateGalleryAffordances, { passive: true });
 
     let resizeObserver;
     if (typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(updateNavigationVisibility);
+      resizeObserver = new ResizeObserver(updateGalleryAffordances);
       resizeObserver.observe(track);
     }
 
-    window.addEventListener("resize", updateNavigationVisibility);
+    window.addEventListener("resize", updateGalleryAffordances);
 
     return () => {
-      window.removeEventListener("resize", updateNavigationVisibility);
+      track.removeEventListener("scroll", updateGalleryAffordances);
+      window.removeEventListener("resize", updateGalleryAffordances);
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
@@ -2349,7 +2653,7 @@ export default function App() {
   }, [selectedCountry?.name, isFamilySearchCacheReady]);
 
   const selectedCountryMetadata = selectedCountry
-    ? commonwealthMetadata[selectedCountry.name]
+    ? getLookupValue(commonwealthMetadataByLookup, selectedCountry.name)
     : null;
 
   const detailItems = selectedCountry
@@ -2367,21 +2671,31 @@ export default function App() {
         return items;
       })()
     : [];
+  const detailStatItems = detailItems.filter((item) => item.label !== "Member Since");
   const familySearchLocationUrl = selectedCountry
     ? getFamilySearchLocationUrl(selectedCountry.name)
     : null;
   const visibleFamilySearchCollections = familySearchCollections.filter(
     (collection) => !/no collections found/i.test(collection.title)
   );
+  const {
+    categoryLabel: familySearchCollectionsCategoryLabel,
+    collections: visibleFamilySearchPreferredCollections,
+    hasRecords: hasFamilySearchRecordCollections,
+    hasGenealogies: hasFamilySearchGenealogyCollections,
+  } = getFamilySearchCollectionsForFallback(visibleFamilySearchCollections);
+  const isGenealogyCollectionsView = familySearchCollectionsCategoryLabel === "Genealogies Available";
 
   const voyagerProgressCount = visitedVoyagerCountries.length;
+  const voyagerCountriesUntilSurprise = Math.max(5 - voyagerProgressCount, 0);
+  const voyagerProgressPercent = Math.min((voyagerProgressCount / VOYAGER_TOTAL_COUNTRIES) * 100, 100);
   const voyagerProgressTitle = getVoyagerTitle(voyagerProgressCount);
-  const displayedFamilySearchCollections = visibleFamilySearchCollections.slice(
+  const displayedFamilySearchPreferredCollections = visibleFamilySearchPreferredCollections.slice(
     0,
     recordCollectionsDisplayLimit
   );
   const selectedCountryResearchLinks = selectedCountry
-    ? countryResearchLinks[selectedCountry.name] || null
+    ? getLookupValue(countryResearchLinksByLookup, selectedCountry.name)
     : null;
   const researchHelpEntries = [
     {
@@ -2735,6 +3049,235 @@ export default function App() {
     );
   };
 
+  const renderGlobeIcon = (size = 16) => {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M3 12H21" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M12 3C14.6 5.5 16 8.6 16 12C16 15.4 14.6 18.5 12 21" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M12 3C9.4 5.5 8 8.6 8 12C8 15.4 9.4 18.5 12 21" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    );
+  };
+
+  const renderGiftIcon = (size = 15) => {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <path d="M4 10H20V20H4V10Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M12 10V20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M3 10H21V7C21 6.45 20.55 6 20 6H4C3.45 6 3 6.45 3 7V10Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M12 6C12 4.34 13.34 3 15 3C16.66 3 18 4.34 18 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M12 6C12 4.34 10.66 3 9 3C7.34 3 6 4.34 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  };
+
+  // Voyager badge icons mapping
+  const VOYAGER_BADGES = {
+    5: { // Curious Explorer - Compass
+      icon: (
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="28" fill="url(#compassGrad)" stroke="rgba(135,185,64,0.72)" strokeWidth="1.5"/>
+          <circle cx="32" cy="32" r="22" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
+          <path d="M32 8L34.5 27.5L32 32L29.5 27.5L32 8Z" fill="rgba(255,255,255,0.95)"/>
+          <path d="M32 56L34.5 36.5L32 32L29.5 36.5L32 56Z" fill="rgba(255,255,255,0.5)"/>
+          <path d="M8 32L27.5 29.5L32 32L27.5 34.5L8 32Z" fill="rgba(255,255,255,0.5)"/>
+          <path d="M56 32L36.5 29.5L32 32L36.5 34.5L56 32Z" fill="rgba(255,255,255,0.5)"/>
+          <circle cx="32" cy="32" r="3" fill="rgba(135,185,64,0.9)"/>
+          <defs>
+            <linearGradient id="compassGrad" x1="4" y1="4" x2="60" y2="60">
+              <stop stopColor="#87b940"/>
+              <stop offset="1" stopColor="#5f8f24"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      )
+    },
+    10: { // Commonwealth Traveller - Ship Wheel
+      icon: (
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="28" fill="url(#wheelGrad)" stroke="rgba(156,148,122,0.72)" strokeWidth="1.5"/>
+          <circle cx="32" cy="32" r="6" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"/>
+          <circle cx="32" cy="32" r="2" fill="rgba(255,255,255,0.8)"/>
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => {
+            const rad = (angle * Math.PI) / 180;
+            const innerR = 10;
+            const outerR = 24;
+            const x1 = 32 + innerR * Math.sin(rad);
+            const y1 = 32 - innerR * Math.cos(rad);
+            const x2 = 32 + outerR * Math.sin(rad);
+            const y2 = 32 - outerR * Math.cos(rad);
+            return (
+              <line key={angle} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round"/>
+            );
+          })}
+          <defs>
+            <linearGradient id="wheelGrad" x1="4" y1="4" x2="60" y2="60">
+              <stop stopColor="#9c947a"/>
+              <stop offset="1" stopColor="#6f6a58"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      )
+    },
+    25: { // Global Navigator - Sextant
+      icon: (
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="28" fill="url(#sextantGrad)" stroke="rgba(241,100,88,0.72)" strokeWidth="1.5"/>
+          <path d="M32 12L33.5 32L32 52L30.5 32L32 12Z" fill="rgba(255,255,255,0.3)"/>
+          <path d="M12 32L30.5 30.5L32 32L30.5 33.5L12 32Z" fill="rgba(255,255,255,0.3)"/>
+          <path d="M52 32L33.5 30.5L32 32L33.5 33.5L52 32Z" fill="rgba(255,255,255,0.3)"/>
+          <path d="M32 48C35.3137 48 38 45.3137 38 42C38 38.6863 35.3137 36 32 36C28.6863 36 26 38.6863 26 42C26 45.3137 28.6863 48 32 48Z" fill="rgba(255,255,255,0.6)"/>
+          <circle cx="32" cy="32" r="2" fill="rgba(241,100,88,0.95)"/>
+          <defs>
+            <linearGradient id="sextantGrad" x1="4" y1="4" x2="60" y2="60">
+              <stop stopColor="#f16458"/>
+              <stop offset="1" stopColor="#c84f45"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      )
+    },
+    40: { // World Voyager - Historic Map
+      icon: (
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="28" fill="url(#mapGrad)" stroke="rgba(39,196,244,0.72)" strokeWidth="1.5"/>
+          <rect x="16" y="16" width="32" height="32" rx="2" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/>
+          <path d="M16 24H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
+          <path d="M16 32H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
+          <path d="M16 40H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
+          <path d="M24 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
+          <path d="M32 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
+          <path d="M40 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
+          <circle cx="24" cy="24" r="2" fill="rgba(39,196,244,0.92)"/>
+          <circle cx="40" cy="32" r="2" fill="rgba(39,196,244,0.92)"/>
+          <circle cx="32" cy="40" r="2" fill="rgba(39,196,244,0.92)"/>
+          <path d="M20 44L24 40L28 44L32 40L36 44L40 40L44 44" stroke="rgba(255,255,255,0.3)" strokeWidth="0.75" fill="none"/>
+          <defs>
+            <linearGradient id="mapGrad" x1="4" y1="4" x2="60" y2="60">
+              <stop stopColor="#27c4f4"/>
+              <stop offset="1" stopColor="#198fb2"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      )
+    },
+    56: { // Golden Commonwealth Explorer - Gold Compass Rose
+      icon: (
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="28" fill="url(#goldGrad)" stroke="rgba(153,103,153,0.84)" strokeWidth="2"/>
+          <circle cx="32" cy="32" r="24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.75"/>
+          <circle cx="32" cy="32" r="18" fill="none" stroke="rgba(255,215,0,0.3)" strokeWidth="0.5"/>
+          <path d="M32 6L35 29L32 32L29 29L32 6Z" fill="rgba(255,255,255,0.95)"/>
+          <path d="M32 58L35 35L32 32L29 35L32 58Z" fill="rgba(153,103,153,0.72)"/>
+          <path d="M6 32L29 29L32 32L29 35L6 32Z" fill="rgba(153,103,153,0.72)"/>
+          <path d="M58 32L35 29L32 32L35 35L58 32Z" fill="rgba(153,103,153,0.72)"/>
+          <text x="32" y="4" textAnchor="middle" fontSize="5" fill="rgba(255,255,255,0.8)" fontFamily="serif" fontWeight="bold">N</text>
+          <text x="32" y="62" textAnchor="middle" fontSize="5" fill="rgba(255,215,0,0.8)" fontFamily="serif" fontWeight="bold">S</text>
+          <text x="4" y="34" textAnchor="middle" fontSize="5" fill="rgba(255,215,0,0.8)" fontFamily="serif" fontWeight="bold">W</text>
+          <text x="60" y="34" textAnchor="middle" fontSize="5" fill="rgba(255,215,0,0.8)" fontFamily="serif" fontWeight="bold">E</text>
+          <circle cx="32" cy="32" r="2.5" fill="rgba(153,103,153,0.95)"/>
+          <defs>
+            <linearGradient id="goldGrad" x1="4" y1="4" x2="60" y2="60">
+              <stop stopColor="#996799"/>
+              <stop offset="0.5" stopColor="#b881b8"/>
+              <stop offset="1" stopColor="#744b74"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      )
+    }
+  };
+
+  const renderVoyagerBadge = (count, size = "full", shouldBounce = false) => {
+    // Determine which badge to show based on current progress
+    let badgeLevel = null;
+    if (count >= 56) badgeLevel = 56;
+    else if (count >= 40) badgeLevel = 40;
+    else if (count >= 25) badgeLevel = 25;
+    else if (count >= 10) badgeLevel = 10;
+    else if (count >= 5) badgeLevel = 5;
+
+    if (!badgeLevel) return null;
+
+    const badge = VOYAGER_BADGES[badgeLevel];
+    if (!badge) return null;
+
+    const isSmall = size === "small";
+    const badgeColors = {
+      5: { primary: "#87B940", glow: "rgba(135, 185, 64, 0.6)" },
+      10: { primary: "#9C947A", glow: "rgba(156, 148, 122, 0.56)" },
+      25: { primary: "#F16458", glow: "rgba(241, 100, 88, 0.58)" },
+      40: { primary: "#27C4F4", glow: "rgba(39, 196, 244, 0.58)" },
+      56: { primary: "#996799", glow: "rgba(153, 103, 153, 0.64)" },
+    };
+
+    const colors = badgeColors[badgeLevel];
+    
+    return (
+      <div style={{
+        width: isSmall ? "32px" : "64px",
+        height: isSmall ? "32px" : "64px",
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "999px",
+        border: `1px solid ${colors.primary}66`,
+        background: `radial-gradient(circle at 35% 30%, ${colors.primary}26 0%, rgba(9, 14, 24, 0.2) 58%, rgba(9, 14, 24, 0.05) 100%)`,
+        boxShadow: `0 0 0 1px ${colors.primary}26 inset, 0 0 16px ${colors.glow}`,
+        filter: `drop-shadow(0 4px 12px ${colors.glow})`,
+        animation: shouldBounce
+          ? "badgeScale 700ms cubic-bezier(0.34, 1.56, 0.64, 1)"
+          : isSmall
+            ? "none"
+            : "badgePulse 3s ease-in-out infinite",
+        transform: isSmall ? "scale(1)" : "scale(1)",
+        transition: "transform 600ms cubic-bezier(0.22, 1, 0.36, 1)",
+      }}>
+        <div style={{
+          width: "64px",
+          height: "64px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          lineHeight: 0,
+          transform: isSmall ? "scale(0.5)" : "scale(1)",
+          transformOrigin: "center center",
+          transition: "transform 600ms cubic-bezier(0.22, 1, 0.36, 1)",
+        }}>
+          {badge.icon}
+        </div>
+      </div>
+    );
+  };
+
+  const getBadgeForCount = (count) => {
+    const badge = VOYAGER_BADGES[count];
+    return badge ? badge.icon : null;
+  };
+
+
+
+  const getVoyagerBrandColor = (count) => {
+    if (count >= 5) return "#87B940";
+    return "#87B940";
+  };
+
   const renderStatIcon = (label = "") => {
     const normalized = label.toLowerCase();
 
@@ -2780,13 +3323,13 @@ export default function App() {
           borderRadius: "50%",
           width: "100%",
           aspectRatio: "1 / 1",
-          border: "2px solid rgba(135, 185, 64, 0.5)",
-          background: "radial-gradient(circle at 40% 35%, rgba(175, 207, 104, 0.12) 0%, rgba(135, 185, 64, 0.06) 60%, transparent 100%)",
+          border: "2px solid rgba(255, 255, 255, 0.72)",
+          background: "radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.08) 60%, transparent 100%)",
           transform: `rotate(${rotation}deg)`,
           padding: "0.25rem",
           position: "relative",
           boxSizing: "border-box",
-          boxShadow: "0 0 0 1px rgba(135, 185, 64, 0.15), inset 0 0 0 1px rgba(135, 185, 64, 0.1)",
+          boxShadow: "0 0 0 1px rgba(255, 255, 255, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.18)",
         }}
       >
         {/* Inner ring */}
@@ -2795,7 +3338,7 @@ export default function App() {
             position: "absolute",
             inset: "6px",
             borderRadius: "50%",
-            border: "1px solid rgba(135, 185, 64, 0.2)",
+            border: "1px solid rgba(255, 255, 255, 0.3)",
             pointerEvents: "none",
           }}
         />
@@ -2808,7 +3351,7 @@ export default function App() {
               width: "3px",
               height: "3px",
               borderRadius: "50%",
-              background: "rgba(135, 185, 64, 0.35)",
+              background: "rgba(255, 255, 255, 0.55)",
               top: angle === 0 ? "3px" : angle === 180 ? undefined : "50%",
               bottom: angle === 180 ? "3px" : undefined,
               left: angle === 270 ? "3px" : angle === 90 ? undefined : "50%",
@@ -2819,10 +3362,10 @@ export default function App() {
         ))}
         <div
           style={{
-            fontSize: "0.5rem",
+            fontSize: "0.74rem",
             letterSpacing: "0.12em",
             textTransform: "uppercase",
-            color: "rgba(135, 185, 64, 0.7)",
+            color: "rgba(255, 255, 255, 0.84)",
             fontWeight: 600,
             lineHeight: 1.1,
             textAlign: "center",
@@ -2835,9 +3378,9 @@ export default function App() {
         </div>
         <div
           style={{
-            fontSize: "1.1rem",
+            fontSize: "1.66rem",
             fontWeight: 700,
-            color: "rgba(135, 185, 64, 0.85)",
+            color: "rgba(255, 255, 255, 0.95)",
             lineHeight: 1,
             letterSpacing: "-0.02em",
             marginTop: "0.05rem",
@@ -2954,6 +3497,7 @@ export default function App() {
   // Attract mode is timer-driven; this guard only prevents overlay conflicts.
   const hasActiveExplorationSurface = Boolean(selectedCountry || isMenuOpen || lightboxItem);
   const isAttractMode = isIdleAttractMode && !hasActiveExplorationSurface;
+  const isDockTransitioning = isMenuClosing || isMenuOpening;
 
   const clearAttractCycleTimer = () => {
     if (attractCycleTimeoutRef.current) {
@@ -2967,7 +3511,8 @@ export default function App() {
 
     if (!isAttractMode) {
       setAttractAutoCountryName("");
-      setAttractRouteSwoosh(null);
+      setAttractRouteSwooshes([]);
+      setAttractHeroRoute(null);
       return;
     }
 
@@ -2982,6 +3527,135 @@ export default function App() {
 
     let journeyIndex = 0;
     let lastRouteStep = -ATTRACT_ROUTE_MIN_GAP_STEPS;
+    let routeRotationIntervalId = null;
+    let heroRouteTimerId = null;
+    let heroRouteClearTimerId = null;
+
+    const getRoutePoint = (name = "") => {
+      if (ATTRACT_CUSTOM_ROUTE_POINTS[name]) {
+        return ATTRACT_CUSTOM_ROUTE_POINTS[name];
+      }
+
+      const country = countries.find((item) => item.name === name);
+      if (!country || !Number.isFinite(country.lat) || !Number.isFinite(country.lng)) {
+        return null;
+      }
+
+      return [country.lat, country.lng];
+    };
+
+    const createRouteEntry = (routeSpec, options = {}) => {
+      const { hero = false } = options;
+      const from = getRoutePoint(routeSpec.from);
+      const to = getRoutePoint(routeSpec.to);
+
+      if (!from || !to) {
+        return null;
+      }
+
+      const key = `${routeSpec.from}|${routeSpec.to}`;
+
+      return {
+        id: `${hero ? "hero" : "base"}-${key}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        key,
+        from,
+        to,
+        hero,
+        durationMs: hero ? ATTRACT_HERO_ARC_DURATION_MS : ATTRACT_BASE_ARC_DURATION_MS,
+      };
+    };
+
+    const pickVisibleRouteCount = () =>
+      ATTRACT_VISIBLE_ROUTE_MIN + Math.floor(Math.random() * (ATTRACT_VISIBLE_ROUTE_MAX - ATTRACT_VISIBLE_ROUTE_MIN + 1));
+
+    const pickUnusedSpec = (library, usedKeys = new Set()) => {
+      const candidates = library.filter((spec) => !usedKeys.has(`${spec.from}|${spec.to}`));
+      const pool = candidates.length ? candidates : library;
+      return pool[Math.floor(Math.random() * pool.length)] || null;
+    };
+
+    const initialRouteCount = pickVisibleRouteCount();
+    const initialRoutes = [];
+    const usedInitialKeys = new Set();
+
+    while (initialRoutes.length < initialRouteCount && usedInitialKeys.size < ATTRACT_ROUTE_LIBRARY.length) {
+      const spec = pickUnusedSpec(ATTRACT_ROUTE_LIBRARY, usedInitialKeys);
+      if (!spec) {
+        break;
+      }
+
+      usedInitialKeys.add(`${spec.from}|${spec.to}`);
+      const route = createRouteEntry(spec);
+      if (route) {
+        initialRoutes.push(route);
+      }
+    }
+
+    setAttractRouteSwooshes(initialRoutes);
+
+    routeRotationIntervalId = window.setInterval(() => {
+      if (!isActive) {
+        return;
+      }
+
+      setAttractRouteSwooshes((currentRoutes) => {
+        const targetCount = currentRoutes.length || initialRouteCount;
+        const activeKeys = new Set(currentRoutes.map((route) => route.key));
+        const nextSpec = pickUnusedSpec(ATTRACT_ROUTE_LIBRARY, activeKeys);
+
+        if (!nextSpec) {
+          return currentRoutes;
+        }
+
+        const nextRoute = createRouteEntry(nextSpec);
+        if (!nextRoute) {
+          return currentRoutes;
+        }
+
+        if (!currentRoutes.length) {
+          return [nextRoute];
+        }
+
+        const replaceIndex = Math.floor(Math.random() * Math.max(1, currentRoutes.length));
+        const next = [...currentRoutes];
+        next[replaceIndex] = nextRoute;
+
+        return next.slice(0, targetCount);
+      });
+    }, ATTRACT_ROUTE_ROTATE_MS);
+
+    const scheduleHeroRoute = () => {
+      const delay =
+        ATTRACT_HERO_ROUTE_INTERVAL_MIN_MS +
+        Math.floor(Math.random() * (ATTRACT_HERO_ROUTE_INTERVAL_MAX_MS - ATTRACT_HERO_ROUTE_INTERVAL_MIN_MS + 1));
+
+      heroRouteTimerId = window.setTimeout(() => {
+        if (!isActive) {
+          return;
+        }
+
+        const heroSpec = pickUnusedSpec(ATTRACT_HERO_ROUTE_LIBRARY);
+        const nextHeroRoute = heroSpec ? createRouteEntry(heroSpec, { hero: true }) : null;
+
+        if (nextHeroRoute) {
+          setAttractHeroRoute(nextHeroRoute);
+
+          if (heroRouteClearTimerId) {
+            clearTimeout(heroRouteClearTimerId);
+          }
+
+          heroRouteClearTimerId = window.setTimeout(() => {
+            if (isActive) {
+              setAttractHeroRoute(null);
+            }
+          }, Math.max(9000, nextHeroRoute.durationMs - 1200));
+        }
+
+        scheduleHeroRoute();
+      }, delay);
+    };
+
+    scheduleHeroRoute();
 
     const scheduleNext = (delayMs) => {
       clearAttractCycleTimer();
@@ -3006,36 +3680,38 @@ export default function App() {
 
         if (canShowRoute) {
           lastRouteStep = journeyIndex;
-          setAttractRouteSwoosh({
-            id: `${routeKey}-${Date.now()}`,
-            from: [previousCountry.lat, previousCountry.lng],
-            to: [nextCountry.lat, nextCountry.lng],
-          });
-        } else {
-          setAttractRouteSwoosh(null);
         }
 
-        const holdMs = 3600;
-        const pauseMs = 900;
+        const holdMs = 2200;
+        const pauseMs = 520;
 
         attractCycleTimeoutRef.current = window.setTimeout(() => {
           if (!isActive) {
             return;
           }
 
-          setAttractRouteSwoosh(null);
           scheduleNext(pauseMs);
         }, holdMs);
       }, delayMs);
     };
 
-    scheduleNext(700);
+    scheduleNext(320);
 
     return () => {
       isActive = false;
       clearAttractCycleTimer();
+      if (routeRotationIntervalId) {
+        clearInterval(routeRotationIntervalId);
+      }
+      if (heroRouteTimerId) {
+        clearTimeout(heroRouteTimerId);
+      }
+      if (heroRouteClearTimerId) {
+        clearTimeout(heroRouteClearTimerId);
+      }
       setAttractAutoCountryName("");
-      setAttractRouteSwoosh(null);
+      setAttractRouteSwooshes([]);
+      setAttractHeroRoute(null);
       setHoveredCountry((current) => (current && !selectedCountry ? null : current));
     };
   }, [isAttractMode, selectedCountry]);
@@ -3056,7 +3732,7 @@ export default function App() {
         height: "100vh",
         overflow: "hidden",
         background: "#1a1f2e",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif",
+        fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
       }}
     >
       {/* ATTRACT MODE OVERLAY - Shows when idle */}
@@ -3083,32 +3759,16 @@ export default function App() {
           style={{
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 32%, rgba(255,255,255,0) 62%)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 26%, rgba(255,255,255,0) 62%)",
             pointerEvents: "none",
           }}
         />
-        <img
-          src={FAMILYSEARCH_LOGO_URL}
-          alt="FamilySearch"
-          style={{
-            position: "absolute",
-            left: "50%",
-            bottom: "4.8rem",
-            transform: "translateX(-50%)",
-            width: "146px",
-            height: "auto",
-            filter: "brightness(0) invert(1) saturate(0)",
-            opacity: 1,
-            pointerEvents: "none",
-          }}
-        />
-
         {/* Subtle atmospheric overlays to preserve map as hero */}
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background: "radial-gradient(130% 95% at 50% 46%, rgba(4, 8, 16, 0.18) 0%, rgba(4, 8, 16, 0.5) 66%, rgba(4, 8, 16, 0.72) 100%)",
+            background: "radial-gradient(125% 92% at 50% 44%, rgba(5, 10, 18, 0.1) 0%, rgba(5, 10, 18, 0.34) 60%, rgba(5, 10, 18, 0.56) 100%)",
             pointerEvents: "none",
           }}
         />
@@ -3116,15 +3776,7 @@ export default function App() {
           style={{
             position: "absolute",
             inset: 0,
-            background: "radial-gradient(58% 46% at 50% 43%, rgba(0, 0, 0, 0.52) 0%, rgba(0, 0, 0, 0.18) 36%, rgba(0, 0, 0, 0) 100%)",
-            pointerEvents: "none",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 20%, rgba(2, 6, 14, 0.4) 100%)",
+            background: "radial-gradient(62% 44% at 50% 43%, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.14) 38%, rgba(0, 0, 0, 0) 100%)",
             pointerEvents: "none",
           }}
         />
@@ -3135,53 +3787,55 @@ export default function App() {
             position: "relative",
             textAlign: "center",
             color: "#fff",
-            maxWidth: "980px",
+            maxWidth: "1120px",
             padding: "0 2.25rem",
             display: "grid",
-            gap: "1rem",
+            gap: "1.3rem",
+            animation: isAttractMode ? "attractHeroFloat 6s ease-in-out infinite" : "none",
           }}
         >
           <div
             style={{
               position: "absolute",
-              inset: "-24px -34px -30px",
-              background: "radial-gradient(66% 54% at 50% 44%, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.3) 42%, rgba(0,0,0,0) 100%)",
-              filter: "blur(9px)",
+              inset: "-30px -42px -34px",
+              background: "radial-gradient(70% 56% at 50% 44%, rgba(0,0,0,0.54) 0%, rgba(0,0,0,0.24) 40%, rgba(0,0,0,0) 100%)",
+              filter: "blur(10px)",
               pointerEvents: "none",
               zIndex: 0,
-              borderRadius: "24px",
+              borderRadius: "30px",
             }}
           />
           <h1
             style={{
               position: "relative",
               zIndex: 1,
-              fontSize: "clamp(2.4rem, 6vw, 5.3rem)",
-              fontWeight: 680,
-              letterSpacing: "0.06em",
-              lineHeight: 1,
-              textTransform: "uppercase",
+              fontFamily: "'Museo Slab', 'Roboto Slab', Rockwell, serif",
+              fontSize: "clamp(3.1rem, 8.2vw, 8rem)",
+              fontWeight: 520,
+              letterSpacing: "0.02em",
+              lineHeight: 0.95,
+              textTransform: "lowercase",
               margin: 0,
               color: "#f5f9ff",
-              textShadow: "0 16px 34px rgba(3, 6, 14, 0.78), 0 5px 16px rgba(3, 6, 14, 0.62), 0 0 28px rgba(147, 204, 255, 0.22)",
+              textShadow: "0 16px 34px rgba(3, 6, 14, 0.78), 0 5px 16px rgba(3, 6, 14, 0.62), 0 0 22px rgba(147, 204, 255, 0.18)",
               opacity: isAttractMode ? 1 : 0,
-              transform: isAttractMode ? "translateY(0)" : "translateY(20px)",
-              transition: "opacity 700ms ease 220ms, transform 700ms cubic-bezier(0.22, 1, 0.36, 1) 220ms",
+              transform: isAttractMode ? "translateY(0)" : "translateY(12px)",
+              transition: "opacity 1300ms cubic-bezier(0.22, 1, 0.36, 1) 220ms, transform 1300ms cubic-bezier(0.22, 1, 0.36, 1) 220ms",
             }}
           >
             <div
               style={{
                 position: "relative",
                 zIndex: 1,
-                fontSize: "clamp(1.2rem, 2.4vw, 2rem)",
-                letterSpacing: "0.18em",
+                fontSize: "clamp(2.2rem, 5.2vw, 5rem)",
+                letterSpacing: "0.08em",
                 textTransform: "uppercase",
-                color: "rgba(239, 248, 255, 0.7)",
-                marginBottom: "0.4rem",
+                color: "rgba(244, 251, 255, 0.92)",
+                marginBottom: "0.22rem",
                 textShadow: "0 2px 10px rgba(5, 8, 16, 0.46)",
                 opacity: isAttractMode ? 1 : 0,
-                transform: isAttractMode ? "translateY(0)" : "translateY(14px)",
-                transition: "opacity 600ms ease 160ms, transform 600ms cubic-bezier(0.22, 1, 0.36, 1) 160ms",
+                transform: isAttractMode ? "translateY(0)" : "translateY(10px)",
+                transition: "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 100ms, transform 1400ms cubic-bezier(0.22, 1, 0.36, 1) 100ms",
               }}
             >
               One Commonwealth
@@ -3190,163 +3844,390 @@ export default function App() {
               style={{
                 position: "relative",
                 zIndex: 1,
-                fontSize: "clamp(0.9rem, 1.6vw, 1.3rem)",
-                letterSpacing: "0.22em",
+                fontSize: "clamp(1.5rem, 3.8vw, 3.3rem)",
+                letterSpacing: "0.11em",
                 textTransform: "uppercase",
-                color: "rgba(239, 248, 255, 0.5)",
-                marginBottom: "1.2rem",
+                color: "rgba(235, 246, 255, 0.82)",
+                marginBottom: "0.78rem",
                 textShadow: "0 2px 10px rgba(5, 8, 16, 0.46)",
                 opacity: isAttractMode ? 1 : 0,
-                transform: isAttractMode ? "translateY(0)" : "translateY(14px)",
-                transition: "opacity 600ms ease 280ms, transform 600ms cubic-bezier(0.22, 1, 0.36, 1) 280ms",
+                transform: isAttractMode ? "translateY(0)" : "translateY(10px)",
+                transition: "opacity 1500ms cubic-bezier(0.22, 1, 0.36, 1) 240ms, transform 1500ms cubic-bezier(0.22, 1, 0.36, 1) 240ms",
               }}
             >
               Many Families
             </div>
           </h1>
-          <button
-            onClick={(event) => {
-              event.stopPropagation();
-              beginExploration();
-            }}
+          <p
             style={{
               position: "relative",
               zIndex: 1,
-              margin: "0.45rem auto 0",
-              padding: "0.9rem 1.65rem",
-              borderRadius: "999px",
-              border: "1px solid rgba(255, 255, 255, 0.46)",
-              background: "linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0.14) 42%, rgba(255,255,255,0.08) 100%)",
-              backdropFilter: "blur(22px) saturate(190%)",
-              WebkitBackdropFilter: "blur(22px) saturate(190%)",
-              boxShadow: "0 14px 34px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -8px 22px rgba(255,255,255,0.07)",
-              color: "rgba(246, 251, 255, 0.98)",
-              fontSize: "clamp(0.95rem, 1.7vw, 1.16rem)",
-              fontWeight: 560,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              lineHeight: 1,
-              cursor: "pointer",
-              textShadow: "0 4px 16px rgba(4, 8, 16, 0.64)",
+              margin: 0,
+              fontFamily: "'Museo Slab', 'Roboto Slab', Rockwell, serif",
+              fontSize: "clamp(1rem, 1.9vw, 1.55rem)",
+              color: "rgba(238, 248, 255, 0.74)",
+              letterSpacing: "0.02em",
+              lineHeight: 1.25,
+              textShadow: "0 2px 10px rgba(5, 8, 16, 0.48)",
               opacity: isAttractMode ? 1 : 0,
-              transform: isAttractMode ? "translateY(0)" : "translateY(20px)",
-              transition: "opacity 700ms ease 400ms, transform 700ms cubic-bezier(0.22, 1, 0.36, 1) 400ms",
-            }}
-            onMouseEnter={(event) => {
-              event.currentTarget.style.transform = "translateY(-1px)";
-              event.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.18) 44%, rgba(255,255,255,0.12) 100%)";
-            }}
-            onMouseLeave={(event) => {
-              event.currentTarget.style.transform = "translateY(0)";
-              event.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0.14) 42%, rgba(255,255,255,0.08) 100%)";
+              transform: isAttractMode ? "translateY(0)" : "translateY(8px)",
+              transition: "opacity 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms, transform 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms",
             }}
           >
-            Touch to Begin
-          </button>
-        </div>
-
-        <div
-          style={{
-            position: "absolute",
-            left: "2.2rem",
-            bottom: "2.4rem",
-            minHeight: "1.15rem",
-            fontSize: "0.8rem",
-            letterSpacing: "0.16em",
-            textTransform: "uppercase",
-            fontWeight: 600,
-            color: "rgba(234, 245, 255, 0.84)",
-            textShadow: "0 2px 10px rgba(5, 8, 16, 0.62)",
-            opacity: attractAutoCountryName ? 1 : 0,
-            transform: attractAutoCountryName ? "translateY(0)" : "translateY(6px)",
-            transition: `opacity 700ms ${springEase}, transform 700ms ${springEase}`,
-            pointerEvents: "none",
-          }}
-        >
-          {attractAutoCountryName ? attractAutoCountryName.toUpperCase() : ""}
+            Discover the stories that connect us.
+          </p>
         </div>
 
       </div>
 
-      {/* TOP BAR - Minimal, appears when not in attract mode */}
+      {(() => {
+        const shouldShowExploreButton = !isMenuOpen && !isMenuOpening && !isMenuClosing;
+        const isExploreButtonVisible = shouldShowExploreButton && !isButtonTransitioning;
+        const hiddenExploreTransform = isAttractMode
+          ? "translateY(16px) scale(0.97)"
+          : "translateY(14px) scale(0.97)";
+        const baseExploreTransform = isExploreButtonVisible
+          ? "translateY(0) scale(1)"
+          : hiddenExploreTransform;
+        const exploreButtonLabel = isAttractMode ? "Touch to Begin" : "Explore by Country";
+
+        return (
+          <button
+            className={`explore-cta-button ${isExploreButtonVisible ? "explore-cta-visible" : "explore-cta-hidden"}${isAttractMode ? " explore-cta-button-attract" : ""}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              handleExploreCommonwealthPress();
+            }}
+            style={{
+              position: "fixed",
+              left: "50%",
+              top: isAttractMode ? "72%" : "auto",
+              bottom: isAttractMode ? "auto" : "1.2rem",
+              transform: `translateX(-50%) ${baseExploreTransform}`,
+              zIndex: 910,
+              padding: isAttractMode ? "1rem 2rem" : "0.9rem 1.7rem",
+              borderRadius: "999px",
+              border: "1px solid rgba(255,255,255,0.3)",
+              background: "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.26) 100%)",
+              backdropFilter: "blur(28px) saturate(200%)",
+              WebkitBackdropFilter: "blur(28px) saturate(200%)",
+              boxShadow: "0 18px 40px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.35)",
+              color: "rgba(248,250,252,0.95)",
+              fontSize: isAttractMode ? "clamp(1rem, 2vw, 1.28rem)" : "clamp(0.95rem, 1.7vw, 1.16rem)",
+              fontWeight: isAttractMode ? 610 : 600,
+              letterSpacing: isAttractMode ? "0.2em" : "0.12em",
+              textTransform: "sentence-case",
+              lineHeight: 1,
+              overflow: "hidden",
+              isolation: "isolate",
+              cursor: isExploreButtonVisible ? "pointer" : "default",
+              textShadow: "0 1px 2px rgba(0,0,0,0.35)",
+              opacity: isExploreButtonVisible ? 1 : 0,
+              pointerEvents: isExploreButtonVisible ? "auto" : "none",
+              transition: `opacity ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}, transform ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}, background 220ms ease, box-shadow 220ms ease, filter ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}`,
+              filter: isExploreButtonVisible ? "blur(0px)" : "blur(0.8px)",
+            }}
+            onMouseEnter={(event) => {
+              if (!isExploreButtonVisible) {
+                return;
+              }
+              event.currentTarget.style.transform = "translateX(-50%) translateY(-2px) scale(1.01)";
+              event.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.3) 100%)";
+              event.currentTarget.style.boxShadow = "0 22px 44px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.42)";
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.transform = `translateX(-50%) ${baseExploreTransform}`;
+              event.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.26) 100%)";
+              event.currentTarget.style.boxShadow = "0 18px 40px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.35)";
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "999px",
+                background: "radial-gradient(circle at 45% 35%, rgba(0,0,0,0.24) 0%, rgba(0,0,0,0.08) 58%, rgba(0,0,0,0.01) 100%)",
+                pointerEvents: "none",
+                zIndex: 0,
+              }}
+            />
+            <span className="explore-cta-sheen" aria-hidden="true" />
+            <span style={{ position: "relative", zIndex: 2, display: "inline-flex", alignItems: "center", gap: "0.52rem" }}>
+              {renderGlobeIcon(isAttractMode ? 18 : 16)}
+              <span>{exploreButtonLabel}</span>
+            </span>
+          </button>
+        );
+      })()}
+
+      {/* TOP BAR - Always visible */}
       <div
         style={{
-          position: "absolute",
-          top: "1.5rem",
-          left: "1.5rem",
-          right: "1.5rem",
-          zIndex: 500,
+          position: "fixed",
+          top: "1.2rem",
+          left: "1.2rem",
+          zIndex: 920,
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
           padding: 0,
-          pointerEvents: isAttractMode ? "none" : "auto",
-          opacity: isAttractMode ? 0 : 1,
-          transform: isAttractMode ? "translateY(0)" : "translateY(0)",
-          transition: `opacity 420ms cubic-bezier(0.22, 1, 0.36, 1), transform 420ms cubic-bezier(0.22, 1, 0.36, 1)`,
+          pointerEvents: "none",
+          opacity: 1,
         }}
       >
-        {/* FamilySearch logo */}
-        <img
-          src={FAMILYSEARCH_LOGO_URL}
-          alt="FamilySearch"
-          style={{
-            width: "120px",
-            height: "auto",
-            filter: "brightness(0) invert(1)",
-            mixBlendMode: "difference",
-            opacity: 0.92,
-            transition: `opacity 520ms ${DOCK_GENTLE_EASE}`,
-          }}
-        />
-      </div>
-
-      {!isIdleAttractMode ? (
+        {/* FamilySearch logo - simple plaque */}
         <div
           style={{
-            position: "absolute",
-            top: "1.5rem",
-            right: "1.5rem",
-            zIndex: 820,
-            width: "min(320px, calc(100vw - 3rem))",
-            padding: "0.9rem 1rem 0.85rem",
-            borderRadius: "22px",
-            border: "1px solid rgba(255,255,255,0.16)",
-            background: "linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0.20) 100%)",
-            backdropFilter: "blur(28px) saturate(200%)",
-            WebkitBackdropFilter: "blur(28px) saturate(200%)",
-            boxShadow: "0 18px 40px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.45)",
-            color: "#f8fafc",
-            pointerEvents: "none",
             position: "relative",
-            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 0,
+            borderRadius: 0,
+            border: "none",
+            background: "transparent",
+            boxShadow: "none",
           }}
         >
+          <img
+            src={FAMILYSEARCH_LOGO_URL}
+            alt="FamilySearch"
+            style={{
+              position: "relative",
+              zIndex: 1,
+              width: "128px",
+              height: "auto",
+              filter: "brightness(0) invert(1)",
+              opacity: 0.96,
+              transition: `opacity 520ms ${DOCK_GENTLE_EASE}`,
+            }}
+          />
+        </div>
+      </div>
+
+      {/* VOYAGER PROGRESS - Top right corner */}
+      {!isAttractMode ? (
+      <div
+        onClick={() => setIsVoyagerExpanded((value) => !value)}
+        style={{
+          position: "fixed",
+          top: "1.5rem",
+          right: "1.5rem",
+          zIndex: 820,
+          width: isVoyagerExpanded ? "min(320px, calc(100vw - 3rem))" : "auto",
+          padding: isVoyagerExpanded ? "1rem 1.1rem 0.9rem" : "0.58rem 0.95rem",
+          borderRadius: isVoyagerExpanded ? "22px" : "999px",
+          border: "1px solid rgba(255,255,255,0.52)",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.68) 0%, rgba(255,255,255,0.5) 100%)",
+          backdropFilter: "blur(28px) saturate(200%)",
+          WebkitBackdropFilter: "blur(28px) saturate(200%)",
+          boxShadow: "0 14px 30px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.65)",
+          color: "rgba(15,23,42,0.94)",
+          pointerEvents: "auto",
+          overflow: "hidden",
+          isolation: "isolate",
+          cursor: "pointer",
+          transition: "all 500ms cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
+      >
           {/* Subtle dark internal underlay for readability over bright backgrounds */}
           <div
             style={{
               position: "absolute",
               inset: 0,
-              background: "radial-gradient(circle at center, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0) 100%)",
+              background: "radial-gradient(circle at 40% 30%, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.14) 58%, rgba(255,255,255,0.04) 100%)",
               borderRadius: "22px",
               pointerEvents: "none",
             }}
           />
-          <div style={{ position: "relative", zIndex: 1, fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(248,250,252,0.85)", fontWeight: 700, textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}>
-            Commonwealth Voyager
-          </div>
-          <div style={{ marginTop: "0.45rem", display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "0.75rem", position: "relative", zIndex: 1 }}>
-            <div style={{ fontSize: "1.1rem", fontWeight: 650, letterSpacing: "-0.02em", textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}>
-              {voyagerProgressCount} / {VOYAGER_TOTAL_COUNTRIES} Countries
+          
+          {isVoyagerExpanded ? (
+            <>
+              {/* Badge Icon */}
+              <div style={{ 
+                position: "relative", 
+                zIndex: 1, 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center",
+                marginBottom: "0.6rem"
+              }}>
+                <div
+                  key={`voyager-badge-expanded-${voyagerBadgeAnimToken}`}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                >
+                  {renderVoyagerBadge(voyagerProgressCount, "full", true)}
+                </div>
+              </div>
+              
+              {/* Title */}
+              <div style={{ 
+                position: "relative", 
+                zIndex: 1, 
+                fontSize: "0.68rem", 
+                letterSpacing: "0.22em", 
+                textTransform: "uppercase", 
+                color: "rgba(15,23,42,0.82)", 
+                fontWeight: 700, 
+                textAlign: "center",
+                textShadow: "none" 
+              }}>
+                {voyagerProgressCount >= 5 ? voyagerProgressTitle : "Commonwealth Explorer"}
+              </div>
+              
+              {/* Progress Count */}
+              <div style={{ 
+                marginTop: "0.5rem", 
+                textAlign: "center",
+                position: "relative", 
+                zIndex: 1,
+                fontSize: "1.1rem", 
+                fontWeight: 650, 
+                letterSpacing: "-0.02em",
+                color: "rgba(15,23,42,0.92)",
+                textShadow: "none" 
+              }}>
+                {voyagerProgressCount} / {VOYAGER_TOTAL_COUNTRIES}
+              </div>
+              
+              {/* Milestone Progress Bar */}
+              <div style={{ 
+                marginTop: "0.75rem",
+                position: "relative",
+                zIndex: 1 
+              }}>
+                {/* Progress track */}
+                <div style={{
+                  height: "3px",
+                  background: "rgba(255,255,255,0.15)",
+                  borderRadius: "2px",
+                  position: "relative",
+                  overflow: "hidden"
+                }}>
+                  {/* Progress fill */}
+                  <div style={{
+                    height: "100%",
+                    width: `${voyagerProgressPercent}%`,
+                    background: `linear-gradient(90deg, ${getVoyagerBrandColor(voyagerProgressCount)} 0%, ${getVoyagerBrandColor(voyagerProgressCount)} 100%)`,
+                    borderRadius: "2px",
+                    transition: "width 600ms cubic-bezier(0.22, 1, 0.36, 1)",
+                    boxShadow: `0 0 8px ${getVoyagerBrandColor(voyagerProgressCount)}66`
+                  }} />
+                </div>
+                
+                {/* Milestone markers */}
+                <div style={{ 
+                  position: "relative",
+                  marginTop: "0.4rem",
+                  height: "18px",
+                }}>
+                  {[
+                    { count: 5, label: "5" },
+                    { count: 10, label: "10" },
+                    { count: 25, label: "25" },
+                    { count: 40, label: "40" },
+                    { count: 56, label: "56" }
+                  ].map((milestone) => {
+                    const isReached = voyagerProgressCount >= milestone.count;
+                    
+                    return (
+                      <div
+                        key={milestone.count}
+                        style={{
+                          position: "absolute",
+                          left: `calc(${(milestone.count / VOYAGER_TOTAL_COUNTRIES) * 100}% - 3px)`,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: "0.2rem",
+                          opacity: isReached ? 1 : 0.5,
+                          transition: "opacity 400ms ease"
+                        }}
+                      >
+                        <div style={{
+                          width: "6px",
+                          height: "6px",
+                          borderRadius: "50%",
+                          background: isReached ? getVoyagerBrandColor(milestone.count) : "rgba(255,255,255,0.4)",
+                          boxShadow: isReached ? `0 0 6px ${getVoyagerBrandColor(milestone.count)}99` : "none",
+                          transition: "all 400ms ease"
+                        }} />
+                        <div style={{
+                          fontSize: "0.55rem",
+                          color: isReached ? "rgba(51,51,49,0.9)" : "rgba(51,51,49,0.62)",
+                          fontWeight: isReached ? 700 : 500,
+                          letterSpacing: "0.05em",
+                          transition: "all 400ms ease"
+                        }}>
+                          {milestone.label}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Minimal View */
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              position: "relative",
+              zIndex: 1,
+            }}>
+              {voyagerProgressCount >= 5 ? (
+                <>
+                  <div
+                    key={`voyager-badge-minimal-${voyagerBadgeAnimToken}`}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                  >
+                    {renderVoyagerBadge(voyagerProgressCount, "small", true)}
+                  </div>
+                  <div style={{
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
+                    letterSpacing: "0.04em",
+                    color: "rgba(15,23,42,0.84)",
+                    textShadow: "none",
+                    whiteSpace: "nowrap",
+                  }}>
+                    {voyagerProgressTitle}
+                  </div>
+                  <div style={{
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.02em",
+                    color: "rgba(15,23,42,0.92)",
+                    textShadow: "none",
+                    whiteSpace: "nowrap",
+                    marginLeft: "0.18rem",
+                  }}>
+                    {voyagerProgressCount}/{VOYAGER_TOTAL_COUNTRIES}
+                  </div>
+                </>
+              ) : (
+                <div style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.45rem",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  letterSpacing: "0.03em",
+                  color: "rgba(15,23,42,0.9)",
+                  textShadow: "none",
+                  whiteSpace: "nowrap",
+                }}>
+                  <span style={{ display: "inline-flex", alignItems: "center" }}>{renderGiftIcon(14)}</span>
+                  <span>{voyagerCountriesUntilSurprise} {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} for surprise!</span>
+                </div>
+              )}
             </div>
-            <div style={{ fontSize: "0.78rem", color: "rgba(248,250,252,0.82)", fontWeight: 600, textAlign: "right", textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}>
-              {voyagerProgressTitle}
-            </div>
-          </div>
+          )}
         </div>
       ) : null}
 
-      {/* COUNTRY DOCK - Bottom navigation rail */}
+
       {isMenuOpen && (
         <div
           onMouseLeave={() => {
@@ -3357,8 +4238,8 @@ export default function App() {
             position: "absolute",
             bottom: "1.1rem",
             left: "50%",
-            transform: isMenuClosing
-              ? "translateX(-50%) translateY(14px) scale(0.995)"
+            transform: isDockTransitioning
+              ? "translateX(-50%) translateY(18px) scale(0.995)"
               : "translateX(-50%) translateY(0) scale(1)",
             width: "min(1360px, 98vw)",
             zIndex: 900,
@@ -3369,8 +4250,8 @@ export default function App() {
             border: "1px solid rgba(255,255,255,0.22)",
             borderRadius: "30px",
             boxShadow: "0 20px 44px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.32)",
-            opacity: isMenuClosing ? 0 : 1,
-            transition: `opacity 420ms cubic-bezier(0.4, 0, 0.2, 1), transform 420ms cubic-bezier(0.4, 0, 0.2, 1)`,
+            opacity: isDockTransitioning ? 0 : 1,
+            transition: `opacity ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}, transform ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}`,
           }}
         >
           <div
@@ -3485,8 +4366,8 @@ export default function App() {
                 gap: "0.45rem",
                 flexShrink: 0,
                 paddingLeft: "0.2rem",
-                opacity: isMenuClosing ? 0 : 1,
-                transform: isMenuClosing
+                opacity: isDockTransitioning ? 0 : 1,
+                transform: isDockTransitioning
                   ? "translateX(-10px) translateY(8px)"
                   : "translateX(0) translateY(0)",
                 transition: `opacity 420ms ${DOCK_SOFT_EASE}, transform 560ms ${DOCK_GENTLE_EASE}`,
@@ -3548,6 +4429,20 @@ export default function App() {
                 </svg>
               </button>
             </div>
+
+            <div
+              aria-hidden="true"
+              style={{
+                width: "1px",
+                height: "46px",
+                alignSelf: "center",
+                background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.34) 20%, rgba(255,255,255,0.34) 80%, rgba(255,255,255,0.06) 100%)",
+                boxShadow: "0 0 0 1px rgba(255,255,255,0.06)",
+                opacity: isDockTransitioning ? 0 : 0.9,
+                transition: `opacity 420ms ${DOCK_SOFT_EASE}`,
+                flexShrink: 0,
+              }}
+            />
 
             {/* Country cards horizontal scroll */}
             <div
@@ -3656,14 +4551,28 @@ export default function App() {
             </div>
 
             <div
+              aria-hidden="true"
+              style={{
+                width: "1px",
+                height: "46px",
+                alignSelf: "center",
+                background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.34) 20%, rgba(255,255,255,0.34) 80%, rgba(255,255,255,0.06) 100%)",
+                boxShadow: "0 0 0 1px rgba(255,255,255,0.06)",
+                opacity: isDockTransitioning ? 0 : 0.9,
+                transition: `opacity 420ms ${DOCK_SOFT_EASE}`,
+                flexShrink: 0,
+              }}
+            />
+
+            <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "0.45rem",
                 flexShrink: 0,
                 paddingRight: "0.2rem",
-                opacity: isMenuClosing ? 0 : 1,
-                transform: isMenuClosing
+                opacity: isDockTransitioning ? 0 : 1,
+                transform: isDockTransitioning
                   ? "translateX(6px) translateY(6px)"
                   : "translateX(0) translateY(0)",
                 transition: `opacity 380ms cubic-bezier(0.4, 0, 0.2, 1), transform 380ms cubic-bezier(0.4, 0, 0.2, 1)`,
@@ -3760,7 +4669,6 @@ export default function App() {
           >
         <MapArtOverlay imageUrl={MAP_BACKGROUND_ART_URL} opacity={0.28} />
         <MapBounds />
-        <AmbientMapMotion />
         <VintageMapDecorations />
         <WorldGeoLayer
           onSelectCountry={handleSelectCountry}
@@ -3769,10 +4677,12 @@ export default function App() {
           selectedCountry={selectedCountry}
           activatedCountryName={activatedCountryName}
           isPanelOpen={isPanelOpen}
+          isAttractMode={isAttractMode}
           hoveredCountry={hoveredCountry}
           onCountryHover={handleCountryHover}
           countryLayerRefs={countryLayerRefs}
           onGeojsonLoad={handleGeojsonLoad}
+          onGeojsonError={handleGeojsonError}
         />
         <SmallCountryMarkers
           geojson={geojson}
@@ -3781,21 +4691,48 @@ export default function App() {
           hoveredCountry={hoveredCountry}
           activatedCountryName={activatedCountryName}
           isPanelOpen={isPanelOpen}
+          isAttractMode={isAttractMode}
           onCountryHover={handleCountryHover}
         />
-        {isAttractMode && attractRouteSwoosh ? (
-          <AttractSeaRouteSwoosh route={attractRouteSwoosh} />
-        ) : null}
-        {isAttractMode && attractAutoCountryName ? (
-          <AttractCountryPulse 
-            countryName={attractAutoCountryName} 
-            countryLayerRefs={countryLayerRefs}
-          />
-        ) : null}
-        {isAttractMode ? (
-          <AttractBreathingZoom />
+        {isAttractMode
+          ? attractRouteSwooshes.map((route) => (
+              <AttractSeaRouteSwoosh key={route.id} route={route} />
+            ))
+          : null}
+        {isAttractMode && attractHeroRoute ? (
+          <AttractSeaRouteSwoosh key={attractHeroRoute.id} route={attractHeroRoute} />
         ) : null}
         </MapContainer>
+
+        {!geojson ? (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              zIndex: 4,
+            }}
+          >
+            <div
+              style={{
+                padding: "0.7rem 1rem",
+                borderRadius: "999px",
+                border: "1px solid rgba(255,255,255,0.32)",
+                background: "rgba(15,23,42,0.62)",
+                color: "rgba(248,250,252,0.95)",
+                fontSize: "0.82rem",
+                letterSpacing: "0.03em",
+                backdropFilter: "blur(8px)",
+                WebkitBackdropFilter: "blur(8px)",
+              }}
+            >
+              {mapLoadError || "Loading map data..."}
+            </div>
+          </div>
+        ) : null}
 
         <div
           style={{
@@ -3813,6 +4750,7 @@ export default function App() {
 
       {/* FLOATING STORY CARD - Replaces side panel */}
       <div
+        className="floating-story-card-scroll"
         onClick={(event) => event.stopPropagation()}
         style={{
           position: "absolute",
@@ -3823,8 +4761,10 @@ export default function App() {
             : "translate(-50%, calc(-50% + 90px))",
           width: "min(900px, 92vw)",
           maxHeight: "75vh",
-          background: "linear-gradient(180deg, rgba(15, 23, 42, 0.97) 0%, rgba(2, 6, 23, 0.97) 100%)",
-          boxShadow: "0 40px 100px rgba(0, 0, 0, 0.55), 0 12px 28px rgba(0, 0, 0, 0.32)",
+          background: "linear-gradient(155deg, rgba(15, 23, 42, 0.86) 0%, rgba(2, 6, 23, 0.8) 52%, rgba(15, 23, 42, 0.74) 100%)",
+          boxShadow: "0 42px 120px rgba(0, 0, 0, 0.54), 0 16px 34px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
+          backdropFilter: "blur(20px) saturate(140%)",
+          WebkitBackdropFilter: "blur(20px) saturate(140%)",
           borderRadius: "32px",
           opacity: isPanelVisible ? 1 : 0,
           transition: "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1)",
@@ -3833,7 +4773,7 @@ export default function App() {
           overflowX: "hidden",
           zIndex: 1000,
           color: "#fff",
-          border: "1px solid rgba(148, 163, 184, 0.34)",
+          border: "1px solid rgba(203, 213, 225, 0.44)",
         }}
       >
         {selectedCountry ? (
@@ -3928,6 +4868,23 @@ export default function App() {
                   {selectedCountry.name}
                 </h2>
               </div>
+              {selectedCountryMetadata?.memberSince ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    right: "15%",
+                    top: "42%",
+                    width: "160px",
+                    transform: "translateY(-50%) rotate(-8deg)",
+                    zIndex: 4,
+                    opacity: isContentVisible ? 1 : 0,
+                    transition: `opacity 520ms ${springEase}, transform 520ms ${springEase}`,
+                    transitionDelay: isContentVisible ? "180ms" : "0ms",
+                  }}
+                >
+                  {renderCommonwealthStamp(String(selectedCountryMetadata.memberSince))}
+                </div>
+              ) : null}
               {selectedCountry.imageSource && selectedCountry.imageSource !== "none" && (
                 <div
                   style={{
@@ -3966,8 +4923,8 @@ export default function App() {
               )}
             </div>
 
-            {/* Content sections with padding */}
-            <div style={{ padding: `1.5rem ${STORY_CARD_SIDE_PADDING} 2rem` }}>
+            {/* FamilySearch Collections and Research Helps */}
+            <div style={{ padding: `1.5rem ${STORY_CARD_SIDE_PADDING} 1.4rem` }}>
               <div
                 style={{
                   display: "grid",
@@ -3976,134 +4933,52 @@ export default function App() {
                   alignItems: "start",
                 }}
               >
-                <div style={{ display: "flex", flexDirection: "column", minWidth: 0, ...getRevealStyle(2) }}>
-                  <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>
-                    Overview
-                  </h3>
-                  <p
-                    ref={overviewTextRef}
-                    style={{
-                      margin: 0,
-                      lineHeight: 1.7,
-                      fontSize: "1rem",
-                      color: "rgba(255,255,255,0.85)",
-                      overflow: "hidden",
-                      display: isOverviewExpanded ? "block" : "-webkit-box",
-                      WebkitBoxOrient: "vertical",
-                      WebkitLineClamp: isOverviewExpanded ? "unset" : 6,
-                    }}
-                  >
-                    {selectedCountry.overview}
-                  </p>
-                  {hasOverviewOverflow ? (
-                    <button
-                      onClick={() => setIsOverviewExpanded((value) => !value)}
-                      style={{
-                        marginTop: "0.75rem",
-                        border: "none",
-                        background: "transparent",
-                        color: "#87b940",
-                        fontSize: "0.9rem",
-                        fontWeight: 600,
-                        textAlign: "left",
-                        cursor: "pointer",
-                        padding: 0,
-                        alignSelf: "flex-start",
-                      }}
-                    >
-                      {isOverviewExpanded ? "Read Less" : "Read More →"}
-                    </button>
-                  ) : null}
-                </div>
-                <div style={{ display: "grid", gap: "0.75rem", gridTemplateRows: detailItems.length > 2 ? "repeat(2, minmax(0, 1fr))" : "repeat(2, minmax(0, 1fr))", gridTemplateColumns: detailItems.length > 2 ? "1fr 1fr" : "1fr", minWidth: 0, ...getRevealStyle(1) }}>
-                  {detailItems.map((item) => {
-                    const isMemberSince = item.label === "Member Since";
-                    return isMemberSince ? (
-                      <div
-                        key={item.label}
-                        style={{
-                          borderRadius: "16px",
-                          background: "linear-gradient(180deg, rgba(17, 24, 39, 0.9) 0%, rgba(15, 23, 42, 0.82) 100%)",
-                          border: "1px solid rgba(148, 163, 184, 0.34)",
-                          boxShadow: "inset 0 1px 0 rgba(226,232,240,0.12), 0 10px 22px rgba(2,6,23,0.34)",
-                          padding: "0.5rem",
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          maxWidth: "140px",
-                          justifySelf: "center",
-                        }}
-                      >
-                        {renderCommonwealthStamp(item.value)}
-                      </div>
-                    ) : (
-                      <div
-                        key={item.label}
-                        style={{
-                          borderRadius: "16px",
-                          background: "linear-gradient(180deg, rgba(17, 24, 39, 0.9) 0%, rgba(15, 23, 42, 0.82) 100%)",
-                          border: "1px solid rgba(148, 163, 184, 0.34)",
-                          boxShadow: "inset 0 1px 0 rgba(226,232,240,0.12), 0 10px 22px rgba(2,6,23,0.34)",
-                          padding: "1rem 1.25rem",
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <div style={{ marginBottom: "0.4rem", display: "flex", alignItems: "center" }}>{renderStatIcon(item.label)}</div>
-                        <div style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(226,232,240,0.76)", marginBottom: "0.3rem", fontWeight: 700 }}>
-                          {item.label}
-                        </div>
-                        <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#f8fafc", textShadow: "0 1px 0 rgba(2,6,23,0.55)" }}>{item.value}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* FamilySearch Records and Research Helps */}
-            <div style={{ padding: `0 ${STORY_CARD_SIDE_PADDING} 1.5rem` }}>
-              <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.1)", margin: "0 0 1.5rem" }} />
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 0.8fr)",
-                  gap: "1.5rem",
-                  alignItems: "start",
-                }}
-              >
-                <div style={{ minWidth: 0, ...getRevealStyle(3) }}>
-                <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontWeight: 700 }}>
-                  FamilySearch Records
-                </h3>
+                <div style={{ minWidth: 0, ...getRevealStyle(1) }}>
                 <div style={{ display: "grid", gap: "0.38rem" }}>
-                  {displayedFamilySearchCollections.length ? (
-                    displayedFamilySearchCollections.map((collection, index) => (
-                      <a
-                        key={`${collection.title}-${collection.link}`}
-                        href={collection.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={familySearchRecordLinkStyle}
-                        onMouseEnter={handleFamilySearchRecordMouseEnter}
-                        onMouseLeave={handleFamilySearchRecordMouseLeave}
-                      >
-                        <span
-                          ref={(element) => {
-                            recordTitleRefs.current[index] = element;
-                          }}
-                          style={{ minWidth: 0, whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere", display: "block" }}
+                  {displayedFamilySearchPreferredCollections.length ? (
+                    <>
+                      <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginTop: "0.12rem" }}>
+                        {isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}
+                      </div>
+                      {displayedFamilySearchPreferredCollections.map((collection, index) => (
+                        <a
+                          key={`${isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}-${collection.title}-${collection.link}`}
+                          href={collection.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={familySearchRecordLinkStyle}
+                          onMouseEnter={handleFamilySearchRecordMouseEnter}
+                          onMouseLeave={handleFamilySearchRecordMouseLeave}
                         >
-                          {collection.title}
-                        </span>
-                      </a>
-                    ))
-                  ) : (
-                    <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No FamilySearch record collections available.</div>
-                  )}
+                          <span
+                            ref={(element) => {
+                              recordTitleRefs.current[index] = element;
+                            }}
+                            style={
+                              isGenealogyCollectionsView
+                                ? {
+                                    minWidth: 0,
+                                    display: "-webkit-box",
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    wordBreak: "break-word",
+                                    overflowWrap: "anywhere",
+                                  }
+                                : { minWidth: 0, whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere", display: "block" }
+                            }
+                          >
+                            {collection.title}
+                          </span>
+                        </a>
+                      ))}
+                    </>
+                  ) : null}
+
+                  {!hasFamilySearchRecordCollections && !hasFamilySearchGenealogyCollections ? (
+                    <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No FamilySearch collections available.</div>
+                  ) : null}
                 </div>
                 {familySearchLocationUrl ? (
                   <a
@@ -4129,9 +5004,9 @@ export default function App() {
                 )}
               </div>
 
-              <div style={{ minWidth: 0, ...getRevealStyle(4) }}>
+              <div style={{ minWidth: 0, ...getRevealStyle(2) }}>
                 <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontWeight: 700 }}>
-                  Research Helps
+                  Research Help
                 </h3>
                 <div style={{ display: "grid", gap: "0.38rem" }}>
                   {researchHelpEntries.length ? (
@@ -4160,108 +5035,63 @@ export default function App() {
             </div>
             </div>
 
-     <div
-  style={{
-    display: "flex",
-    flexDirection: "column",
-    flex: 1,
-    minHeight: 0,
-    overflow: "visible",
-    padding: `0 ${STORY_CARD_SIDE_PADDING} 1.8rem`,
-    ...getRevealStyle(5),
-  }}
->
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                <h3 style={{ margin: 0, fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "#64748b", fontWeight: 500 }}>
-                  Discover
-                </h3>
-                {showGalleryNavigation ? (
-                  <div style={{ display: "flex", gap: "0.25rem" }}>
-                    <button
-                      onClick={() => scrollGallery("left")}
-                      style={{ 
-                        border: "none", 
-                        background: "transparent", 
-                        color: "#94a3b8", 
-                        borderRadius: "6px", 
-                        width: "24px", 
-                        height: "24px", 
-                        cursor: "pointer", 
-                        lineHeight: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        transition: "color 180ms ease",
-                        opacity: 0.6,
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = "#475569";
-                        e.currentTarget.style.opacity = "1";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = "#94a3b8";
-                        e.currentTarget.style.opacity = "0.6";
-                      }}
-                      aria-label="Previous"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m15 18-6-6 6-6" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => scrollGallery("right")}
-                      style={{ 
-                        border: "none", 
-                        background: "transparent", 
-                        color: "#94a3b8", 
-                        borderRadius: "6px", 
-                        width: "24px", 
-                        height: "24px", 
-                        cursor: "pointer", 
-                        lineHeight: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        transition: "color 180ms ease",
-                        opacity: 0.6,
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = "#475569";
-                        e.currentTarget.style.opacity = "1";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = "#94a3b8";
-                        e.currentTarget.style.opacity = "0.6";
-                      }}
-                      aria-label="Next"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m9 18 6-6-6-6" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-             <div
-  ref={galleryTrackRef}
-  style={{
-    display: "flex",
-    gap: "0.6rem",
-    overflowX: "auto",
-    overflowY: "hidden",
-    paddingTop: "2px",
-    paddingBottom: "8px",
-    flex: 1,
-    minHeight: 0,
-    alignItems: "stretch",
-    scrollBehavior: "smooth",
-    WebkitOverflowScrolling: "touch",
-    touchAction: "pan-x",
-    scrollSnapType: "x mandatory",
-    scrollbarWidth: "none",
-    msOverflowStyle: "none",
-  }}
->
+            {/* Gallery before reading content */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                flex: 1,
+                minHeight: 0,
+                overflow: "visible",
+                padding: `0 ${STORY_CARD_SIDE_PADDING} 1.4rem`,
+                ...getRevealStyle(3),
+              }}
+            >
+              <div style={{ position: "relative" }}>
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  bottom: "8px",
+                  width: "32px",
+                  background: "linear-gradient(90deg, rgba(2,6,23,0.56) 0%, rgba(2,6,23,0) 100%)",
+                  pointerEvents: "none",
+                  zIndex: 2,
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: 0,
+                  bottom: "8px",
+                  width: "32px",
+                  background: "linear-gradient(270deg, rgba(2,6,23,0.56) 0%, rgba(2,6,23,0) 100%)",
+                  pointerEvents: "none",
+                  zIndex: 2,
+                }}
+              />
+              <div
+                ref={galleryTrackRef}
+                style={{
+                  display: "flex",
+                  gap: "0.75rem",
+                  overflowX: "auto",
+                  overflowY: "hidden",
+                  paddingTop: "2px",
+                  paddingBottom: "10px",
+                  flex: 1,
+                  minHeight: 0,
+                  alignItems: "stretch",
+                  scrollBehavior: "smooth",
+                  WebkitOverflowScrolling: "touch",
+                  touchAction: "pan-x",
+                  scrollSnapType: "x mandatory",
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                }}
+              >
                 {galleryItems.map((item, index) => (
                   <button
                     key={item.id}
@@ -4274,24 +5104,31 @@ export default function App() {
                       overflow: "hidden",
                       cursor: "pointer",
                       position: "relative",
-                      flex: "0 0 80%",
+                      flex: "0 0 76%",
                       minWidth: "0",
-                      height: "155px",
+                      height: "182px",
                       transform: "translateY(0)",
-                      transition: "transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease",
-                      boxShadow: "0 4px 16px rgba(15,23,42,0.1), 0 1px 4px rgba(15,23,42,0.06)",
+                      transition: "transform 240ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, filter 240ms ease",
+                      boxShadow: index === galleryActiveIndex
+                        ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
+                        : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)",
                       scrollSnapAlign: "center",
-                      opacity: index === 0 ? 1 : 0.75,
+                      opacity: index === galleryActiveIndex ? 1 : 0.72,
+                      filter: index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)",
                     }}
                     onMouseEnter={(event) => {
                       event.currentTarget.style.transform = "translateY(-2px)";
-                      event.currentTarget.style.boxShadow = "0 8px 24px rgba(15,23,42,0.14), 0 2px 8px rgba(15,23,42,0.08)";
+                      event.currentTarget.style.boxShadow = "0 20px 38px rgba(15,23,42,0.42), inset 0 0 0 1px rgba(255,255,255,0.26)";
                       event.currentTarget.style.opacity = "1";
+                      event.currentTarget.style.filter = "saturate(1.12)";
                     }}
                     onMouseLeave={(event) => {
                       event.currentTarget.style.transform = "translateY(0)";
-                      event.currentTarget.style.boxShadow = "0 4px 16px rgba(15,23,42,0.1), 0 1px 4px rgba(15,23,42,0.06)";
-                      event.currentTarget.style.opacity = index === 0 ? "1" : "0.75";
+                      event.currentTarget.style.boxShadow = index === galleryActiveIndex
+                        ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
+                        : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)";
+                      event.currentTarget.style.opacity = index === galleryActiveIndex ? "1" : "0.72";
+                      event.currentTarget.style.filter = index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)";
                     }}
                   >
                     <img
@@ -4311,10 +5148,252 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              </div>
+              {galleryItems.length > 1 ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", marginTop: "0.45rem" }}>
+                  <div style={{ flex: 1, display: "flex", justifyContent: showGalleryNavigation ? "flex-start" : "center", gap: "0.34rem" }}>
+                    {galleryItems.map((item, index) => (
+                      <div
+                        key={`gallery-dot-${item.id}`}
+                        style={{
+                          width: index === galleryActiveIndex ? "20px" : "7px",
+                          height: "7px",
+                          borderRadius: "999px",
+                          background: index === galleryActiveIndex
+                            ? "linear-gradient(90deg, rgba(255,255,255,0.95), rgba(226,232,240,0.82))"
+                            : "rgba(148, 163, 184, 0.46)",
+                          boxShadow: index === galleryActiveIndex ? "0 0 10px rgba(255,255,255,0.32)" : "none",
+                          transition: "all 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {showGalleryNavigation ? (
+                    <div style={{ display: "flex", gap: "0.4rem", flexShrink: 0 }}>
+                      <button
+                        onClick={() => scrollGallery("left")}
+                        style={{
+                          border: "1px solid rgba(226,232,240,0.28)",
+                          background: "linear-gradient(160deg, rgba(255,255,255,0.18), rgba(148,163,184,0.12))",
+                          color: "#e2e8f0",
+                          borderRadius: "999px",
+                          width: "30px",
+                          height: "30px",
+                          cursor: "pointer",
+                          lineHeight: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+                          opacity: 0.9,
+                          boxShadow: "0 6px 16px rgba(15,23,42,0.28)",
+                          flexShrink: 0,
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = "#ffffff";
+                          e.currentTarget.style.transform = "translateY(-1px)";
+                          e.currentTarget.style.background = "linear-gradient(160deg, rgba(255,255,255,0.25), rgba(148,163,184,0.18))";
+                          e.currentTarget.style.opacity = "1";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = "#e2e8f0";
+                          e.currentTarget.style.transform = "translateY(0)";
+                          e.currentTarget.style.background = "linear-gradient(160deg, rgba(255,255,255,0.18), rgba(148,163,184,0.12))";
+                          e.currentTarget.style.opacity = "0.9";
+                        }}
+                        aria-label="Previous"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m15 18-6-6 6-6" />
+                        </svg>
+                      </button>
+
+                      <button
+                        onClick={() => scrollGallery("right")}
+                        style={{
+                          border: "1px solid rgba(226,232,240,0.28)",
+                          background: "linear-gradient(160deg, rgba(255,255,255,0.18), rgba(148,163,184,0.12))",
+                          color: "#e2e8f0",
+                          borderRadius: "999px",
+                          width: "30px",
+                          height: "30px",
+                          cursor: "pointer",
+                          lineHeight: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+                          opacity: 0.9,
+                          boxShadow: "0 6px 16px rgba(15,23,42,0.28)",
+                          flexShrink: 0,
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = "#ffffff";
+                          e.currentTarget.style.transform = "translateY(-1px)";
+                          e.currentTarget.style.background = "linear-gradient(160deg, rgba(255,255,255,0.25), rgba(148,163,184,0.18))";
+                          e.currentTarget.style.opacity = "1";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = "#e2e8f0";
+                          e.currentTarget.style.transform = "translateY(0)";
+                          e.currentTarget.style.background = "linear-gradient(160deg, rgba(255,255,255,0.18), rgba(148,163,184,0.12))";
+                          e.currentTarget.style.opacity = "0.9";
+                        }}
+                        aria-label="Next"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m9 18 6-6-6-6" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            {/* Overview + Statistics in editorial two-column */}
+            <div style={{ padding: `0 ${STORY_CARD_SIDE_PADDING} 2rem`, ...getRevealStyle(4) }}>
+              <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.1)", margin: "0 0 1.3rem" }} />
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 0.7fr)",
+                  gap: "1.4rem",
+                  alignItems: "start",
+                }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                  <p
+                    ref={overviewTextRef}
+                    style={{
+                      margin: 0,
+                      lineHeight: 1.8,
+                      fontSize: "1.02rem",
+                      color: "rgba(255,255,255,0.88)",
+                      overflow: "hidden",
+                      display: isOverviewExpanded ? "block" : "-webkit-box",
+                      WebkitBoxOrient: "vertical",
+                      WebkitLineClamp: isOverviewExpanded ? "unset" : 7,
+                    }}
+                  >
+                    {selectedCountry.overview}
+                  </p>
+                  {hasOverviewOverflow ? (
+                    <button
+                      onClick={() => setIsOverviewExpanded((value) => !value)}
+                      style={{
+                        marginTop: "0.8rem",
+                        border: "none",
+                        background: "transparent",
+                        color: "#87b940",
+                        fontSize: "0.9rem",
+                        fontWeight: 600,
+                        textAlign: "left",
+                        cursor: "pointer",
+                        padding: 0,
+                        alignSelf: "flex-start",
+                      }}
+                    >
+                      {isOverviewExpanded ? "Read Less" : "Read More →"}
+                    </button>
+                  ) : null}
+                </div>
+
+                <div style={{ display: "grid", gap: "0.78rem", minWidth: 0 }}>
+                  {detailStatItems.map((item) => (
+                    <div
+                      key={item.label}
+                      style={{
+                        borderRadius: "16px",
+                        background: "linear-gradient(180deg, rgba(17, 24, 39, 0.9) 0%, rgba(15, 23, 42, 0.82) 100%)",
+                        border: "1px solid rgba(148, 163, 184, 0.34)",
+                        boxShadow: "inset 0 1px 0 rgba(226,232,240,0.12), 0 10px 22px rgba(2,6,23,0.34)",
+                        padding: "1rem 1.05rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <div style={{ marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                        {renderStatIcon(item.label)}
+                        <span style={{ fontSize: "0.69rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(226,232,240,0.76)", fontWeight: 700 }}>
+                          {item.label}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#f8fafc", textShadow: "0 1px 0 rgba(2,6,23,0.55)" }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         ) : null}
       </div>
+
+      {/* ACHIEVEMENT UNLOCK OVERLAY */}
+      {achievementUnlocked ? (
+        <div
+          onClick={(event) => event.stopPropagation()}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.75)",
+            backdropFilter: "blur(8px)",
+            zIndex: 9998,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "2rem",
+            animation: "achievementUnlock 400ms ease-out",
+            pointerEvents: "auto",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "1.5rem",
+              animation: "badgeScale 600ms cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          >
+            {/* Badge with glow animation */}
+            <div style={{ animation: "badgeScale 620ms cubic-bezier(0.34, 1.56, 0.64, 1), badgeGlow 2s ease-in-out, celebrationPulse 1.2s ease-in-out 620ms 1" }}>
+              {achievementUnlocked.badge}
+            </div>
+            
+            {/* Title with fade-in */}
+            <div
+              style={{
+                fontSize: "clamp(1.8rem, 4vw, 2.8rem)",
+                fontWeight: 700,
+                color: "#fff",
+                textAlign: "center",
+                textShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+                animation: "titleFadeIn 500ms ease-out 200ms both",
+                letterSpacing: "0.02em",
+              }}
+            >
+              {achievementUnlocked.title}
+            </div>
+
+            {/* Count indicator */}
+            <div
+              style={{
+                fontSize: "1rem",
+                color: "rgba(255, 255, 255, 0.8)",
+                textTransform: "uppercase",
+                letterSpacing: "0.15em",
+                fontWeight: 600,
+                animation: "titleFadeIn 500ms ease-out 400ms both",
+              }}
+            >
+              {achievementUnlocked.count} of 56 Countries
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {lightboxItem ? (
         <div
