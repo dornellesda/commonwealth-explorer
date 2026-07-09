@@ -2035,6 +2035,16 @@ export default function App() {
 
   const beginExploration = () => {
     markUserActivity();
+
+    // Exit idle/attract mode first and keep the dock closed so the Explore button is shown.
+    setIsIdleAttractMode(false);
+    clearAttractPresentation();
+    setIsMenuOpen(false);
+    setIsMenuClosing(false);
+  };
+
+  const openCountryDock = () => {
+    markUserActivity();
     setIsButtonTransitioning(true);
 
     // Exit idle mode and bring dock in from the same visual anchor as the button.
@@ -2059,7 +2069,14 @@ export default function App() {
       return;
     }
 
-    beginExploration();
+    // First interaction leaves attract mode and shows the Explore button.
+    // A subsequent press opens the country dock.
+    if (isIdleAttractMode) {
+      beginExploration();
+      return;
+    }
+
+    openCountryDock();
   };
 
   const handleGeojsonLoad = (data) => {
@@ -3995,9 +4012,9 @@ export default function App() {
             style={{
               position: "relative",
               zIndex: 1,
-              width: "128px",
+              width: "192px",
               height: "auto",
-              filter: "brightness(0) invert(1)",
+              filter: "brightness(0) invert(1) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35))",
               opacity: 0.96,
               transition: `opacity 520ms ${DOCK_GENTLE_EASE}`,
             }}
