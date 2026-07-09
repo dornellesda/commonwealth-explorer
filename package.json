@@ -11,6 +11,7 @@
     "images:validate": "node scripts/validate-country-hero-descriptions.mjs",
     "images:curate-once": "npm run images:populate && npm run images:validate",
     "generate:research-links": "node scripts/generate-country-research-links.mjs",
+    "generate:commonwealth-metadata": "node scripts/generate-commonwealth-metadata.mjs",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",

@@ -3,6 +3,7 @@ import L from "leaflet";
 import { GeoJSON, MapContainer, useMap } from "react-leaflet";
 import countries from "./data/countries.json";
 import countryResearchLinks from "./data/countryResearchLinks.json";
+import commonwealthMetadata from "./data/commonwealthMetadata.json";
 import "leaflet/dist/leaflet.css";
 
 // Format population number (e.g., 5771000 → "5.8 million")
@@ -156,13 +157,13 @@ const FAMILYSEARCH_COLLECTION_SETTINGS_BY_COUNTRY = {
 };
 const COMMONWEALTH_VIEW = {
   center: [18, 20],
-  zoom: 2.6,
+  zoom: 2.8,
 };
 const COMMONWEALTH_MAP_BOUNDS = [
   [-62, -178],
   [84, 178],
 ];
-const COMMONWEALTH_MIN_ZOOM = 2.6;
+const COMMONWEALTH_MIN_ZOOM = 2.8;
 const KIOSK_IDLE_TIMEOUT_MS = 70_000;
 const KIOSK_DOCK_SEARCH_IDLE_TIMEOUT_MS = 30_000;
 const DOCK_SOFT_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
@@ -198,8 +199,9 @@ const ATTRACT_ROUTE_SEGMENTS = new Set([
   "Singapore|Australia",
   "Australia|New Zealand",
 ]);
-const ATTRACT_ROUTE_CHANCE = 0.16;
-const ATTRACT_ROUTE_MIN_GAP_STEPS = 6;
+const ATTRACT_ROUTE_CHANCE = 0.35;
+const ATTRACT_ROUTE_MIN_GAP_STEPS = 3;
+const ATTRACT_ARC_DURATION_MS = 8000;
 const MAP_HIGHLIGHT_TRANSITION_MS = 520;
 const MAP_HIGHLIGHT_EASE = "cubic-bezier(0.2, 0.65, 0.25, 1)";
 const VOYAGER_TOTAL_COUNTRIES = countries.length;
@@ -229,7 +231,9 @@ function getVoyagerTitle(visitedCount) {
 }
 
 const countryZoomOverrides = {
+  // Large countries: zoom 4-6
   "New Zealand": { center: [-41, 174], zoom: 5 },
+  // Small island nations: zoom 6-7 for intimate experience
   Fiji: { center: [-17.8, 178], zoom: 6 },
   Tonga: { center: [-21.2, -175.2], zoom: 6 },
   Samoa: { center: [-13.8, -172.1], zoom: 6 },
@@ -237,6 +241,34 @@ const countryZoomOverrides = {
   Kiribati: { center: [1.3, 173], zoom: 5.2 },
   Tuvalu: { center: [-8.5, 179.2], zoom: 7 },
   Nauru: { center: [-0.5, 166.9], zoom: 7 },
+  "Solomon Islands": { center: [-9.6, 160.2], zoom: 6 },
+  "Papua New Guinea": { center: [-6.3, 147], zoom: 5.5 },
+  Maldives: { center: [3.2, 73.2], zoom: 6.5 },
+  Malta: { center: [35.9, 14.4], zoom: 7 },
+  Seychelles: { center: [-4.7, 55.5], zoom: 6.5 },
+  Mauritius: { center: [-20.3, 57.6], zoom: 6.5 },
+  Singapore: { center: [1.35, 103.8], zoom: 7 },
+  "Antigua and Barbuda": { center: [17.1, -61.8], zoom: 7 },
+  Barbados: { center: [13.2, -59.5], zoom: 7 },
+  Dominica: { center: [15.4, -61.4], zoom: 7 },
+  Grenada: { center: [12.1, -61.7], zoom: 7 },
+  "Saint Lucia": { center: [13.9, -61], zoom: 7 },
+  "St Kitts and Nevis": { center: [17.3, -62.7], zoom: 7 },
+  "St Vincent and The Grenadines": { center: [13.3, -61.2], zoom: 7 },
+  "Trinidad and Tobago": { center: [10.7, -61.5], zoom: 6.5 },
+  "The Bahamas": { center: [25, -77.4], zoom: 5.5 },
+  Jamaica: { center: [18.1, -77.3], zoom: 6 },
+  Belize: { center: [17.2, -88.5], zoom: 6 },
+  Guyana: { center: [4.9, -58.9], zoom: 5.5 },
+  Cyprus: { center: [35, 33], zoom: 6.5 },
+  Brunei: { center: [4.5, 114.7], zoom: 6.5 },
+  Eswatini: { center: [-26.5, 31.5], zoom: 6.5 },
+  Lesotho: { center: [-29.5, 28.2], zoom: 6.5 },
+  Botswana: { center: [-22.3, 24.7], zoom: 5 },
+  "The Gambia": { center: [13.5, -15.5], zoom: 6 },
+  Gabon: { center: [-0.8, 11.8], zoom: 5 },
+  Rwanda: { center: [-2, 30], zoom: 6 },
+  Malawi: { center: [-13.5, 34], zoom: 5.5 },
 };
 
 function normalizeName(value = "") {
@@ -519,27 +551,11 @@ function MapBounds() {
   const map = useMap();
 
   useEffect(() => {
+    // Only constrain minimum zoom to prevent zooming out too far.
+    // No maxBounds — let the map feel open and premium like Apple Maps.
+    // The app controls all meaningful camera movement via flyTo.
     map.setMinZoom(COMMONWEALTH_MIN_ZOOM);
-    map.setMaxBounds(COMMONWEALTH_MAP_BOUNDS);
-    map.options.maxBoundsViscosity = 0.92;
     map.options.worldCopyJump = false;
-
-    const keepMapInBounds = () => {
-      if (!map.getBounds().intersects(L.latLngBounds(COMMONWEALTH_MAP_BOUNDS))) {
-        map.panInsideBounds(COMMONWEALTH_MAP_BOUNDS, {
-          animate: true,
-          duration: 0.45,
-        });
-      }
-    };
-
-    map.on("dragend", keepMapInBounds);
-    map.on("zoomend", keepMapInBounds);
-
-    return () => {
-      map.off("dragend", keepMapInBounds);
-      map.off("zoomend", keepMapInBounds);
-    };
   }, [map]);
 
   return null;
@@ -624,6 +640,88 @@ function AmbientMapMotion() {
       motionTarget.style.filter = previousFilter;
     };
   }, [map]);
+
+  return null;
+}
+
+function AttractBreathingZoom() {
+  const map = useMap();
+
+  useEffect(() => {
+    let animationFrame;
+    let startTime = Date.now();
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      // Very slow zoom breathing: ±0.08 zoom over 25 seconds
+      const breathe = Math.sin(elapsed / 12500 * Math.PI) * 0.08;
+      const currentZoom = COMMONWEALTH_VIEW.zoom + breathe;
+      
+      map.setView(COMMONWEALTH_VIEW.center, currentZoom, { animate: false });
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+      // Restore default view
+      map.setView(COMMONWEALTH_VIEW.center, COMMONWEALTH_VIEW.zoom, { animate: false });
+    };
+  }, [map]);
+
+  return null;
+}
+
+function AttractCountryPulse({ countryName, countryLayerRefs }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!countryName) {
+      return;
+    }
+
+    const normalized = normalizeName(countryName);
+    const layer = countryLayerRefs.current?.[normalized];
+    
+    if (!layer) {
+      return;
+    }
+
+    const element = layer.getElement?.();
+    if (!element) {
+      return;
+    }
+
+    let animationFrame;
+    let startTime = Date.now();
+    const pulseDuration = 2000;
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = (elapsed % pulseDuration) / pulseDuration;
+      const pulse = Math.sin(progress * Math.PI * 2) * 0.5 + 0.5;
+      const scale = 1 + pulse * 0.08;
+      const glowIntensity = pulse * 0.4;
+      
+      element.style.transform = `scale(${scale})`;
+      element.style.filter = `drop-shadow(0 0 ${8 + pulse * 12}px rgba(241, 100, 88, ${glowIntensity}))`;
+      
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+      element.style.transform = '';
+      element.style.filter = '';
+    };
+  }, [map, countryName]);
 
   return null;
 }
@@ -768,7 +866,7 @@ function AttractSeaRouteSwoosh({ route }) {
       interactive: false,
     }).addTo(map);
 
-    const durationMs = 5000;
+    const durationMs = ATTRACT_ARC_DURATION_MS;
     let rafId = null;
     const startedAt = performance.now();
 
@@ -776,17 +874,20 @@ function AttractSeaRouteSwoosh({ route }) {
       const progress = Math.min(1, (now - startedAt) / durationMs);
       let opacity = 0;
 
-      if (progress < 0.28) {
-        opacity = (progress / 0.28) * 0.13;
-      } else if (progress < 0.8) {
-        opacity = 0.13;
+      if (progress < 0.2) {
+        opacity = (progress / 0.2) * 0.35;
+      } else if (progress < 0.75) {
+        opacity = 0.35;
       } else {
-        opacity = ((1 - progress) / 0.2) * 0.13;
+        opacity = ((1 - progress) / 0.25) * 0.35;
       }
 
-      const clampedOpacity = Math.max(0, Math.min(0.13, opacity));
+      const clampedOpacity = Math.max(0, Math.min(0.35, opacity));
       line.setStyle({ opacity: clampedOpacity });
-      glow.setStyle({ opacity: clampedOpacity * 0.18 });
+      glow.setStyle({ 
+        opacity: clampedOpacity * 0.6,
+        weight: 6
+      });
 
       const phase = progress * 54;
       line.setStyle({ dashOffset: `${phase}px` });
@@ -1560,12 +1661,16 @@ export default function App() {
 
     setSelectedCountry(null);
     exitIdleAttractMode();
-    setIsMenuOpen(false);
     setIsPanelOpen(false);
     setIsPanelVisible(false);
     setIsOverlayVisible(false);
     setIsContentVisible(false);
     setActivatedCountryName(null);
+    // Restore Explore button after panel closes.
+    setTimeout(() => {
+      setIsMenuOpen(false);
+      setIsMenuClosing(false);
+    }, 200);
     if (mapRef?.current) {
       mapRef.current.stop();
 
@@ -1597,6 +1702,8 @@ export default function App() {
 
     setSelectedCountry(country);
     exitIdleAttractMode();
+    setIsMenuOpen(false);
+    setIsMenuClosing(false);
     const countryKey = normalizeName(country.name);
     const alreadyVisited = visitedVoyagerCountriesRef.current.includes(countryKey);
 
@@ -1635,7 +1742,6 @@ export default function App() {
     }
     setHeroMotionSeed((value) => value + 1);
     selectedCountryKeyRef.current = countryKey;
-    setIsMenuOpen(false);
     setIsPanelOpen(true);
     setIsPanelVisible(false);
     setIsOverlayVisible(false);
@@ -1689,8 +1795,8 @@ export default function App() {
   const beginExploration = () => {
     markUserActivity();
     exitIdleAttractMode();
-    // Exit attract into map-first exploration; the dock remains available via Explore.
     setIsMenuOpen(false);
+    setIsMenuClosing(false);
   };
 
   const handleGeojsonLoad = (data) => {
@@ -2158,6 +2264,14 @@ export default function App() {
     };
   }, [selectedCountry, isMenuOpen, lightboxItem, isIdleAttractMode]);
 
+  // When a country is selected, ensure the dock is hidden and Explore button can return.
+  useEffect(() => {
+    if (selectedCountry) {
+      setIsMenuOpen(false);
+      setIsMenuClosing(false);
+    }
+  }, [selectedCountry?.name]);
+
   useEffect(() => {
     setIsOverviewExpanded(false);
   }, [selectedCountry?.name]);
@@ -2234,15 +2348,23 @@ export default function App() {
     };
   }, [selectedCountry?.name, isFamilySearchCacheReady]);
 
+  const selectedCountryMetadata = selectedCountry
+    ? commonwealthMetadata[selectedCountry.name]
+    : null;
+
   const detailItems = selectedCountry
     ? (() => {
         const data = selectedCountry ? getCountryData(selectedCountry) : null;
-        return data
+        const items = data
           ? [
               { label: "Capital", value: data.capital },
               { label: "Population", value: data.population ? formatPopulation(data.population) : "Not available" },
             ]
           : [];
+        if (selectedCountryMetadata?.memberSince) {
+          items.push({ label: "Member Since", value: String(selectedCountryMetadata.memberSince) });
+        }
+        return items;
       })()
     : [];
   const familySearchLocationUrl = selectedCountry
@@ -2644,6 +2766,89 @@ export default function App() {
     return null;
   };
 
+  const renderCommonwealthStamp = (year) => {
+    if (!year) return null;
+    const rotation = -5 + (Math.random() * 2 - 1); // ~-5deg to -6deg
+    return (
+      <div
+        aria-label={`Commonwealth member since ${year}`}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: "50%",
+          width: "100%",
+          aspectRatio: "1 / 1",
+          border: "2px solid rgba(135, 185, 64, 0.5)",
+          background: "radial-gradient(circle at 40% 35%, rgba(175, 207, 104, 0.12) 0%, rgba(135, 185, 64, 0.06) 60%, transparent 100%)",
+          transform: `rotate(${rotation}deg)`,
+          padding: "0.25rem",
+          position: "relative",
+          boxSizing: "border-box",
+          boxShadow: "0 0 0 1px rgba(135, 185, 64, 0.15), inset 0 0 0 1px rgba(135, 185, 64, 0.1)",
+        }}
+      >
+        {/* Inner ring */}
+        <div
+          style={{
+            position: "absolute",
+            inset: "6px",
+            borderRadius: "50%",
+            border: "1px solid rgba(135, 185, 64, 0.2)",
+            pointerEvents: "none",
+          }}
+        />
+        {/* Decorative dots at cardinal points */}
+        {[0, 90, 180, 270].map((angle) => (
+          <div
+            key={angle}
+            style={{
+              position: "absolute",
+              width: "3px",
+              height: "3px",
+              borderRadius: "50%",
+              background: "rgba(135, 185, 64, 0.35)",
+              top: angle === 0 ? "3px" : angle === 180 ? undefined : "50%",
+              bottom: angle === 180 ? "3px" : undefined,
+              left: angle === 270 ? "3px" : angle === 90 ? undefined : "50%",
+              right: angle === 90 ? "3px" : undefined,
+              transform: angle === 0 || angle === 180 ? "translateX(-50%)" : "translateY(-50%)",
+            }}
+          />
+        ))}
+        <div
+          style={{
+            fontSize: "0.5rem",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "rgba(135, 185, 64, 0.7)",
+            fontWeight: 600,
+            lineHeight: 1.1,
+            textAlign: "center",
+            marginTop: "0.1rem",
+          }}
+        >
+          Member
+          <br />
+          Since
+        </div>
+        <div
+          style={{
+            fontSize: "1.1rem",
+            fontWeight: 700,
+            color: "rgba(135, 185, 64, 0.85)",
+            lineHeight: 1,
+            letterSpacing: "-0.02em",
+            marginTop: "0.05rem",
+          }}
+        >
+          {year}
+        </div>
+      </div>
+    );
+  };
+
   const selectedCountryNormalizedName = selectedCountry
     ? normalizeName(selectedCountry.name)
     : "";
@@ -2835,6 +3040,14 @@ export default function App() {
     };
   }, [isAttractMode, selectedCountry]);
 
+  // When panel closes, if no country is selected, restore Explore button.
+  useEffect(() => {
+    if (!selectedCountry && !isPanelOpen && !isPanelVisible) {
+      setIsMenuOpen(false);
+      setIsMenuClosing(false);
+    }
+  }, [selectedCountry, isPanelOpen, isPanelVisible]);
+
   return (
     <div
       style={{
@@ -2960,20 +3173,36 @@ export default function App() {
               style={{
                 position: "relative",
                 zIndex: 1,
-                fontSize: "0.78rem",
-                letterSpacing: "0.22em",
+                fontSize: "clamp(1.2rem, 2.4vw, 2rem)",
+                letterSpacing: "0.18em",
                 textTransform: "uppercase",
-                color: "rgba(239, 248, 255, 0.66)",
-                marginBottom: "0.9rem",
+                color: "rgba(239, 248, 255, 0.7)",
+                marginBottom: "0.4rem",
                 textShadow: "0 2px 10px rgba(5, 8, 16, 0.46)",
                 opacity: isAttractMode ? 1 : 0,
                 transform: isAttractMode ? "translateY(0)" : "translateY(14px)",
                 transition: "opacity 600ms ease 160ms, transform 600ms cubic-bezier(0.22, 1, 0.36, 1) 160ms",
               }}
             >
-              56 Nations. Millions of Stories.
+              One Commonwealth
             </div>
-            Commonwealth Explorer
+            <div
+              style={{
+                position: "relative",
+                zIndex: 1,
+                fontSize: "clamp(0.9rem, 1.6vw, 1.3rem)",
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "rgba(239, 248, 255, 0.5)",
+                marginBottom: "1.2rem",
+                textShadow: "0 2px 10px rgba(5, 8, 16, 0.46)",
+                opacity: isAttractMode ? 1 : 0,
+                transform: isAttractMode ? "translateY(0)" : "translateY(14px)",
+                transition: "opacity 600ms ease 280ms, transform 600ms cubic-bezier(0.22, 1, 0.36, 1) 280ms",
+              }}
+            >
+              Many Families
+            </div>
           </h1>
           <button
             onClick={(event) => {
@@ -3012,7 +3241,7 @@ export default function App() {
               event.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0.14) 42%, rgba(255,255,255,0.08) 100%)";
             }}
           >
-            Touch to begin
+            Touch to Begin
           </button>
         </div>
 
@@ -3053,64 +3282,10 @@ export default function App() {
           padding: 0,
           pointerEvents: isAttractMode ? "none" : "auto",
           opacity: isAttractMode ? 0 : 1,
-          transition: "opacity 400ms ease",
+          transform: isAttractMode ? "translateY(0)" : "translateY(0)",
+          transition: `opacity 420ms cubic-bezier(0.22, 1, 0.36, 1), transform 420ms cubic-bezier(0.22, 1, 0.36, 1)`,
         }}
       >
-        {/* Explore button - opens country dock */}
-        <button
-          onClick={() => {
-            markUserActivity();
-            exitIdleAttractMode();
-            setIsMenuClosing(false);
-            setIsMenuOpen(true);
-            setIsDockSearchExpanded(false);
-            setSearchTerm("");
-          }}
-          style={{
-            padding: "0.875rem 1.5rem",
-            borderRadius: "100px",
-            background: "linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.12) 100%)",
-            backdropFilter: "blur(22px) saturate(185%)",
-            WebkitBackdropFilter: "blur(22px) saturate(185%)",
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255,255,255,0.36)",
-            border: "1px solid rgba(255, 255, 255, 0.3)",
-            color: "#fff",
-            fontSize: "1rem",
-            fontWeight: 500,
-            letterSpacing: "-0.01em",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            cursor: "pointer",
-            transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0.16) 100%)";
-            e.currentTarget.style.transform = "scale(1.02)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.12) 100%)";
-            e.currentTarget.style.transform = "scale(1)";
-          }}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-            <path d="M2 12h20" />
-          </svg>
-          <span>Explore</span>
-        </button>
-
         {/* FamilySearch logo */}
         <img
           src={FAMILYSEARCH_LOGO_URL}
@@ -3137,62 +3312,42 @@ export default function App() {
             padding: "0.9rem 1rem 0.85rem",
             borderRadius: "22px",
             border: "1px solid rgba(255,255,255,0.16)",
-            background: "linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.08) 100%)",
-            backdropFilter: "blur(24px) saturate(180%)",
-            WebkitBackdropFilter: "blur(24px) saturate(180%)",
-            boxShadow: "0 16px 34px rgba(2, 6, 23, 0.18), inset 0 1px 0 rgba(255,255,255,0.28)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0.20) 100%)",
+            backdropFilter: "blur(28px) saturate(200%)",
+            WebkitBackdropFilter: "blur(28px) saturate(200%)",
+            boxShadow: "0 18px 40px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.45)",
             color: "#f8fafc",
             pointerEvents: "none",
+            position: "relative",
+            overflow: "hidden",
           }}
         >
-          <div style={{ fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(248,250,252,0.7)", fontWeight: 700 }}>
+          {/* Subtle dark internal underlay for readability over bright backgrounds */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "radial-gradient(circle at center, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0) 100%)",
+              borderRadius: "22px",
+              pointerEvents: "none",
+            }}
+          />
+          <div style={{ position: "relative", zIndex: 1, fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(248,250,252,0.85)", fontWeight: 700, textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}>
             Commonwealth Voyager
           </div>
-          <div style={{ marginTop: "0.45rem", display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "0.75rem" }}>
-            <div style={{ fontSize: "1.1rem", fontWeight: 650, letterSpacing: "-0.02em" }}>
+          <div style={{ marginTop: "0.45rem", display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "0.75rem", position: "relative", zIndex: 1 }}>
+            <div style={{ fontSize: "1.1rem", fontWeight: 650, letterSpacing: "-0.02em", textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}>
               {voyagerProgressCount} / {VOYAGER_TOTAL_COUNTRIES} Countries
             </div>
-            <div style={{ fontSize: "0.78rem", color: "rgba(248,250,252,0.72)", fontWeight: 600, textAlign: "right" }}>
+            <div style={{ fontSize: "0.78rem", color: "rgba(248,250,252,0.82)", fontWeight: 600, textAlign: "right", textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}>
               {voyagerProgressTitle}
             </div>
           </div>
         </div>
       ) : null}
 
-      {voyagerNotice ? (
-        <div
-          style={{
-            position: "absolute",
-            top: "6.3rem",
-            right: "1.5rem",
-            zIndex: 821,
-            width: "min(320px, calc(100vw - 3rem))",
-            padding: voyagerNotice.type === "completion" ? "1rem 1rem 0.95rem" : "0.75rem 0.95rem",
-            borderRadius: "18px",
-            border: "1px solid rgba(255,255,255,0.14)",
-            background: "linear-gradient(180deg, rgba(15,23,42,0.82) 0%, rgba(2,6,23,0.88) 100%)",
-            backdropFilter: "blur(22px) saturate(170%)",
-            WebkitBackdropFilter: "blur(22px) saturate(170%)",
-            boxShadow: "0 14px 28px rgba(0,0,0,0.22)",
-            color: "#fff",
-            pointerEvents: "none",
-            opacity: voyagerCompletionVisible || voyagerNotice.type === "discovery" ? 1 : 0,
-            transition: "opacity 420ms cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-        >
-          <div style={{ fontSize: voyagerNotice.type === "completion" ? "0.78rem" : "0.88rem", fontWeight: 650, letterSpacing: voyagerNotice.type === "completion" ? "0.18em" : "-0.01em", textTransform: voyagerNotice.type === "completion" ? "uppercase" : "none", color: voyagerNotice.type === "completion" ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.92)" }}>
-            {voyagerNotice.label}
-          </div>
-          {voyagerNotice.detail ? (
-            <div style={{ marginTop: "0.35rem", fontSize: "0.88rem", color: "rgba(255,255,255,0.72)", letterSpacing: "0.01em" }}>
-              {voyagerNotice.detail}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
       {/* COUNTRY DOCK - Bottom navigation rail */}
-      {(isMenuOpen || isMenuClosing) && (
+      {isMenuOpen && (
         <div
           onMouseLeave={() => {
             markDockInteraction();
@@ -3202,7 +3357,9 @@ export default function App() {
             position: "absolute",
             bottom: "1.1rem",
             left: "50%",
-            transform: "translateX(-50%)",
+            transform: isMenuClosing
+              ? "translateX(-50%) translateY(14px) scale(0.995)"
+              : "translateX(-50%) translateY(0) scale(1)",
             width: "min(1360px, 98vw)",
             zIndex: 900,
             padding: "0.9rem 1.1rem 1rem",
@@ -3212,13 +3369,8 @@ export default function App() {
             border: "1px solid rgba(255,255,255,0.22)",
             borderRadius: "30px",
             boxShadow: "0 20px 44px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.32)",
-            opacity: isMenuClosing ? 0 : isMenuOpening ? 0 : 1,
-            transform: isMenuClosing
-              ? "translateX(-50%) translateY(16px) scale(0.992)"
-              : isMenuOpening
-                ? "translateX(-50%) translateY(22px) scale(0.985)"
-                : "translateX(-50%) translateY(0) scale(1)",
-            transition: `opacity 640ms ${DOCK_SOFT_EASE}, transform 760ms ${DOCK_GENTLE_EASE}`,
+            opacity: isMenuClosing ? 0 : 1,
+            transition: `opacity 420ms cubic-bezier(0.4, 0, 0.2, 1), transform 420ms cubic-bezier(0.4, 0, 0.2, 1)`,
           }}
         >
           <div
@@ -3419,7 +3571,6 @@ export default function App() {
                   onClick={() => {
                     markDockInteraction();
                     handleSelectCountry(country);
-                    setIsMenuOpen(false);
                     setIsDockSearchExpanded(false);
                     setSearchTerm("");
                   }}
@@ -3457,7 +3608,21 @@ export default function App() {
                     justifyContent: "center",
                     gap: "0.1rem",
                     scrollSnapAlign: "start",
-                    transition: "none",
+                    transform: isActive ? "translateY(-2px) scale(1.02)" : "translateY(0) scale(1)",
+                    transition: "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1), background 280ms cubic-bezier(0.22, 1, 0.36, 1), border 280ms cubic-bezier(0.22, 1, 0.36, 1)",
+                    willChange: "transform",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.transform = "translateY(-3px) scale(1.03)";
+                      e.currentTarget.style.boxShadow = "0 14px 28px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.56), inset 0 -8px 18px rgba(147, 197, 253, 0.18)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.transform = "translateY(0) scale(1)";
+                      e.currentTarget.style.boxShadow = "0 10px 20px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46), inset 0 -8px 18px rgba(147, 197, 253, 0.12)";
+                    }
                   }}
                 >
                   <img
@@ -3499,9 +3664,9 @@ export default function App() {
                 paddingRight: "0.2rem",
                 opacity: isMenuClosing ? 0 : 1,
                 transform: isMenuClosing
-                  ? "translateX(10px) translateY(8px)"
+                  ? "translateX(6px) translateY(6px)"
                   : "translateX(0) translateY(0)",
-                transition: `opacity 420ms ${DOCK_SOFT_EASE}, transform 560ms ${DOCK_GENTLE_EASE}`,
+                transition: `opacity 380ms cubic-bezier(0.4, 0, 0.2, 1), transform 380ms cubic-bezier(0.4, 0, 0.2, 1)`,
               }}
             >
               <button
@@ -3514,7 +3679,7 @@ export default function App() {
                   setTimeout(() => {
                     setIsMenuOpen(false);
                     setIsMenuClosing(false);
-                  }, 300);
+                  }, 420);
                 }}
                 style={{
                   width: "46px",
@@ -3585,10 +3750,12 @@ export default function App() {
             zoom={COMMONWEALTH_VIEW.zoom}
             minZoom={COMMONWEALTH_MIN_ZOOM}
             maxZoom={12}
-            maxBounds={COMMONWEALTH_MAP_BOUNDS}
-            maxBoundsViscosity={0.92}
             worldCopyJump={false}
             zoomControl={false}
+            scrollWheelZoom={false}
+            touchZoom={false}
+            doubleClickZoom={false}
+            dragging={true}
             style={{ height: "100%", width: "100%", position: "relative", zIndex: 2, background: "rgba(156, 148, 122, 0)" }}
           >
         <MapArtOverlay imageUrl={MAP_BACKGROUND_ART_URL} opacity={0.28} />
@@ -3618,6 +3785,15 @@ export default function App() {
         />
         {isAttractMode && attractRouteSwoosh ? (
           <AttractSeaRouteSwoosh route={attractRouteSwoosh} />
+        ) : null}
+        {isAttractMode && attractAutoCountryName ? (
+          <AttractCountryPulse 
+            countryName={attractAutoCountryName} 
+            countryLayerRefs={countryLayerRefs}
+          />
+        ) : null}
+        {isAttractMode ? (
+          <AttractBreathingZoom />
         ) : null}
         </MapContainer>
 
@@ -3839,28 +4015,50 @@ export default function App() {
                     </button>
                   ) : null}
                 </div>
-                <div style={{ display: "grid", gap: "0.75rem", gridTemplateRows: "repeat(2, minmax(0, 1fr))", minWidth: 0, ...getRevealStyle(1) }}>
-                  {detailItems.map((item) => (
-                    <div
-                      key={item.label}
-                      style={{
-                        borderRadius: "16px",
-                        background: "linear-gradient(180deg, rgba(17, 24, 39, 0.9) 0%, rgba(15, 23, 42, 0.82) 100%)",
-                        border: "1px solid rgba(148, 163, 184, 0.34)",
-                        boxShadow: "inset 0 1px 0 rgba(226,232,240,0.12), 0 10px 22px rgba(2,6,23,0.34)",
-                        padding: "1rem 1.25rem",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <div style={{ marginBottom: "0.4rem", display: "flex", alignItems: "center" }}>{renderStatIcon(item.label)}</div>
-                      <div style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(226,232,240,0.76)", marginBottom: "0.3rem", fontWeight: 700 }}>
-                        {item.label}
+                <div style={{ display: "grid", gap: "0.75rem", gridTemplateRows: detailItems.length > 2 ? "repeat(2, minmax(0, 1fr))" : "repeat(2, minmax(0, 1fr))", gridTemplateColumns: detailItems.length > 2 ? "1fr 1fr" : "1fr", minWidth: 0, ...getRevealStyle(1) }}>
+                  {detailItems.map((item) => {
+                    const isMemberSince = item.label === "Member Since";
+                    return isMemberSince ? (
+                      <div
+                        key={item.label}
+                        style={{
+                          borderRadius: "16px",
+                          background: "linear-gradient(180deg, rgba(17, 24, 39, 0.9) 0%, rgba(15, 23, 42, 0.82) 100%)",
+                          border: "1px solid rgba(148, 163, 184, 0.34)",
+                          boxShadow: "inset 0 1px 0 rgba(226,232,240,0.12), 0 10px 22px rgba(2,6,23,0.34)",
+                          padding: "0.5rem",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          maxWidth: "140px",
+                          justifySelf: "center",
+                        }}
+                      >
+                        {renderCommonwealthStamp(item.value)}
                       </div>
-                      <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#f8fafc", textShadow: "0 1px 0 rgba(2,6,23,0.55)" }}>{item.value}</div>
-                    </div>
-                  ))}
+                    ) : (
+                      <div
+                        key={item.label}
+                        style={{
+                          borderRadius: "16px",
+                          background: "linear-gradient(180deg, rgba(17, 24, 39, 0.9) 0%, rgba(15, 23, 42, 0.82) 100%)",
+                          border: "1px solid rgba(148, 163, 184, 0.34)",
+                          boxShadow: "inset 0 1px 0 rgba(226,232,240,0.12), 0 10px 22px rgba(2,6,23,0.34)",
+                          padding: "1rem 1.25rem",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <div style={{ marginBottom: "0.4rem", display: "flex", alignItems: "center" }}>{renderStatIcon(item.label)}</div>
+                        <div style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(226,232,240,0.76)", marginBottom: "0.3rem", fontWeight: 700 }}>
+                          {item.label}
+                        </div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#f8fafc", textShadow: "0 1px 0 rgba(2,6,23,0.55)" }}>{item.value}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
