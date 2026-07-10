@@ -1850,8 +1850,6 @@ export default function App() {
   const [validatedHeroImage, setValidatedHeroImage] = useState(null);
   // Use a ref (not state) for scroll-driven morph so onScroll never triggers a React re-render
   const isPanelScrolledRef = useRef(false);
-  const stampMorphRef = useRef(null);   // ref to the circular stamp div
-  const memberTextRef = useRef(null);   // ref to the "Member since" text div
   const [isIdleAttractMode, setIsIdleAttractMode] = useState(true);
   const [isButtonTransitioning, setIsButtonTransitioning] = useState(false);
   const [attractRouteSwooshes, setAttractRouteSwooshes] = useState([]);
@@ -2208,15 +2206,6 @@ const dockCardsRevealTimeoutRef = useRef(null);
     setIsContentVisible(false);
     // Reset scroll-morph state imperatively — no re-render needed
     isPanelScrolledRef.current = false;
-    if (stampMorphRef.current) {
-      stampMorphRef.current.style.opacity = "0";
-      stampMorphRef.current.style.transform = "scale(1) rotate(-8deg) translateY(-8px)";
-      stampMorphRef.current.style.pointerEvents = "auto";
-    }
-    if (memberTextRef.current) {
-      memberTextRef.current.style.opacity = "0";
-      memberTextRef.current.style.transform = "translateY(10px)";
-    }
     setActivatedCountryName(null);
 
     const hasCachedCollections = Object.prototype.hasOwnProperty.call(
@@ -2243,10 +2232,6 @@ const dockCardsRevealTimeoutRef = useRef(null);
     }, 700);
     const contentTimeout = window.setTimeout(() => {
       setIsContentVisible(true);
-      // Also show the stamp imperatively (it starts at opacity:0 and isn't driven by isPanelScrolled)
-      if (stampMorphRef.current && !isPanelScrolledRef.current) {
-        stampMorphRef.current.style.opacity = "1";
-      }
     }, 760);
 
     selectionTimelineTimeoutsRef.current = [
@@ -4755,7 +4740,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
             right: "1.5rem",
             zIndex: 820,
             // Smooth morphing dimensions — larger dark-glass card layout
-            width: isVoyagerExpanded ? "300px" : "200px",
+            width: isVoyagerExpanded ? "340px" : "200px",
             height: isVoyagerExpanded ? (voyagerProgressCount >= 5 ? "236px" : "170px") : "44px",
             borderRadius: isVoyagerExpanded ? "22px" : "999px",
             padding: "1.5px", // Thickness of the glowing border
@@ -4859,12 +4844,14 @@ const dockCardsRevealTimeoutRef = useRef(null);
               {/* Title */}
               <div style={{
                 fontSize: "0.7rem",
-                letterSpacing: "0.15em",
+                letterSpacing: "0.12em",
                 textTransform: "uppercase",
-                color: hoveredMilestone ? "#97d749" : "rgba(255, 255, 255, 0.75)", // Highlight FamilySearch Green on hover
+                color: hoveredMilestone ? "#97d749" : "rgba(255, 255, 255, 0.85)", // Highlight FamilySearch Green on hover
                 fontWeight: 800,
                 textAlign: "center",
                 transition: "color 150ms ease",
+                lineHeight: 1.3,
+                padding: "0.25rem 0",
               }}>
                 {hoveredMilestone 
                   ? {
@@ -4997,8 +4984,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
                     fontWeight: 700,
                     letterSpacing: "0.02em",
                     color: "#ffffff",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                   }}>
                     {voyagerProgressTitle}
                   </div>
@@ -5222,7 +5208,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
               ...getRevealStyle(0),
             }}
           >
-            {/* Left-side: Flag and Title (always visible) */}
+            {/* Left-side: Flag, Title, and Member since text */}
             <div style={{ position: "relative", zIndex: 2, flex: 1, minWidth: 0 }}>
               <img
                 src={`https://flagcdn.com/w40/${selectedCountry.countryCode || "xx"}.png`}
@@ -5254,52 +5240,27 @@ const dockCardsRevealTimeoutRef = useRef(null);
               >
                 {selectedCountry.name}
               </h2>
+              {selectedCountryMetadata?.memberSince ? (
+                <div
+                  style={{
+                    fontSize: "0.65rem",
+                    fontWeight: 600,
+                    color: "#97d749",
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    textShadow: "0 1px 4px rgba(0,0,0,0.5)",
+                    pointerEvents: "none",
+                    marginTop: "0.35rem",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Member since {selectedCountryMetadata.memberSince}
+                </div>
+              ) : null}
             </div>
 
-            {/* Right-side: Circular stamp and minimal morphed text line */}
+            {/* Right-side: Image source credit text */}
             <div style={{ position: "relative", zIndex: 4, display: "flex", flexDirection: "column", alignItems: "flex-end", height: "100%", justifyContent: "flex-end", paddingBottom: "4px" }}>
-              {selectedCountryMetadata?.memberSince ? (
-                <>
-                  {/* Circular Stamp: Disappears on scroll — driven imperatively via stampMorphRef */}
-                  <div
-                    ref={stampMorphRef}
-                    style={{
-                      width: "140px",
-                      opacity: 0, // starts hidden; isContentVisible effect sets it to 1
-                      transform: "scale(1) rotate(-8deg) translateY(-8px)",
-                      pointerEvents: "auto",
-                      transition: "opacity 320ms ease, transform 380ms cubic-bezier(0.22, 1, 0.36, 1)",
-                      position: "absolute",
-                      right: 0,
-                      bottom: "12px",
-                    }}
-                  >
-                    {renderCommonwealthStamp(String(selectedCountryMetadata.memberSince))}
-                  </div>
-
-                  {/* Morph text line saying "Member since [year]" — driven imperatively via memberTextRef */}
-                  <div
-                    ref={memberTextRef}
-                    style={{
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      color: "rgba(255, 255, 255, 0.9)",
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      textShadow: "0 2px 6px rgba(0,0,0,0.5)",
-                      opacity: 0, // starts hidden; imperative scroll handler fades it in
-                      transform: "translateY(10px)",
-                      transition: "opacity 320ms ease, transform 380ms cubic-bezier(0.22, 1, 0.36, 1)",
-                      pointerEvents: "none",
-                      marginBottom: "6px",
-                    }}
-                  >
-                    Member since {selectedCountryMetadata.memberSince}
-                  </div>
-                </>
-              ) : null}
-
-              {/* Image source credit text */}
               {selectedCountry.imageSource && selectedCountry.imageSource !== "none" && (
                 <div
                   style={{
@@ -5337,20 +5298,8 @@ const dockCardsRevealTimeoutRef = useRef(null);
           onScroll={(e) => {
             const scrollTop = e.currentTarget.scrollTop;
             const scrolled = scrollTop > 20;
-            // Only update DOM if threshold crossed — no React setState, no re-render
             if (scrolled !== isPanelScrolledRef.current) {
               isPanelScrolledRef.current = scrolled;
-              if (stampMorphRef.current) {
-                stampMorphRef.current.style.opacity = scrolled ? "0" : "1";
-                stampMorphRef.current.style.transform = scrolled
-                  ? "scale(0.7) rotate(-15deg) translateY(-20px)"
-                  : "scale(1) rotate(-8deg) translateY(-8px)";
-                stampMorphRef.current.style.pointerEvents = scrolled ? "none" : "auto";
-              }
-              if (memberTextRef.current) {
-                memberTextRef.current.style.opacity = scrolled ? "1" : "0";
-                memberTextRef.current.style.transform = scrolled ? "translateY(0)" : "translateY(10px)";
-              }
             }
           }}
           style={{

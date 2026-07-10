@@ -4897,7 +4897,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
                 fontWeight: 400,
                 letterSpacing: "-0.01em",
                 transition: "background 200ms ease",
-              }}
+               }}
               onFocusCapture={(e) => {
                 e.target.style.background = "linear-gradient(180deg, rgba(255,255,255,0.31) 0%, rgba(255,255,255,0.16) 100%)";
               }}
