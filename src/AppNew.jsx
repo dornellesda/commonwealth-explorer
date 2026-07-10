@@ -1,6 +1,9 @@
+import AppContext from './context/AppContext';
+import UniversalDock from './components/Dock/UniversalDock';
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import { GeoJSON, MapContainer, useMap } from "react-leaflet";
+import MapLibreMap from './components/MapLibreMap';
 import countries from "./data/countries.json";
 import countryResearchLinks from "./data/countryResearchLinks.json";
 import commonwealthMetadata from "./data/commonwealthMetadata.json";
@@ -244,7 +247,7 @@ const COMMONWEALTH_MAP_BOUNDS = [
   [84, 178],
 ];
 const COMMONWEALTH_MIN_ZOOM = 2.6;
-const KIOSK_IDLE_TIMEOUT_MS = 70_000;
+const KIOSK_IDLE_TIMEOUT_MS = 120_000; // 2 minutes in milliseconds
 const KIOSK_DOCK_SEARCH_IDLE_TIMEOUT_MS = 30_000;
 const DOCK_SOFT_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const DOCK_GENTLE_EASE = "cubic-bezier(0.2, 0.85, 0.24, 1)";
@@ -1833,6 +1836,8 @@ export default function App() {
   const [activatedCountryName, setActivatedCountryName] = useState(null);
   const [heroMotionSeed, setHeroMotionSeed] = useState(0);
   const [hoveredCountry, setHoveredCountry] = useState(null);
+  const [hoveredCountryPos, setHoveredCountryPos] = useState(null);
+  const [hoveredMilestone, setHoveredMilestone] = useState(null);
   const [countryDataCache] = useState(countryStatsByLookup);
   const [familySearchCollections, setFamilySearchCollections] = useState([]);
   const [lightboxItem, setLightboxItem] = useState(null);
@@ -1843,6 +1848,7 @@ export default function App() {
   const [hasOverviewOverflow, setHasOverviewOverflow] = useState(false);
   const [recordCollectionsDisplayLimit, setRecordCollectionsDisplayLimit] = useState(3);
   const [validatedHeroImage, setValidatedHeroImage] = useState(null);
+  const [isPanelScrolled, setIsPanelScrolled] = useState(false);
   const [isIdleAttractMode, setIsIdleAttractMode] = useState(true);
   const [isButtonTransitioning, setIsButtonTransitioning] = useState(false);
   const [attractRouteSwooshes, setAttractRouteSwooshes] = useState([]);
@@ -1984,10 +1990,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (isIdleAttractMode && mapRef.current) {
-      mapRef.current.flyTo(ATTRACT_MODE_VIEW.center, ATTRACT_MODE_VIEW.zoom, {
-        duration: 2.0,
-        easeLinearity: 0.15,
-      });
+      mapRef.current?.getMap()?.flyTo({ center: [ATTRACT_MODE_VIEW.center[1], ATTRACT_MODE_VIEW.center[0]], zoom: ATTRACT_MODE_VIEW.zoom, duration: 2.0 * 1000 });
     }
   }, [isIdleAttractMode]);
 
@@ -2013,46 +2016,19 @@ const dockCardsRevealTimeoutRef = useRef(null);
     const mapWidth = map.getSize().x || window.innerWidth || 1280;
     const panelWidth = Math.min(920, mapWidth * 0.95);
     const rightPadding = Math.round(panelWidth + 72);
-    const getPanelAwareCenter = (latlng, zoom) => {
-      const projectedPoint = map.project(latlng, zoom);
-      const shiftedPoint = L.point(projectedPoint.x + panelWidth / 2, projectedPoint.y);
-      return map.unproject(shiftedPoint, zoom);
-    };
 
     const override = countryZoomOverrides[country.name];
     if (override) {
-      map.flyTo(getPanelAwareCenter(override.center, override.zoom), override.zoom, {
-        duration: 1.6,
-        easeLinearity: 0.15,
-      });
+      map?.getMap()?.flyTo({ center: [override.center[1], override.center[0]], zoom: override.zoom, padding: { right: rightPadding }, duration: 1.6 * 1000 });
       return;
     }
 
-    const normalized = normalizeName(country.name);
-    const layer = countryLayerRefs.current[normalized];
-
-    if (layer) {
-      try {
-        const bounds = layer.getBounds();
-
-        // Use asymmetric padding to keep selected country visible left of the side panel.
-        map.flyToBounds(bounds, {
-          paddingTopLeft: [80, 80],
-          paddingBottomRight: [rightPadding, 80],
-          maxZoom: 6,
-          duration: 1.6,
-          easeLinearity: 0.15
-        });
-        return;
-      } catch (_) {
-        // fall through to flyTo
-      }
-    }
-
-    const fallbackZoom = 2.6;
-    map.flyTo(getPanelAwareCenter([country.lat, country.lng], fallbackZoom), fallbackZoom, {
-      duration: 1.6,
-      easeLinearity: 0.15,
+    // Default flyTo using country coordinates with padding for the side panel
+    map?.getMap()?.flyTo({
+      center: [country.lng, country.lat],
+      zoom: 4.8,
+      padding: { right: rightPadding },
+      duration: 1.6 * 1000
     });
   };
 
@@ -2095,18 +2071,12 @@ const dockCardsRevealTimeoutRef = useRef(null);
         }
 
         mapRef.current.invalidateSize();
-        const currentZoom = mapRef.current.getZoom();
-        if (currentZoom <= COMMONWEALTH_VIEW.zoom + 0.5) {
-          mapRef.current.setView(COMMONWEALTH_VIEW.center, COMMONWEALTH_VIEW.zoom, {
-            animate: true,
-            duration: 0.85,
-          });
-        } else {
-          mapRef.current.flyTo(COMMONWEALTH_VIEW.center, COMMONWEALTH_VIEW.zoom, {
-            duration: 0.85,
-            easeLinearity: 0.22,
-          });
-        }
+        mapRef.current?.getMap()?.flyTo({
+          center: [COMMONWEALTH_VIEW.center[1], COMMONWEALTH_VIEW.center[0]],
+          zoom: COMMONWEALTH_VIEW.zoom,
+          duration: 1.2 * 1000,
+          padding: { right: 0, bottom: 0, left: 0, top: 0 }
+        });
         panelOpenTimeoutRef.current = null;
       }, 180);
     }
@@ -2122,7 +2092,17 @@ const dockCardsRevealTimeoutRef = useRef(null);
     };
   }, []);
 
-  const handleSelectCountry = (country, options = {}) => {
+  const handleSelectCountry = (countryOrName, options = {}) => {
+    const countryObj = typeof countryOrName === "string"
+      ? countries.find((c) => c.name === countryOrName)
+      : countryOrName;
+
+    if (!countryObj) {
+      console.error("Country not found: ", countryOrName);
+      return;
+    }
+    const country = countryObj;
+
     markUserActivity();
     clearSelectionTimeline();
 
@@ -2223,6 +2203,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
     setIsPanelVisible(false);
     setIsOverlayVisible(false);
     setIsContentVisible(false);
+    setIsPanelScrolled(false);
     setActivatedCountryName(null);
 
     const hasCachedCollections = Object.prototype.hasOwnProperty.call(
@@ -2282,10 +2263,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
     if (mapRef?.current) {
       mapRef.current.stop();
       mapRef.current.invalidateSize();
-      mapRef.current.flyTo(COMMONWEALTH_VIEW.center, COMMONWEALTH_VIEW.zoom, {
-        duration: 1.2,
-        easeLinearity: 0.15,
-      });
+      mapRef.current?.getMap()?.flyTo({ center: [COMMONWEALTH_VIEW.center[1], COMMONWEALTH_VIEW.center[0]], zoom: COMMONWEALTH_VIEW.zoom, duration: 1.2 * 1000 });
     }
 
     // Start periodic idle aura ticks while exploring
@@ -2323,7 +2301,8 @@ const dockCardsRevealTimeoutRef = useRef(null);
       dockCardsRevealTimeoutRef.current = window.setTimeout(() => {
         // Trigger card reveal by setting isDockExpanding to false
         // Cards will use their own stagger delays based on index
-      }, 200);
+        setIsDockExpanding(false);
+      }, 500);
     };
 
     // Expansion timeline: 180ms for width expansion
@@ -2337,6 +2316,9 @@ const dockCardsRevealTimeoutRef = useRef(null);
     window.setTimeout(() => {
       setIsButtonTransitioning(false);
     }, EXHIBIT_TRANSITION_MS);
+
+    // Start periodic idle aura ticks while exploring
+    scheduleVoyagerAuraIdleTick();
   };
 
   const handleExploreCommonwealthPress = () => {
@@ -2349,10 +2331,9 @@ const dockCardsRevealTimeoutRef = useRef(null);
       return;
     }
 
-    // First interaction leaves attract mode and shows the Explore button.
-    // A subsequent press opens the country dock.
+    // First interaction leaves attract mode and directly opens the country dock.
     if (isIdleAttractMode) {
-      beginExploration();
+      openCountryDock();
       return;
     }
 
@@ -2368,11 +2349,12 @@ const dockCardsRevealTimeoutRef = useRef(null);
     setMapLoadError(message);
   };
 
-  const handleCountryHover = (countryName = null) => {
+  const handleCountryHover = (countryName = null, pos = null) => {
     if (countryName) {
       markUserActivity();
     }
     setHoveredCountry(countryName);
+    setHoveredCountryPos(pos);
   };
 
   // Get country data with Wikidata cache fallback to countries.json
@@ -3185,116 +3167,197 @@ const dockCardsRevealTimeoutRef = useRef(null);
 
   // Voyager badge icons mapping
   const VOYAGER_BADGES = {
-    5: { // Curious Explorer - Compass
+    5: { // Curious Explorer - Gold Faceted Star
       icon: (
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#compassGrad)" stroke="rgba(135,185,64,0.72)" strokeWidth="1.5" />
-          <circle cx="32" cy="32" r="22" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <path d="M32 8L34.5 27.5L32 32L29.5 27.5L32 8Z" fill="rgba(255,255,255,0.95)" />
-          <path d="M32 56L34.5 36.5L32 32L29.5 36.5L32 56Z" fill="rgba(255,255,255,0.5)" />
-          <path d="M8 32L27.5 29.5L32 32L27.5 34.5L8 32Z" fill="rgba(255,255,255,0.5)" />
-          <path d="M56 32L36.5 29.5L32 32L36.5 34.5L56 32Z" fill="rgba(255,255,255,0.5)" />
-          <circle cx="32" cy="32" r="3" fill="rgba(135,185,64,0.9)" />
+        <svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <linearGradient id="compassGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#87b940" />
-              <stop offset="1" stopColor="#5f8f24" />
+            <linearGradient id="gold1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFF9D4" />
+              <stop offset="100%" stopColor="#D4AF37" />
+            </linearGradient>
+            <linearGradient id="gold2" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#E5C158" />
+              <stop offset="100%" stopColor="#AA7C11" />
+            </linearGradient>
+            <linearGradient id="gold3" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#A37A1A" />
+              <stop offset="100%" stopColor="#624602" />
+            </linearGradient>
+            <linearGradient id="gold4" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFF1A0" />
+              <stop offset="100%" stopColor="#8C6615" />
             </linearGradient>
           </defs>
+          {/* Outer 3D Gold Border */}
+          <polygon points="50,5 60.6,35.4 92.8,36.1 67.1,55.6 76.5,86.4 50,68 23.5,86.4 32.9,55.6 7.2,36.1 39.4,35.4" fill="url(#gold2)" stroke="#FFF9D4" strokeWidth="0.75" />
+          {/* Facets */}
+          {/* Top Point */}
+          <polygon points="50,5 50,50 39.4,35.4" fill="url(#gold1)" />
+          <polygon points="50,5 50,50 60.6,35.4" fill="url(#gold4)" />
+          {/* Right Top Point */}
+          <polygon points="92.8,36.1 50,50 60.6,35.4" fill="url(#gold2)" />
+          <polygon points="92.8,36.1 50,50 67.1,55.6" fill="url(#gold3)" />
+          {/* Right Bottom Point */}
+          <polygon points="76.5,86.4 50,50 67.1,55.6" fill="url(#gold1)" />
+          <polygon points="76.5,86.4 50,50 50,68" fill="url(#gold4)" />
+          {/* Left Bottom Point */}
+          <polygon points="23.5,86.4 50,50 50,68" fill="url(#gold2)" />
+          <polygon points="23.5,86.4 50,50 32.9,55.6" fill="url(#gold3)" />
+          {/* Left Top Point */}
+          <polygon points="7.2,36.1 50,50 32.9,55.6" fill="url(#gold1)" />
+          <polygon points="7.2,36.1 50,50 39.4,35.4" fill="url(#gold4)" />
+          {/* Wireframe accent overlay */}
+          <polygon points="50,5 60.6,35.4 92.8,36.1 67.1,55.6 76.5,86.4 50,68 23.5,86.4 32.9,55.6 7.2,36.1 39.4,35.4" fill="none" stroke="#FFE875" strokeWidth="0.4" strokeLinejoin="round" />
+          <circle cx="50" cy="50" r="1.5" fill="#FFFFFF" />
         </svg>
       )
     },
-    10: { // Commonwealth Traveller - Ship Wheel
+    10: { // Commonwealth Traveller - Metallic Lime Circles
       icon: (
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#wheelGrad)" stroke="rgba(156,148,122,0.72)" strokeWidth="1.5" />
-          <circle cx="32" cy="32" r="6" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-          <circle cx="32" cy="32" r="2" fill="rgba(255,255,255,0.8)" />
-          {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => {
-            const rad = (angle * Math.PI) / 180;
-            const innerR = 10;
-            const outerR = 24;
-            const x1 = 32 + innerR * Math.sin(rad);
-            const y1 = 32 - innerR * Math.cos(rad);
-            const x2 = 32 + outerR * Math.sin(rad);
-            const y2 = 32 - outerR * Math.cos(rad);
-            return (
-              <line key={angle} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" />
-            );
-          })}
+        <svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <linearGradient id="wheelGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#9c947a" />
-              <stop offset="1" stopColor="#6f6a58" />
+            <linearGradient id="silverMetal" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFFFFF" />
+              <stop offset="25%" stopColor="#CCCCCC" />
+              <stop offset="50%" stopColor="#8E8E93" />
+              <stop offset="75%" stopColor="#D1D1D6" />
+              <stop offset="100%" stopColor="#AEAEB2" />
             </linearGradient>
+            <linearGradient id="limeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#C0EB75" />
+              <stop offset="100%" stopColor="#75A827" />
+            </linearGradient>
+            <linearGradient id="darkMetal" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#48484A" />
+              <stop offset="100%" stopColor="#1C1C1E" />
+            </linearGradient>
+            <radialGradient id="reflection" cx="35%" cy="30%" r="60%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.6)" />
+              <stop offset="50%" stopColor="rgba(255,255,255,0)" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.4)" />
+            </radialGradient>
           </defs>
+          {/* Outer silver rim with 3D bevel */}
+          <circle cx="50" cy="50" r="46" fill="url(#silverMetal)" stroke="#AEAEB2" strokeWidth="0.5" />
+          <circle cx="50" cy="50" r="43" fill="url(#darkMetal)" />
+          {/* Green ring */}
+          <circle cx="50" cy="50" r="36" fill="url(#limeGrad)" stroke="url(#silverMetal)" strokeWidth="1.5" />
+          {/* Middle silver ring */}
+          <circle cx="50" cy="50" r="26" fill="url(#silverMetal)" stroke="#8E8E93" strokeWidth="0.5" />
+          <circle cx="50" cy="50" r="22" fill="url(#darkMetal)" />
+          {/* Inner silver dome */}
+          <circle cx="50" cy="50" r="12" fill="url(#silverMetal)" />
+          <circle cx="50" cy="50" r="9" fill="url(#reflection)" />
+          <circle cx="50" cy="50" r="2.5" fill="#FFFFFF" opacity="0.9" />
         </svg>
       )
     },
-    25: { // Global Navigator - Sextant
+    25: { // Global Navigator - Silver Shield & Coral Rings
       icon: (
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#sextantGrad)" stroke="rgba(241,100,88,0.72)" strokeWidth="1.5" />
-          <path d="M32 12L33.5 32L32 52L30.5 32L32 12Z" fill="rgba(255,255,255,0.3)" />
-          <path d="M12 32L30.5 30.5L32 32L30.5 33.5L12 32Z" fill="rgba(255,255,255,0.3)" />
-          <path d="M52 32L33.5 30.5L32 32L33.5 33.5L52 32Z" fill="rgba(255,255,255,0.3)" />
-          <path d="M32 48C35.3137 48 38 45.3137 38 42C38 38.6863 35.3137 36 32 36C28.6863 36 26 38.6863 26 42C26 45.3137 28.6863 48 32 48Z" fill="rgba(255,255,255,0.6)" />
-          <circle cx="32" cy="32" r="2" fill="rgba(241,100,88,0.95)" />
+        <svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <linearGradient id="sextantGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#f16458" />
-              <stop offset="1" stopColor="#c84f45" />
+            <linearGradient id="silverMetal25" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFFFFF" />
+              <stop offset="30%" stopColor="#CCCCCC" />
+              <stop offset="70%" stopColor="#8E8E93" />
+              <stop offset="100%" stopColor="#D1D1D6" />
+            </linearGradient>
+            <linearGradient id="coralGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FF7A6E" />
+              <stop offset="100%" stopColor="#D0453A" />
+            </linearGradient>
+            <linearGradient id="shieldBg" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#E5E5EA" />
+              <stop offset="100%" stopColor="#AEAEB2" />
             </linearGradient>
           </defs>
+          {/* Shield Body */}
+          <path d="M 22 15 L 78 15 Q 82 15 82 20 L 82 72 Q 82 82 74 86 L 50 96 L 26 86 Q 18 82 18 72 L 18 20 Q 18 15 22 15 Z" fill="url(#shieldBg)" stroke="url(#silverMetal25)" strokeWidth="3" />
+          <path d="M 24 17 L 76 17 Q 80 17 80 22 L 80 71 Q 80 80 72 84 L 50 93 L 28 84 Q 20 80 20 71 L 20 22 Q 20 17 24 17 Z" fill="none" stroke="#FFFFFF" strokeWidth="0.5" />
+          
+          {/* Intersecting Coral Rings */}
+          <g opacity="0.9">
+            <circle cx="41" cy="46" r="18" fill="url(#coralGrad)" stroke="url(#silverMetal25)" strokeWidth="1.5" />
+            <circle cx="59" cy="46" r="18" fill="url(#coralGrad)" stroke="url(#silverMetal25)" strokeWidth="1.5" />
+          </g>
+          {/* Navigation Star at top */}
+          <path d="M 50 20 L 52 25 L 57 25 L 53 28 L 55 33 L 50 30 L 45 33 L 47 28 L 43 25 L 48 25 Z" fill="#FFD700" stroke="#B8860B" strokeWidth="0.5" />
         </svg>
       )
     },
-    40: { // World Voyager - Historic Map
+    40: { // World Voyager - Teal/Silver Split Hexagon
       icon: (
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#mapGrad)" stroke="rgba(39,196,244,0.72)" strokeWidth="1.5" />
-          <rect x="16" y="16" width="32" height="32" rx="2" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
-          <path d="M16 24H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <path d="M16 32H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <path d="M16 40H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <path d="M24 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <path d="M32 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <path d="M40 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <circle cx="24" cy="24" r="2" fill="rgba(39,196,244,0.92)" />
-          <circle cx="40" cy="32" r="2" fill="rgba(39,196,244,0.92)" />
-          <circle cx="32" cy="40" r="2" fill="rgba(39,196,244,0.92)" />
-          <path d="M20 44L24 40L28 44L32 40L36 44L40 40L44 44" stroke="rgba(255,255,255,0.3)" strokeWidth="0.75" fill="none" />
+        <svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <linearGradient id="mapGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#27c4f4" />
-              <stop offset="1" stopColor="#198fb2" />
+            <linearGradient id="silverMetal40" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFFFFF" />
+              <stop offset="50%" stopColor="#AEAEB2" />
+              <stop offset="100%" stopColor="#7E7E82" />
+            </linearGradient>
+            <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#5BE1F9" />
+              <stop offset="100%" stopColor="#1E8B9E" />
+            </linearGradient>
+            <linearGradient id="whiteGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFFFFF" />
+              <stop offset="100%" stopColor="#E5E5EA" />
             </linearGradient>
           </defs>
+          {/* Outer Hexagon with Silver Bevel */}
+          <polygon points="50,6 88.1,28 88.1,72 50,94 11.9,72 11.9,28" fill="url(#silverMetal40)" />
+          <polygon points="50,9 85.5,29.5 85.5,70.5 50,91 14.5,70.5 14.5,29.5" fill="#3A3A3C" />
+          
+          {/* Left Half (Teal) */}
+          <path d="M 50 9 L 14.5 29.5 L 14.5 70.5 L 50 91 Z" fill="url(#tealGrad)" />
+          {/* Right Half (White/Silver) */}
+          <path d="M 50 9 L 85.5 29.5 L 85.5 70.5 L 50 91 Z" fill="url(#whiteGrad)" />
+
+          {/* Central concentric loops */}
+          <circle cx="50" cy="50" r="20" fill="none" stroke="url(#silverMetal40)" strokeWidth="2.5" />
+          <circle cx="50" cy="50" r="15" fill="none" stroke="#FFFFFF" strokeWidth="0.5" />
+          <line x1="50" y1="9" x2="50" y2="91" stroke="url(#silverMetal40)" strokeWidth="1.5" />
         </svg>
       )
     },
-    56: { // Golden Commonwealth Explorer - Gold Compass Rose
+    56: { // Golden Commonwealth Explorer - Gold/Purple Emblem
       icon: (
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#goldGrad)" stroke="rgba(153,103,153,0.84)" strokeWidth="2" />
-          <circle cx="32" cy="32" r="24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.75" />
-          <circle cx="32" cy="32" r="18" fill="none" stroke="rgba(255,215,0,0.3)" strokeWidth="0.5" />
-          <path d="M32 6L35 29L32 32L29 29L32 6Z" fill="rgba(255,255,255,0.95)" />
-          <path d="M32 58L35 35L32 32L29 35L32 58Z" fill="rgba(153,103,153,0.72)" />
-          <path d="M6 32L29 29L32 32L29 35L6 32Z" fill="rgba(153,103,153,0.72)" />
-          <path d="M58 32L35 29L32 32L35 35L58 32Z" fill="rgba(153,103,153,0.72)" />
-          <text x="32" y="4" textAnchor="middle" fontSize="5" fill="rgba(255,255,255,0.8)" fontFamily="serif" fontWeight="bold">N</text>
-          <text x="32" y="62" textAnchor="middle" fontSize="5" fill="rgba(255,215,0,0.8)" fontFamily="serif" fontWeight="bold">S</text>
-          <text x="4" y="34" textAnchor="middle" fontSize="5" fill="rgba(255,215,0,0.8)" fontFamily="serif" fontWeight="bold">W</text>
-          <text x="60" y="34" textAnchor="middle" fontSize="5" fill="rgba(255,215,0,0.8)" fontFamily="serif" fontWeight="bold">E</text>
-          <circle cx="32" cy="32" r="2.5" fill="rgba(153,103,153,0.95)" />
+        <svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <linearGradient id="goldGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#996799" />
-              <stop offset="0.5" stopColor="#b881b8" />
-              <stop offset="1" stopColor="#744b74" />
+            <linearGradient id="goldGrad56" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFE47E" />
+              <stop offset="30%" stopColor="#E5B22D" />
+              <stop offset="70%" stopColor="#B3861B" />
+              <stop offset="100%" stopColor="#FFE47E" />
+            </linearGradient>
+            <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#C48BE0" />
+              <stop offset="50%" stopColor="#8A42B5" />
+              <stop offset="100%" stopColor="#4A156B" />
+            </linearGradient>
+            <linearGradient id="metallicAccent" x1="100%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#FFFFFF" />
+              <stop offset="50%" stopColor="#FFE066" />
+              <stop offset="100%" stopColor="#9C7310" />
             </linearGradient>
           </defs>
+          {/* Outer Hexagon with Gold Bevel */}
+          <polygon points="50,6 88.1,28 88.1,72 50,94 11.9,72 11.9,28" fill="url(#goldGrad56)" />
+          <polygon points="50,9 85.5,29.5 85.5,70.5 50,91 14.5,70.5 14.5,29.5" fill="url(#purpleGrad)" />
+
+          {/* Facets overlay */}
+          <path d="M 50 9 L 85.5 29.5 L 50 50 Z" fill="url(#goldGrad56)" opacity="0.25" />
+          <path d="M 85.5 70.5 L 50 91 L 50 50 Z" fill="url(#goldGrad56)" opacity="0.2" />
+          <path d="M 14.5 70.5 L 50 91 L 50 50 Z" fill="url(#goldGrad56)" opacity="0.35" />
+          
+          {/* Compass rose in center */}
+          <g transform="translate(15, 15) scale(0.7)">
+            <path d="M50,5 L54,46 L50,50 L46,46 Z" fill="url(#metallicAccent)" />
+            <path d="M50,95 L54,54 L50,50 L46,54 Z" fill="url(#goldGrad56)" />
+            <path d="M5,50 L46,46 L50,50 L46,54 Z" fill="url(#goldGrad56)" />
+            <path d="M95,50 L54,46 L50,50 L54,54 Z" fill="url(#metallicAccent)" />
+            <circle cx="50" cy="50" r="5" fill="url(#goldGrad56)" stroke="#FFFFFF" strokeWidth="0.5" />
+          </g>
+          <polygon points="50,11 83.5,30.5 83.5,69.5 50,89 16.5,69.5 16.5,30.5" fill="none" stroke="url(#goldGrad56)" strokeWidth="0.75" />
         </svg>
       )
     }
@@ -3986,8 +4049,17 @@ const dockCardsRevealTimeoutRef = useRef(null);
     }
   }, [selectedCountry, isPanelOpen, isPanelVisible]);
 
+  
+  const contextValue = {
+    selectedCountry,
+    handleClosePanel,
+    setLightboxItem,
+    lightboxItem,
+  };
+
   return (
-    <div
+    <AppContext.Provider value={contextValue}>
+      <div
       style={{
         position: "relative",
         width: "100vw",
@@ -4001,7 +4073,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
       <div
         onPointerDown={() => {
           if (isAttractMode) {
-            beginExploration();
+            openCountryDock();
           }
         }}
         style={{
@@ -4209,7 +4281,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
               className="premium-attract-cta"
               onClick={(e) => {
                 e.stopPropagation();
-                beginExploration();
+                openCountryDock();
               }}
               style={{
                 display: "inline-flex",
@@ -4238,16 +4310,14 @@ const dockCardsRevealTimeoutRef = useRef(null);
                 <span className="glowing-border-rotating-part" />
               </span>
 
-              {/* Green indicator dot */}
+              {/* Animated indicator dot transitioning softly through brand colors */}
               <span
                 style={{
-                  width: "8px",
-                  height: "8px",
+                  width: "9px",
+                  height: "9px",
                   borderRadius: "50%",
-                  backgroundColor: "#87b940",
-                  boxShadow: "0 0 10px #87b940",
                   display: "inline-block",
-                  animation: "attractDotBreathe 2.4s ease-in-out infinite",
+                  animation: "attractDotHueCycle 8s ease-in-out infinite",
                   position: "relative",
                   zIndex: 2,
                 }}
@@ -4390,7 +4460,8 @@ const dockCardsRevealTimeoutRef = useRef(null);
                   applyCtaTransform(node);
                 },
               });
-              node.style.boxShadow = "0 22px 44px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.42)";
+              // Subtle dark shadow lift
+              node.style.boxShadow = "0 22px 44px rgba(0,0,0,0.4)";
             }}
             onPointerLeave={(event) => {
               const node = event.currentTarget;
@@ -4406,7 +4477,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
                     applyCtaTransform(node);
                   },
                 });
-                node.style.boxShadow = "0 18px 40px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.35)";
+                node.style.boxShadow = "0 18px 40px rgba(0,0,0,0.36)";
               }
               releaseCtaPress(node);
             }}
@@ -4440,7 +4511,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
               display: "flex",
               alignItems: "center",
               gap: "4px",
-              padding: "5px",
+              padding: "6px", // Larger outer padding
               borderRadius: "999px",
               border: "1px solid rgba(255,255,255,0.5)",
               background: "rgba(255, 255, 255, 0.4)",
@@ -4470,13 +4541,13 @@ const dockCardsRevealTimeoutRef = useRef(null);
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
-                padding: "8px 16px 8px 12px",
+                padding: "10px 22px 10px 18px", // Larger button padding
                 borderRadius: "999px",
                 border: "none",
                 background: "linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.2) 100%)",
                 color: "rgba(15,23,42,0.95)",
-                fontSize: "1.02rem",
-                fontWeight: 650,
+                fontSize: "1.12rem", // Larger font size
+                fontWeight: 700, // Stronger weight
                 cursor: "pointer",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.4)",
                 transition: "all 200ms ease"
@@ -4489,47 +4560,60 @@ const dockCardsRevealTimeoutRef = useRef(null);
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {renderGlobeIcon(isAttractMode ? 18 : 20)}
+                {renderGlobeIcon(isAttractMode ? 20 : 22)}
               </div>
               {!isAttractMode && <span>Explore</span>}
               {isAttractMode && <span>{exploreButtonLabel}</span>}
             </button>
 
-            {/* Recentre Option */}
+            {/* Recentre — hidden elegantly when card is open */}
             {!isAttractMode && (
-              <button
-                aria-label="Recentre Map"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleReset();
-                }}
+              <div
                 style={{
-                  position: "relative",
-                  zIndex: 2,
+                  overflow: "hidden",
+                  width: isPanelOpen ? "0px" : "48px", // Larger width
+                  opacity: isPanelOpen ? 0 : 1,
+                  transition: "width 400ms cubic-bezier(0.22,1,0.36,1), opacity 280ms ease",
+                  pointerEvents: isPanelOpen ? "none" : "auto",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: "42px",
-                  height: "42px",
-                  borderRadius: "50%",
-                  border: "none",
-                  background: "transparent",
-                  color: "rgba(15,23,42,0.85)",
-                  cursor: "pointer",
-                  transition: "all 200ms ease"
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.3)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
                 }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
-              </button>
+                <button
+                  aria-label="Recentre Map"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReset();
+                  }}
+                  style={{
+                    position: "relative",
+                    zIndex: 2,
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "44px", // Larger size
+                    height: "44px", // Larger size
+                    borderRadius: "50%",
+                    border: "none",
+                    background: "transparent",
+                    color: "rgba(15,23,42,0.85)",
+                    cursor: "pointer",
+                    transition: "background 200ms ease"
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.3)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="2" y1="12" x2="6" y2="12"></line>
+                    <line x1="18" y1="12" x2="22" y2="12"></line>
+                    <line x1="12" y1="2" x2="12" y2="6"></line>
+                    <line x1="12" y1="18" x2="12" y2="22"></line>
+                    <circle cx="12" cy="12" r="6"></circle>
+                  </svg>
+                </button>
+              </div>
             )}
           </div>
         );
@@ -4580,6 +4664,48 @@ const dockCardsRevealTimeoutRef = useRef(null);
         </div>
       </div>
 
+      {/* HOVERED COUNTRY HUD OVERLAY (Floating cursor tooltip) */}
+      {hoveredCountryPos && (
+        <div
+          style={{
+            position: "fixed",
+            left: `${hoveredCountryPos.x}px`,
+            top: `${hoveredCountryPos.y - 28}px`,
+            transform: hoveredCountry && !isAttractMode
+              ? "translateX(-50%) translateY(-50%) scale(1)"
+              : "translateX(-50%) translateY(-50%) scale(0.85)",
+            opacity: hoveredCountry && !isAttractMode ? 1 : 0,
+            pointerEvents: "none",
+            zIndex: 920,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "5px 14px",
+            borderRadius: "999px",
+            border: "1px solid rgba(255,255,255,0.5)",
+            background: "rgba(255, 255, 255, 0.45)",
+            backdropFilter: "blur(32px) saturate(200%)",
+            WebkitBackdropFilter: "blur(32px) saturate(200%)",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.35)",
+            transition: "left 120ms cubic-bezier(0.22, 1, 0.36, 1), top 120ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "'Roboto Slab', Georgia, serif",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              letterSpacing: "0.02em",
+              color: "#0f172a", // High contrast slate
+              textAlign: "center",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {hoveredCountry}
+          </span>
+        </div>
+      )}
+
       {/* VOYAGER PROGRESS - Top right corner */}
       {!isAttractMode ? (
         <div
@@ -4589,98 +4715,137 @@ const dockCardsRevealTimeoutRef = useRef(null);
             top: "1.5rem",
             right: "1.5rem",
             zIndex: 820,
-            width: isVoyagerExpanded ? "min(320px, calc(100vw - 3rem))" : "auto",
-            padding: isVoyagerExpanded ? "1rem 1.1rem 0.9rem" : "0.58rem 0.95rem",
+            // Smooth morphing dimensions — larger dark-glass card layout
+            width: isVoyagerExpanded ? "300px" : "200px",
+            height: isVoyagerExpanded ? (voyagerProgressCount >= 5 ? "236px" : "170px") : "44px",
             borderRadius: isVoyagerExpanded ? "22px" : "999px",
-            border: "1px solid rgba(255,255,255,0.52)",
-            background: isVoyagerExpanded ? "linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%)" : "rgba(255, 255, 255, 0.6)",
-            backdropFilter: "blur(36px) saturate(200%)",
-            WebkitBackdropFilter: "blur(36px) saturate(200%)",
-            boxShadow: "0 14px 30px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.65)",
-            color: "rgba(15,23,42,0.94)",
+            padding: "1.5px", // Thickness of the glowing border
+            background: "rgba(15, 23, 42, 0.22)", // Subtle backdrop boundary
             pointerEvents: "auto",
             overflow: "hidden",
             isolation: "isolate",
             cursor: "pointer",
-            transition: "all 500ms cubic-bezier(0.22, 1, 0.36, 1)",
+            transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1), height 400ms cubic-bezier(0.22, 1, 0.36, 1), border-radius 400ms ease, background 400ms ease",
+            boxSizing: "border-box",
           }}
         >
-          {/* Subtle dark internal underlay for readability over bright backgrounds */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "radial-gradient(circle at 40% 30%, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.14) 58%, rgba(255,255,255,0.04) 100%)",
-              borderRadius: "22px",
-              pointerEvents: "none",
-            }}
-          />
+          {/* Conic-gradient rotating border beam (FamilySearch brand colors) that fades in/out occasionally */}
+          <div style={{
+            position: "absolute",
+            top: "-200%",
+            left: "-200%",
+            width: "500%",
+            height: "500%",
+            background: "conic-gradient(from 0deg, transparent 35%, #87b940 48%, #1ba9e6 58%, #87b940 70%, transparent 85%)",
+            animation: "spin 4.5s linear infinite, beamPulse 12s ease-in-out infinite",
+            transformOrigin: "center center",
+            pointerEvents: "none",
+            zIndex: 1,
+          }} />
 
-          {/* Progress aura ring — replays animation on every token change */}
-          <div
-            key={`voyager-aura-${voyagerAuraToken}`}
-            className={`voyager-aura-ring${voyagerAuraToken > 0 ? (voyagerProgressPercent >= 100 ? " aura-platinum" : " aura-active") : ""}`}
-            style={{
-              "--aura-gradient": getVoyagerAuraGradient(voyagerProgressPercent),
-              borderRadius: isVoyagerExpanded ? "22px" : "999px",
-            }}
-          />
+          {/* Inner Dark Glass Container */}
+          <div style={{
+            position: "relative",
+            zIndex: 2,
+            borderRadius: isVoyagerExpanded ? "21px" : "999px",
+            background: "rgba(15, 23, 42, 0.78)", // Dark slate glass
+            backdropFilter: "blur(36px) saturate(180%)",
+            WebkitBackdropFilter: "blur(36px) saturate(180%)",
+            boxShadow: "0 18px 40px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.12)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            width: "100%",
+            height: "100%",
+            padding: isVoyagerExpanded ? "1.1rem 1.2rem" : "6px 12px",
+            boxSizing: "border-box",
+            justifyContent: "space-between",
+            color: "#ffffff",
+          }}>
 
-          {isVoyagerExpanded ? (
-            <>
-              {/* Badge Icon */}
-              <div style={{
-                position: "relative",
+            {/* Subtle internal overlay for depth */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "radial-gradient(circle at 40% 30%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 58%, transparent 100%)",
+                borderRadius: isVoyagerExpanded ? "21px" : "999px",
+                pointerEvents: "none",
                 zIndex: 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: "0.6rem"
-              }}>
-                <div
-                  key={`voyager-badge-expanded-${voyagerBadgeAnimToken}`}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-                >
+              }}
+            />
+
+            {/* Progress aura ring */}
+            <div
+              key={`voyager-aura-${voyagerAuraToken}`}
+              className={`voyager-aura-ring${voyagerAuraToken > 0 ? (voyagerProgressPercent >= 100 ? " aura-platinum" : " aura-active") : ""}`}
+              style={{
+                "--aura-gradient": getVoyagerAuraGradient(voyagerProgressPercent),
+                borderRadius: isVoyagerExpanded ? "21px" : "999px",
+                zIndex: 2,
+              }}
+            />
+
+            {/* Classy Cross-fade container for Expanded View */}
+            <div style={{
+              opacity: isVoyagerExpanded ? 1 : 0,
+              visibility: isVoyagerExpanded ? "visible" : "hidden",
+              pointerEvents: isVoyagerExpanded ? "auto" : "none",
+              transition: "opacity 300ms ease, transform 350ms cubic-bezier(0.22, 1, 0.36, 1)",
+              transform: isVoyagerExpanded ? "translateY(0)" : "translateY(10px)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              width: "100%",
+              height: isVoyagerExpanded ? "100%" : "0px",
+              justifyContent: "space-between",
+              zIndex: 3,
+            }}>
+              {/* Badge Icon — only rendered if unlocked (count >= 5) */}
+              {voyagerProgressCount >= 5 ? (
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "64px",
+                }}>
                   {renderVoyagerBadge(voyagerProgressCount, "full", true)}
                 </div>
-              </div>
+              ) : null}
 
               {/* Title */}
               <div style={{
-                position: "relative",
-                zIndex: 1,
-                fontSize: "0.68rem",
-                letterSpacing: "0.22em",
+                fontSize: "0.7rem",
+                letterSpacing: "0.15em",
                 textTransform: "uppercase",
-                color: "rgba(15,23,42,0.82)",
-                fontWeight: 700,
+                color: hoveredMilestone ? "#97d749" : "rgba(255, 255, 255, 0.75)", // Highlight FamilySearch Green on hover
+                fontWeight: 800,
                 textAlign: "center",
-                textShadow: "none"
+                transition: "color 150ms ease",
               }}>
-                {voyagerProgressCount >= 5 ? voyagerProgressTitle : "Commonwealth Explorer"}
+                {hoveredMilestone 
+                  ? {
+                      5: "Curious Explorer",
+                      10: "Commonwealth Traveller",
+                      25: "Global Navigator",
+                      40: "World Voyager",
+                      56: "Golden Commonwealth Explorer"
+                    }[hoveredMilestone]
+                  : (voyagerProgressCount >= 5 ? voyagerProgressTitle : "Commonwealth Explorer")}
               </div>
 
               {/* Progress Count */}
               <div style={{
-                marginTop: "0.5rem",
-                textAlign: "center",
-                position: "relative",
-                zIndex: 1,
-                fontSize: "1.1rem",
-                fontWeight: 650,
+                fontSize: "1.2rem",
+                fontWeight: 700,
                 letterSpacing: "-0.02em",
-                color: "rgba(15,23,42,0.92)",
-                textShadow: "none"
+                color: "#ffffff",
               }}>
                 {voyagerProgressCount} / {VOYAGER_TOTAL_COUNTRIES}
               </div>
 
               {/* Milestone Progress Bar */}
-              <div style={{
-                marginTop: "0.75rem",
-                position: "relative",
-                zIndex: 1
-              }}>
+              <div style={{ width: "100%" }}>
                 {/* Progress track */}
                 <div style={{
                   height: "3px",
@@ -4696,15 +4861,14 @@ const dockCardsRevealTimeoutRef = useRef(null);
                     background: `linear-gradient(90deg, ${getVoyagerBrandColor(voyagerProgressCount)} 0%, ${getVoyagerBrandColor(voyagerProgressCount)} 100%)`,
                     borderRadius: "2px",
                     transition: "width 600ms cubic-bezier(0.22, 1, 0.36, 1)",
-                    boxShadow: `0 0 8px ${getVoyagerBrandColor(voyagerProgressCount)}66`
                   }} />
                 </div>
 
                 {/* Milestone markers */}
                 <div style={{
                   position: "relative",
-                  marginTop: "0.4rem",
-                  height: "18px",
+                  marginTop: "0.45rem",
+                  height: "22px",
                 }}>
                   {[
                     { count: 5, label: "5" },
@@ -4714,35 +4878,43 @@ const dockCardsRevealTimeoutRef = useRef(null);
                     { count: 56, label: "56" }
                   ].map((milestone) => {
                     const isReached = voyagerProgressCount >= milestone.count;
-
+                    const isMh = hoveredMilestone === milestone.count;
                     return (
                       <div
                         key={milestone.count}
+                        onMouseEnter={() => setHoveredMilestone(milestone.count)}
+                        onMouseLeave={() => setHoveredMilestone(null)}
                         style={{
                           position: "absolute",
                           left: `calc(${(milestone.count / VOYAGER_TOTAL_COUNTRIES) * 100}% - 3px)`,
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "center",
-                          gap: "0.2rem",
-                          opacity: isReached ? 1 : 0.5,
-                          transition: "opacity 400ms ease"
+                          gap: "0.22rem",
+                          opacity: isReached || isMh ? 1 : 0.45,
+                          cursor: "pointer",
+                          transform: isMh ? "scale(1.18)" : "scale(1)",
+                          transition: "all 150ms ease",
                         }}
                       >
                         <div style={{
                           width: "6px",
                           height: "6px",
                           borderRadius: "50%",
-                          background: isReached ? getVoyagerBrandColor(milestone.count) : "rgba(255,255,255,0.4)",
-                          boxShadow: isReached ? `0 0 6px ${getVoyagerBrandColor(milestone.count)}99` : "none",
-                          transition: "all 400ms ease"
+                          background: isMh 
+                            ? "#97d749" 
+                            : isReached 
+                              ? getVoyagerBrandColor(milestone.count) 
+                              : "rgba(255,255,255,0.3)",
+                          boxShadow: isMh || isReached ? `0 0 8px ${getVoyagerBrandColor(milestone.count)}` : "none",
+                          transition: "all 150ms ease",
                         }} />
                         <div style={{
-                          fontSize: "0.55rem",
-                          color: isReached ? "rgba(51,51,49,0.9)" : "rgba(51,51,49,0.62)",
-                          fontWeight: isReached ? 700 : 500,
-                          letterSpacing: "0.05em",
-                          transition: "all 400ms ease"
+                          fontSize: "0.72rem",
+                          color: isMh ? "#97d749" : isReached ? "#ffffff" : "rgba(255,255,255,0.45)",
+                          fontWeight: isReached || isMh ? 800 : 600,
+                          letterSpacing: "0.02em",
+                          transition: "all 150ms ease",
                         }}>
                           {milestone.label}
                         </div>
@@ -4751,42 +4923,48 @@ const dockCardsRevealTimeoutRef = useRef(null);
                   })}
                 </div>
               </div>
-            </>
-          ) : (
-            /* Minimal View */
+            </div>
+
+            {/* Classy Cross-fade container for Minimal View */}
             <div style={{
+              position: "absolute",
+              inset: "0 12px",
+              opacity: isVoyagerExpanded ? 0 : 1,
+              visibility: isVoyagerExpanded ? "hidden" : "visible",
+              pointerEvents: isVoyagerExpanded ? "none" : "auto",
+              transition: "opacity 280ms ease, transform 350ms cubic-bezier(0.22, 1, 0.36, 1)",
+              transform: isVoyagerExpanded ? "translateY(-10px)" : "translateY(0)",
               display: "flex",
               alignItems: "center",
-              gap: "0.5rem",
-              position: "relative",
-              zIndex: 1,
+              gap: "0.45rem",
+              whiteSpace: "nowrap",
+              height: "100%",
+              zIndex: 3,
             }}>
               {voyagerProgressCount >= 5 ? (
                 <>
                   <div
                     key={`voyager-badge-minimal-${voyagerBadgeAnimToken}`}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, width: "24px", height: "24px" }}
                   >
                     {renderVoyagerBadge(voyagerProgressCount, "small", true)}
                   </div>
                   <div style={{
-                    fontSize: "0.7rem",
-                    fontWeight: 600,
-                    letterSpacing: "0.04em",
-                    color: "rgba(15,23,42,0.84)",
-                    textShadow: "none",
-                    whiteSpace: "nowrap",
+                    fontSize: "0.74rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.02em",
+                    color: "#ffffff",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                   }}>
                     {voyagerProgressTitle}
                   </div>
                   <div style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 700,
-                    letterSpacing: "0.02em",
-                    color: "rgba(15,23,42,0.92)",
-                    textShadow: "none",
-                    whiteSpace: "nowrap",
-                    marginLeft: "0.18rem",
+                    fontSize: "0.74rem",
+                    fontWeight: 800,
+                    letterSpacing: "0.01em",
+                    color: "#97d749", // FamilySearch Green
+                    marginLeft: "auto",
                   }}>
                     {voyagerProgressCount}/{VOYAGER_TOTAL_COUNTRIES}
                   </div>
@@ -4796,410 +4974,37 @@ const dockCardsRevealTimeoutRef = useRef(null);
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "0.45rem",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  letterSpacing: "0.03em",
-                  color: "rgba(15,23,42,0.9)",
-                  textShadow: "none",
-                  whiteSpace: "nowrap",
+                  fontSize: "0.74rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.02em",
+                  color: "#ffffff",
+                  width: "100%",
                 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center" }}>{renderGiftIcon(14)}</span>
-                  <span>{voyagerCountriesUntilSurprise} {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} for surprise!</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", color: "#97d749" }}>{renderGiftIcon(14)}</span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {voyagerCountriesUntilSurprise} {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} to go!
+                  </span>
                 </div>
               )}
             </div>
-          )}
+          </div>
         </div>
       ) : null}
 
 
-      {isMenuOpen && (
-        <div
-          onMouseLeave={() => {
-            markDockInteraction();
-          }}
-          onPointerDown={markDockInteraction}
-          style={{
-            position: "absolute",
-            bottom: "1.1rem",
-            left: "50%",
-            transform: isDockTransitioning
-              ? "translateX(-50%) translateY(24px) scale(0.985)"
-              : "translateX(-50%) translateY(0) scale(1)",
-            width: "min(1360px, 98vw)",
-            zIndex: 900,
-            padding: "0.9rem 1.1rem 1rem",
-            background: "rgba(255, 255, 255, 0.4)",
-            backdropFilter: "blur(40px) saturate(200%)",
-            WebkitBackdropFilter: "blur(40px) saturate(200%)",
-            border: "1px solid rgba(255,255,255,0.6)",
-            borderRadius: "30px",
-            boxShadow: "0 20px 44px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.32)",
-            opacity: isDockTransitioning ? 0 : 1,
-            transition: `opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1)`,
-          }}
-        >
-          <div
-            style={{
-              maxWidth: "760px",
-              margin: isDockSearchExpanded ? "0 auto 0.85rem" : "0 auto 0",
-              position: "relative",
-              opacity: isDockSearchExpanded ? 1 : 0,
-              maxHeight: isDockSearchExpanded ? "68px" : "0px",
-              transform: isDockSearchExpanded ? "translateY(0) scale(1)" : "translateY(-10px) scale(0.985)",
-              overflow: "hidden",
-              pointerEvents: isDockSearchExpanded ? "auto" : "none",
-              transition: `opacity 420ms ${DOCK_SOFT_EASE}, transform 520ms ${DOCK_GENTLE_EASE}, max-height 520ms ${DOCK_GENTLE_EASE}, margin 520ms ${DOCK_GENTLE_EASE}`,
-            }}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{
-                position: "absolute",
-                left: "1.25rem",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "rgba(255,255,255,0.5)",
-                pointerEvents: "none",
-              }}
-            >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-            <input
-              value={searchTerm}
-              onChange={(event) => {
-                setSearchTerm(event.target.value);
-                markDockInteraction();
-              }}
-              onFocus={markDockInteraction}
-              onKeyDown={markDockInteraction}
-              placeholder="Search countries..."
-              style={{
-                width: "100%",
-                border: "1px solid rgba(255,255,255,0.22)",
-                borderRadius: "100px",
-                padding: "1rem 1.25rem 1rem 3.5rem",
-                fontSize: "1.1rem",
-                color: "#fff",
-                background: "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.12) 100%)",
-                outline: "none",
-                boxSizing: "border-box",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.24), 0 6px 18px rgba(0,0,0,0.18)",
-                fontWeight: 400,
-                letterSpacing: "-0.01em",
-                transition: "background 200ms ease",
-              }}
-              onFocusCapture={(e) => {
-                e.target.style.background = "linear-gradient(180deg, rgba(255,255,255,0.31) 0%, rgba(255,255,255,0.16) 100%)";
-              }}
-              onBlur={(e) => {
-                e.target.style.background = "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.12) 100%)";
-              }}
-            />
-            {searchTerm ? (
-              <button
-                onClick={() => {
-                  setSearchTerm("");
-                  markDockInteraction();
-                }}
-                style={{
-                  position: "absolute",
-                  right: "1rem",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  border: "none",
-                  background: "rgba(255,255,255,0.2)",
-                  color: "#fff",
-                  fontSize: "1rem",
-                  cursor: "pointer",
-                  width: "28px",
-                  height: "28px",
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  lineHeight: 1,
-                  padding: 0,
-                }}
-                aria-label="Clear search"
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
+      
+      <UniversalDock
+        isMenuOpen={isMenuOpen}
+        isDockTransitioning={isDockTransitioning}
+        markDockInteraction={markDockInteraction}
+        searchResults={filteredCountries}
+        selectedCountryIndex={filteredCountries.findIndex(c => c.name === selectedCountry?.name)}
+        isDockExpanding={isDockExpanding}
+        handleSelectCountry={handleSelectCountry}
+        handleCountryHover={handleCountryHover}
+        handleReset={handleReset}
+      />
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.85rem",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.45rem",
-                flexShrink: 0,
-                paddingLeft: "0.2rem",
-              }}
-            >
-              <button
-                onClick={() => {
-                  markDockInteraction();
-                  setIsDockSearchExpanded((value) => {
-                    const next = !value;
-                    if (!next) {
-                      setSearchTerm("");
-                    }
-                    return next;
-                  });
-                }}
-                style={{
-                  width: "46px",
-                  height: "46px",
-                  borderRadius: "50%",
-                  border: "1px solid rgba(255,255,255,0.22)",
-                  background: isDockSearchExpanded
-                    ? "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.16) 100%)"
-                    : "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)",
-                  color: "#fff",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 6px 18px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.24)",
-                  transform: isDockSearchExpanded ? "translateY(0) scale(1.03)" : "translateY(0) scale(1)",
-                  transition: `background 360ms ${DOCK_GENTLE_EASE}, transform 480ms ${DOCK_GENTLE_EASE}, box-shadow 360ms ${DOCK_GENTLE_EASE}`,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.18) 100%)";
-                  e.currentTarget.style.transform = isDockSearchExpanded ? "translateY(-1px) scale(1.03)" : "translateY(-1px) scale(1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = isDockSearchExpanded
-                    ? "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.16) 100%)"
-                    : "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)";
-                  e.currentTarget.style.transform = isDockSearchExpanded ? "translateY(0) scale(1.03)" : "translateY(0) scale(1)";
-                }}
-                aria-label={isDockSearchExpanded ? "Hide search" : "Show search"}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.3-4.3" />
-                </svg>
-              </button>
-            </div>
-
-            <div
-              aria-hidden="true"
-              style={{
-                width: "1px",
-                height: "46px",
-                alignSelf: "center",
-                background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.34) 20%, rgba(255,255,255,0.34) 80%, rgba(255,255,255,0.06) 100%)",
-                boxShadow: "0 0 0 1px rgba(255,255,255,0.06)",
-                opacity: 0.9,
-                flexShrink: 0,
-              }}
-            />
-
-            {/* Country cards horizontal scroll */}
-            <div
-              style={{
-                flex: 1,
-                display: "flex",
-                gap: "0.72rem",
-                overflowX: "auto",
-                padding: "0.4rem 0.25rem 0.2rem",
-                scrollSnapType: "x mandatory",
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-                WebkitOverflowScrolling: "touch",
-              }}
-            >
-              {filteredCountries.map((country, index) => {
-                const isActive = selectedCountry?.name === country.name;
-                // During expansion, cards stagger in with 20-40ms delay based on index
-                const cardDelay = isDockExpanding ? index * 30 : 0;
-                const cardTransition = isDockExpanding
-                  ? `opacity 380ms cubic-bezier(0.22, 1, 0.36, 1) ${cardDelay}ms, transform 420ms cubic-bezier(0.22, 1, 0.36, 1) ${cardDelay}ms`
-                  : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1), background 280ms cubic-bezier(0.22, 1, 0.36, 1), border 280ms cubic-bezier(0.22, 1, 0.36, 1)";
-                return (
-                  <button
-                    key={country.name}
-                    onClick={() => {
-                      markDockInteraction();
-                      handleSelectCountry(country);
-                      setIsDockSearchExpanded(false);
-                      setSearchTerm("");
-                    }}
-                    onPointerEnter={() => {
-                      markDockInteraction();
-                      handleCountryHover(country.name);
-                    }}
-                    onPointerLeave={() => {
-                      handleCountryHover(null);
-                    }}
-                    onPointerCancel={() => {
-                      handleCountryHover(null);
-                    }}
-                    onPointerDown={() => {
-                      markDockInteraction();
-                      handleCountryHover(country.name);
-                    }}
-                    style={{
-                      flex: "0 0 auto",
-                      width: "124px",
-                      minHeight: "68px",
-                      padding: "0.4rem 0.62rem 0.28rem",
-                      borderRadius: "16px",
-                      background: isActive
-                        ? "linear-gradient(180deg, rgba(222, 248, 170, 0.4) 0%, rgba(255,255,255,0.26) 36%, rgba(186, 230, 96, 0.26) 100%)"
-                        : "linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 100%)",
-                      border: isActive ? "1px solid rgba(214, 255, 163, 0.9)" : "1px solid rgba(255,255,255,0.34)",
-                      boxShadow: isActive
-                        ? "0 10px 20px rgba(68, 95, 33, 0.24), inset 0 1px 0 rgba(255,255,255,0.56), inset 0 -8px 18px rgba(190, 242, 100, 0.18)"
-                        : "0 10px 20px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46), inset 0 -8px 18px rgba(147, 197, 253, 0.12)",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "0.1rem",
-                      scrollSnapAlign: "start",
-                      transform: isActive ? "translateY(-2px) scale(1.02)" : "translateY(0) scale(1)",
-                      transition: "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1), background 280ms cubic-bezier(0.22, 1, 0.36, 1), border 280ms cubic-bezier(0.22, 1, 0.36, 1)",
-                      willChange: "transform",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.transform = "translateY(-3px) scale(1.03)";
-                        e.currentTarget.style.boxShadow = "0 14px 28px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.56), inset 0 -8px 18px rgba(147, 197, 253, 0.18)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.transform = "translateY(0) scale(1)";
-                        e.currentTarget.style.boxShadow = "0 10px 20px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46), inset 0 -8px 18px rgba(147, 197, 253, 0.12)";
-                      }
-                    }}
-                  >
-                    <img
-                      src={`https://flagcdn.com/w80/${country.countryCode || "xx"}.png`}
-                      alt=""
-                      style={{
-                        width: "42px",
-                        height: "26px",
-                        borderRadius: "5px",
-                        objectFit: "cover",
-                        border: "1px solid rgba(255,255,255,0.55)",
-                        boxShadow: "0 2px 8px rgba(15,23,42,0.24)",
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontSize: "0.79rem",
-                        fontWeight: 620,
-                        color: "#f8fafc",
-                        textAlign: "center",
-                        lineHeight: 1.02,
-                        letterSpacing: "0.005em",
-                        textShadow: "0 1px 0 rgba(2,6,23,0.65)",
-                      }}
-                    >
-                      {country.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div
-              aria-hidden="true"
-              style={{
-                width: "1px",
-                height: "46px",
-                alignSelf: "center",
-                background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.34) 20%, rgba(255,255,255,0.34) 80%, rgba(255,255,255,0.06) 100%)",
-                boxShadow: "0 0 0 1px rgba(255,255,255,0.06)",
-                opacity: 0.9,
-                flexShrink: 0,
-              }}
-            />
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.45rem",
-                flexShrink: 0,
-                paddingRight: "0.2rem",
-              }}
-            >
-              <button
-                onClick={() => {
-                  handleCountryHover(null);
-                  setIsDockSearchExpanded(false);
-                  setSearchTerm("");
-                  setIsMenuClosing(true);
-                  clearDockSearchTimer();
-                  setTimeout(() => {
-                    setIsMenuOpen(false);
-                    setIsMenuClosing(false);
-                  }, 420);
-                }}
-                style={{
-                  width: "46px",
-                  height: "46px",
-                  borderRadius: "50%",
-                  border: "1px solid rgba(255,255,255,0.22)",
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)",
-                  color: "#fff",
-                  fontSize: "1.45rem",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 6px 18px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.24)",
-                  transform: "translateY(0)",
-                  transition: `background 360ms ${DOCK_GENTLE_EASE}, transform 480ms ${DOCK_GENTLE_EASE}`,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.16) 100%)";
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)";
-                  e.currentTarget.style.transform = "translateY(0)";
-                }}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       <div
         ref={mapAtmosphereRef}
         style={{
@@ -5236,85 +5041,29 @@ const dockCardsRevealTimeoutRef = useRef(null);
             zIndex: 1,
           }}
         />
-        <MapContainer
-          center={ATTRACT_MODE_VIEW.center}
-          zoom={ATTRACT_MODE_VIEW.zoom}
-          minZoom={COMMONWEALTH_MIN_ZOOM}
-          maxZoom={12}
-          worldCopyJump={false}
-          zoomControl={false}
-          scrollWheelZoom={true}
-          touchZoom={true}
-          doubleClickZoom={true}
-          dragging={true}
-          style={{ height: "100%", width: "100%", position: "relative", zIndex: 2, background: "#202738" }}
-        >
-          <MapArtOverlay imageUrl={MAP_BACKGROUND_ART_URL} opacity={0.28} />
-          <MapBounds isAttractMode={isAttractMode} />
-          <VintageMapDecorations />
-          <WorldGeoLayer
-            onSelectCountry={handleSelectCountry}
-            onBackgroundClick={handleReset}
-            mapRef={mapRef}
-            selectedCountry={selectedCountry}
-            activatedCountryName={activatedCountryName}
-            isPanelOpen={isPanelOpen}
-            isAttractMode={isAttractMode}
-            hoveredCountry={hoveredCountry}
-            onCountryHover={handleCountryHover}
-            countryLayerRefs={countryLayerRefs}
-            onGeojsonLoad={handleGeojsonLoad}
-            onGeojsonError={handleGeojsonError}
-          />
-          <SmallCountryMarkers
-            geojson={geojson}
-            onSelectCountry={handleSelectCountry}
-            selectedCountry={selectedCountry}
-            hoveredCountry={hoveredCountry}
-            activatedCountryName={activatedCountryName}
-            isPanelOpen={isPanelOpen}
-            isAttractMode={isAttractMode}
-            onCountryHover={handleCountryHover}
-          />
-          {isAttractMode
-            ? attractRouteSwooshes.map((route) => (
-              <AttractSeaRouteSwoosh key={route.id} route={route} />
-            ))
-            : null}
-          {isAttractMode && attractHeroRoute ? (
-            <AttractSeaRouteSwoosh key={attractHeroRoute.id} route={attractHeroRoute} />
-          ) : null}
-        </MapContainer>
+        <MapLibreMap 
+          ref={mapRef}
+          onCountrySelect={handleSelectCountry}
+          onMapClick={() => {
+            if (selectedCountry) {
+              handleReset();
+            } else if (isMenuOpen) {
+              setIsMenuClosing(true);
+              window.setTimeout(() => {
+                setIsMenuOpen(false);
+                setIsMenuClosing(false);
+              }, 480);
+            }
+          }}
+          onCountryHover={handleCountryHover}
+          selectedCountry={selectedCountry}
+          activatedCountryName={activatedCountryName}
+          isPanelOpen={isPanelOpen}
+          isAttractMode={isAttractMode}
+          hoveredCountry={hoveredCountry}
+        />
 
-        {!geojson ? (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              pointerEvents: "none",
-              zIndex: 4,
-            }}
-          >
-            <div
-              style={{
-                padding: "0.7rem 1rem",
-                borderRadius: "999px",
-                border: "1px solid rgba(255,255,255,0.32)",
-                background: "rgba(15,23,42,0.62)",
-                color: "rgba(248,250,252,0.95)",
-                fontSize: "0.82rem",
-                letterSpacing: "0.03em",
-                backdropFilter: "blur(8px)",
-                WebkitBackdropFilter: "blur(8px)",
-              }}
-            >
-              {mapLoadError || "Loading map data..."}
-            </div>
-          </div>
-        ) : null}
+        
 
         <div
           style={{
@@ -5330,10 +5079,13 @@ const dockCardsRevealTimeoutRef = useRef(null);
         />
       </div>
 
-      {/* FLOATING STORY CARD - Replaces side panel */}
+      {/* FLOATING STORY CARD - Decoupled background to prevent scroll repaint flicker */}
       <div
-        className="floating-story-card-scroll"
+        className="floating-story-card-wrapper"
         onClick={(event) => event.stopPropagation()}
+        onWheel={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerMove={(event) => event.stopPropagation()}
         style={{
           position: "absolute",
           top: "50%",
@@ -5351,135 +5103,156 @@ const dockCardsRevealTimeoutRef = useRef(null);
           opacity: isPanelVisible ? 1 : 0,
           transition: "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1)",
           pointerEvents: isPanelVisible ? "auto" : "none",
-          overflowY: "auto",
-          overflowX: "hidden",
+          overflow: "hidden", // Crucial: clip the inner scrollable container to rounded corners
           zIndex: 1000,
-          color: "#fff",
           border: "1px solid rgba(203, 213, 225, 0.44)",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
+        {/* Fixed Close button at the top-right of the card */}
+        {selectedCountry ? (
+          <button
+            onClick={handleClosePanel}
+            style={{
+              position: "absolute",
+              top: "1.2rem",
+              right: "1.2rem",
+              width: "44px",
+              height: "44px",
+              borderRadius: "50%",
+              border: "1px solid rgba(148, 163, 184, 0.42)",
+              background: "rgba(15, 23, 42, 0.92)",
+              color: "#fff",
+              fontSize: "1.4rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 200ms ease",
+              zIndex: 1010, // Sit on top of the scrolling viewport and fixed hero
+              boxShadow: "0 6px 14px rgba(2,6,23,0.45)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(30, 41, 59, 0.98)";
+              e.currentTarget.style.transform = "scale(1.1)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(15, 23, 42, 0.92)";
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        ) : null}
+
+        {/* --- DYNAMIC STICKY HERO HEADER --- */}
         {selectedCountry ? (
           <div
+            key={`hero-${selectedCountry.name}-${heroMotionSeed}`}
             style={{
-              padding: "0",
-              position: "relative",
+              borderRadius: "32px 32px 0 0",
+              overflow: "hidden",
+              height: "220px", // Fixed height so it stays still at the top
+              flexShrink: 0,
+              backgroundImage: `linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.65) 100%), url(${validatedHeroImage || selectedCountryHeroImage})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center 30%",
               display: "flex",
-              flexDirection: "column",
-              minHeight: 0,
+              flexDirection: "row", // Side-by-side flex flow to eliminate overlaps
+              justifyContent: "space-between",
+              alignItems: "flex-end",
+              padding: `1.4rem ${STORY_CARD_SIDE_PADDING}`,
+              position: "relative",
+              gap: "1.5rem",
+              zIndex: 5,
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.1)", // Casts a soft shadow over the scrolling content
+              ...getRevealStyle(0),
             }}
           >
-            {/* Close button */}
-            <button
-              onClick={handleClosePanel}
-              style={{
-                position: "absolute",
-                top: "1rem",
-                right: "1rem",
-                width: "48px",
-                height: "48px",
-                borderRadius: "50%",
-                border: "1px solid rgba(148, 163, 184, 0.42)",
-                background: "rgba(15, 23, 42, 0.92)",
-                color: "#fff",
-                fontSize: "1.5rem",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all 200ms ease",
-                zIndex: 10,
-                boxShadow: "0 6px 14px rgba(2,6,23,0.45)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(30, 41, 59, 0.98)";
-                e.currentTarget.style.transform = "scale(1.1)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(15, 23, 42, 0.92)";
-                e.currentTarget.style.transform = "scale(1)";
-              }}
-              aria-label="Close"
-            >
-              ×
-            </button>
-            <div
-              key={`hero-${selectedCountry.name}-${heroMotionSeed}`}
-              style={{
-                borderRadius: "32px 32px 0 0",
-                overflow: "hidden",
-                minHeight: "220px",
-                backgroundImage: `linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.65) 100%), url(${validatedHeroImage || selectedCountryHeroImage})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center 30%",
-                display: "flex",
-                alignItems: "flex-end",
-                padding: `1.4rem ${STORY_CARD_SIDE_PADDING}`,
-                position: "relative",
-                ...getRevealStyle(0),
-              }}
-            >
-              <div style={{ position: "relative", zIndex: 2 }}>
-                <img
-                  src={`https://flagcdn.com/w40/${selectedCountry.countryCode || "xx"}.png`}
-                  alt=""
-                  style={{
-                    width: "26px",
-                    height: "17px",
-                    borderRadius: "4px",
-                    objectFit: "cover",
-                    border: "1px solid rgba(255,255,255,0.4)",
-                    boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-                    opacity: 0.92,
-                  }}
-                />
-                <h2
-                  style={{
-                    margin: "0.4rem 0 0",
-                    fontSize: "2.8rem",
-                    lineHeight: 1.02,
-                    fontWeight: 700,
-                    color: "#fff",
-                    textShadow: "0 2px 8px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.25)",
-                    letterSpacing: "-0.02em",
-                    opacity: isContentVisible ? 1 : 0,
-                    transform: isContentVisible ? "translateY(0)" : "translateY(24px)",
-                    transition: `opacity 550ms ${springEase}, transform 550ms ${springEase}`,
-                    transitionDelay: isContentVisible ? "100ms" : "0ms",
-                  }}
-                >
-                  {selectedCountry.name}
-                </h2>
-              </div>
+            {/* Left-side: Flag and Title (always visible) */}
+            <div style={{ position: "relative", zIndex: 2, flex: 1, minWidth: 0 }}>
+              <img
+                src={`https://flagcdn.com/w40/${selectedCountry.countryCode || "xx"}.png`}
+                alt=""
+                style={{
+                  width: "26px",
+                  height: "17px",
+                  borderRadius: "4px",
+                  objectFit: "cover",
+                  border: "1px solid rgba(255,255,255,0.4)",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+                  opacity: 0.92,
+                }}
+              />
+              <h2
+                style={{
+                  margin: "0.4rem 0 0",
+                  fontSize: "2.8rem",
+                  lineHeight: 1.02,
+                  fontWeight: 700,
+                  color: "#fff",
+                  textShadow: "0 2px 8px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.25)",
+                  letterSpacing: "-0.02em",
+                  opacity: isContentVisible ? 1 : 0,
+                  transform: isContentVisible ? "translateY(0)" : "translateY(24px)",
+                  transition: `opacity 550ms ${springEase}, transform 550ms ${springEase}`,
+                  transitionDelay: isContentVisible ? "100ms" : "0ms",
+                }}
+              >
+                {selectedCountry.name}
+              </h2>
+            </div>
+
+            {/* Right-side: Circular stamp and minimal morphed text line */}
+            <div style={{ position: "relative", zIndex: 4, display: "flex", flexDirection: "column", alignItems: "flex-end", height: "100%", justifyContent: "flex-end", paddingBottom: "4px" }}>
               {selectedCountryMetadata?.memberSince ? (
-                <div
-                  style={{
-                    position: "absolute",
-                    right: "15%",
-                    top: "42%",
-                    width: "160px",
-                    transform: "translateY(-50%) rotate(-8deg)",
-                    zIndex: 4,
-                    opacity: isContentVisible ? 1 : 0,
-                    transition: `opacity 520ms ${springEase}, transform 520ms ${springEase}`,
-                    transitionDelay: isContentVisible ? "180ms" : "0ms",
-                  }}
-                >
-                  {renderCommonwealthStamp(String(selectedCountryMetadata.memberSince))}
-                </div>
+                <>
+                  {/* Circular Stamp: Disappears on scroll */}
+                  <div
+                    style={{
+                      width: "140px",
+                      opacity: isPanelScrolled ? 0 : (isContentVisible ? 1 : 0),
+                      transform: isPanelScrolled
+                        ? "scale(0.7) rotate(-15deg) translateY(-20px)"
+                        : "scale(1) rotate(-8deg) translateY(-8px)",
+                      pointerEvents: isPanelScrolled ? "none" : "auto",
+                      transition: "opacity 320ms ease, transform 380ms cubic-bezier(0.22, 1, 0.36, 1)",
+                      position: "absolute",
+                      right: 0,
+                      bottom: "12px",
+                    }}
+                  >
+                    {renderCommonwealthStamp(String(selectedCountryMetadata.memberSince))}
+                  </div>
+
+                  {/* Morph text line saying "Member since [year]" */}
+                  <div
+                    style={{
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      color: "rgba(255, 255, 255, 0.9)",
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      textShadow: "0 2px 6px rgba(0,0,0,0.5)",
+                      opacity: isPanelScrolled ? 1 : 0,
+                      transform: isPanelScrolled ? "translateY(0)" : "translateY(10px)",
+                      transition: "opacity 320ms ease, transform 380ms cubic-bezier(0.22, 1, 0.36, 1)",
+                      pointerEvents: "none",
+                      marginBottom: "6px", // Sits just above the image credit line!
+                    }}
+                  >
+                    Member since {selectedCountryMetadata.memberSince}
+                  </div>
+                </>
               ) : null}
+
+              {/* Image source credit text */}
               {selectedCountry.imageSource && selectedCountry.imageSource !== "none" && (
                 <div
                   style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    background: "linear-gradient(transparent, rgba(0,0,0,0.4))",
-                    padding: `1.5rem ${STORY_CARD_SIDE_PADDING} 0.5rem`,
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    alignItems: "flex-end",
-                    opacity: isContentVisible ? 1 : 0,
+                    opacity: isContentVisible ? 0.75 : 0,
                     transition: `opacity 400ms ${springEase}`,
                     transitionDelay: isContentVisible ? "200ms" : "0ms",
                     pointerEvents: "none",
@@ -5492,6 +5265,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
                       letterSpacing: "0.04em",
                       textTransform: "uppercase",
                       fontWeight: 500,
+                      textShadow: "0 1px 3px rgba(0,0,0,0.4)",
                     }}
                   >
                     Image by {selectedCountry.imageSource === "wikipedia" ? "Wikipedia" :
@@ -5504,6 +5278,35 @@ const dockCardsRevealTimeoutRef = useRef(null);
                 </div>
               )}
             </div>
+          </div>
+        ) : null}
+
+        <div
+          className="floating-story-card-scroll"
+          onScroll={(e) => {
+            const scrollTop = e.currentTarget.scrollTop;
+            setIsPanelScrolled(scrollTop > 20);
+          }}
+          style={{
+            width: "100%",
+            flex: 1, // Fills remaining space below fixed hero header
+            overflowY: "auto",
+            overflowX: "hidden",
+            color: "#fff",
+            boxSizing: "border-box",
+          }}
+        >
+          {selectedCountry ? (
+            <div
+              style={{
+                padding: "0",
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+                width: "100%",
+              }}
+            >
 
             {/* FamilySearch Collections and Research Helps */}
             <div style={{ padding: `1.5rem ${STORY_CARD_SIDE_PADDING} 1.4rem` }}>
@@ -5622,8 +5425,6 @@ const dockCardsRevealTimeoutRef = useRef(null);
               style={{
                 display: "flex",
                 flexDirection: "column",
-                flex: 1,
-                minHeight: 0,
                 overflow: "visible",
                 padding: `0 ${STORY_CARD_SIDE_PADDING} 1.4rem`,
                 ...getRevealStyle(3),
@@ -5910,7 +5711,8 @@ const dockCardsRevealTimeoutRef = useRef(null);
               </div>
             </div>
           </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
       {/* ACHIEVEMENT UNLOCK OVERLAY */}
@@ -5940,13 +5742,60 @@ const dockCardsRevealTimeoutRef = useRef(null);
               animation: "badgeScale 600ms cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
-            {/* Badge with glow animation */}
-            <div style={{ 
-              animation: "badgeScale 620ms cubic-bezier(0.34, 1.56, 0.64, 1), badgeGlow 2s ease-in-out, celebrationPulse 1.2s ease-in-out 620ms 1",
-              transform: "scale(2.5)",
-              transformOrigin: "center"
+            {/* Badge with FamilySearch rotating neon border beam */}
+            <div style={{
+              position: "relative",
+              width: "180px",
+              height: "180px",
+              borderRadius: "50%",
+              padding: "2px", // Thickness of the glowing border
+              background: "rgba(255, 255, 255, 0.05)",
+              overflow: "hidden",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
+              animation: "badgeScale 620ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+              marginBottom: "1.5rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}>
-              {achievementUnlocked.badge}
+              {/* Rotating conic gradient using FS Green & Blue */}
+              <div style={{
+                position: "absolute",
+                top: "-150%",
+                left: "-150%",
+                width: "400%",
+                height: "400%",
+                background: "conic-gradient(from 0deg, transparent 35%, #87b940 48%, #1ba9e6 58%, #87b940 70%, transparent 85%)",
+                animation: "spin 3.5s linear infinite",
+                transformOrigin: "center center",
+                pointerEvents: "none",
+                zIndex: 1,
+              }} />
+
+              {/* Inner Dark Glass circle */}
+              <div style={{
+                position: "relative",
+                zIndex: 2,
+                width: "100%",
+                height: "100%",
+                borderRadius: "50%",
+                background: "rgba(15, 23, 42, 0.88)", // Dark slate glass
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
+              }}>
+                <div style={{ 
+                  width: "144px", 
+                  height: "144px", 
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  animation: "celebrationPulse 1.4s ease-in-out 620ms infinite",
+                }}>
+                  {achievementUnlocked.badge}
+                </div>
+              </div>
             </div>
 
             {/* Title with fade-in */}
@@ -6055,6 +5904,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
           </div>
         </div>
       ) : null}
-    </div>
+      </div>
+    </AppContext.Provider>
   );
 }

@@ -1,5 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Roboto+Slab:wght@500;600;700&display=swap');
 
+@keyframes dockCardReveal {
+  from { opacity: 0; transform: scale(0.88) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -112,4 +118,62 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+}
+
+.explore-cta-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 30px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2);
+  color: white;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes beamPulse {
+  0%, 45%, 100% { opacity: 0; }
+  50%, 95% { opacity: 1; }
+}
+
+@keyframes attractDotHueCycle {
+  0%, 100% {
+    background-color: #87b940;
+    box-shadow: 0 0 3px #87b940, 0 0 8px #87b940;
+  }
+  20% {
+    background-color: #87b940;
+    box-shadow: 0 0 6px #87b940, 0 0 18px #87b940;
+  }
+  25% {
+    background-color: #1ba9e6;
+    box-shadow: 0 0 3px #1ba9e6, 0 0 8px #1ba9e6;
+  }
+  45% {
+    background-color: #1ba9e6;
+    box-shadow: 0 0 6px #1ba9e6, 0 0 18px #1ba9e6;
+  }
+  50% {
+    background-color: #f08521;
+    box-shadow: 0 0 3px #f08521, 0 0 8px #f08521;
+  }
+  75% {
+    background-color: #f08521;
+    box-shadow: 0 0 6px #f08521, 0 0 18px #f08521;
+  }
+  80% {
+    background-color: #87b940;
+    box-shadow: 0 0 3px #87b940, 0 0 8px #87b940;
+  }
 }

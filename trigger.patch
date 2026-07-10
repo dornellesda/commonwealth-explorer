@@ -1,0 +1,13 @@
+--- src/App.jsx
++++ src/App.jsx
+@@ -2037,6 +2037,8 @@
+ 
+   const handleSelectCountry = (country, options = {}) => {
++    window.__test_trigger = () => {
++      setAchievementUnlocked({
++        count: 5,
++        title: "Curious Explorer",
++        badge: getBadgeForCount(5)
++      });
++    };
+     // Hide attract mode if active

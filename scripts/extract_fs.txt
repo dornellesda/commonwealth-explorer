@@ -1,0 +1,361 @@
+      if (!smallCountries.some((sc) => normalizeName(sc) === countryName)) {
+        return;
+      }
+
+      // Calculate centroid
+      const layer = L.geoJSON(feature);
+      const bounds = layer.getBounds();
+      const center = bounds.getCenter();
+
+      // Create circular marker with default style
+      const marker = L.circleMarker(center, {
+        radius: 4,
+        fillColor: "#87B940",
+        color: "#97d749",
+        weight: 1.0,
+        opacity: 0.95,
+        fillOpacity: 0.35,
+        className: "small-country-marker",
+        pane: paneName,
+        renderer,
+      });
+
+      // Store country data with marker
+      markerDataRef.current.set(marker, country);
+
+      // Get marker element and apply transition styles
+      const applyTransitionStyles = () => {
+        const element = marker.getElement();
+        if (element) {
+          element.style.transition =
+            `fill ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, fill-opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, filter ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}`;
+        }
+      };
+
+      // Apply transitions after marker is added to DOM
+      setTimeout(applyTransitionStyles, 0);
+
+      marker.bindTooltip(country.name, {
+        permanent: false,
+        direction: "center",
+        className: "country-tooltip",
+      });
+
+      marker.on("mouseover", () => {
+        if (selectedCountryRef.current) {
+          marker.closeTooltip();
+          const element = marker.getElement();
+          if (element) {
+            element.style.cursor = "default";
+          }
+          return;
+        }
+        const element = marker.getElement();
+        if (element) {
+          element.style.cursor = "pointer";
+        }
+        onCountryHoverRef.current?.(country.name);
+      });
+
+      marker.on("mouseout", () => {
+        if (selectedCountryRef.current) return;
+        onCountryHoverRef.current?.(null);
+      });
+
+      marker.on("click", (event) => {
+        L.DomEvent.stopPropagation(event);
+        if (selectedCountryRef.current) {
+          return;
+        }
+        onCountryHoverRef.current?.(null);
+        onSelectCountryRef.current(country);
+      });
+
+      markers.addLayer(marker);
+    });
+
+    markers.addTo(map);
+
+    return () => {
+      markers.remove();
+      markerDataRef.current.clear();
+    };
+  }, [geojson, map]);
+
+  // Update marker styles based on state (hover, selection, etc.)
+  useEffect(() => {
+    if (!markersRef.current) {
+      return;
+    }
+
+    markersRef.current.eachLayer((marker) => {
+      const country = markerDataRef.current.get(marker);
+      if (!country) {
+        return;
+      }
+
+      const isSelected = Boolean(
+        country && selectedCountry?.name && country.name === selectedCountry.name
+      );
+      const isActivatedSelected = Boolean(
+        isSelected && activatedCountryName && country.name === activatedCountryName
+      );
+      const isHovered = Boolean(
+        country && hoveredCountryNormalized && normalizeName(country.name) === hoveredCountryNormalized
+      );
+
+      // Determine state string to prevent redundant updates which cause jitter/shaking
+      let newState = "default";
+      if (isActivatedSelected) newState = "activated";
+      else if (isSelected) newState = "selected";
+      else if (isHovered) newState = "hovered";
+
+      if (marker._customState === newState) {
+        return;
+      }
+      marker._customState = newState;
+
+      const style = getMarkerStyle(country);
+      const element = marker.getElement();
+
+      // Apply style
+      marker.setStyle({
+        radius: style.radius,
+        fillColor: style.fillColor,
+        color: style.color,
+        weight: style.weight,
+        opacity: style.opacity,
+        fillOpacity: style.fillOpacity,
+      });
+
+      // Apply glow effect matching polygons
+      if (element) {
+        element.style.transition = `fill ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, fill-opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke-width ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, filter ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, r ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}`;
+      }
+    });
+  }, [hoveredCountry, selectedCountry, activatedCountryName, isPanelOpen, isAttractMode, hoveredCountryNormalized]);
+
+  // Update marker visibility based on zoom
+  useEffect(() => {
+    if (!map || !markersRef.current) {
+      return;
+    }
+
+    const updateMarkerVisibility = () => {
+      const zoom = map.getZoom();
+      const showMarkers = zoom < 4.5;
+
+      markersRef.current.eachLayer((layer) => {
+        const element = layer.getElement?.();
+        if (element) {
+          element.style.display = showMarkers ? "" : "none";
+        }
+      });
+    };
+
+    updateMarkerVisibility();
+    map.on("zoomend", updateMarkerVisibility);
+
+    return () => {
+      map.off("zoomend", updateMarkerVisibility);
+    };
+  }, [map]);
+
+  return null;
+}
+
+function WorldGeoLayer({
+  onSelectCountry,
+  onBackgroundClick,
+  mapRef,
+  selectedCountry,
+  activatedCountryName,
+  isPanelOpen,
+  isAttractMode,
+  hoveredCountry,
+  onCountryHover,
+  countryLayerRefs,
+  onGeojsonLoad,
+  onGeojsonError,
+}) {
+  const map = useMap();
+  const [geojson, setGeojson] = useState(null);
+  const geojsonRef = useRef(null);
+
+  const selectedCountryRef = useRef(selectedCountry);
+  const onSelectCountryRef = useRef(onSelectCountry);
+  const onCountryHoverRef = useRef(onCountryHover);
+
+  useEffect(() => {
+    selectedCountryRef.current = selectedCountry;
+    onSelectCountryRef.current = onSelectCountry;
+    onCountryHoverRef.current = onCountryHover;
+  }, [selectedCountry, onSelectCountry, onCountryHover]);
+
+  useEffect(() => {
+    if (!map) return;
+    if (selectedCountry) {
+      map.dragging.disable();
+    } else {
+      map.dragging.enable();
+    }
+  }, [map, selectedCountry]);
+
+  const commonwealthNames = new Set(countries.map((c) => normalizeName(c.name)));
+  const hoveredCountryNormalized = normalizeName(hoveredCountry || "");
+
+  const getCountryStyle = (feature, options = {}) => {
+    const country = findCountryByFeature(feature, commonwealthNames);
+    const isCommonwealth = Boolean(country);
+    const isSelected = Boolean(country && selectedCountryRef.current?.name && country.name === selectedCountryRef.current.name);
+    const isActivatedSelected = Boolean(
+      isSelected && activatedCountryName && country.name === activatedCountryName
+    );
+    const isExternallyHovered = Boolean(
+      country && hoveredCountryNormalized && normalizeName(country.name) === hoveredCountryNormalized
+    );
+    const isHovered = Boolean((options.isHovered || isExternallyHovered) && isCommonwealth && !isSelected);
+
+    if (isActivatedSelected) {
+      const selectedColor = isPanelOpen ? "#F16458" : "#333536";
+      return {
+        color: selectedColor,
+        weight: 1.8,
+        fillColor: selectedColor,
+        fillOpacity: 0.75,
+        opacity: 1,
+      };
+    }
+
+    if (isSelected) {
+      // When the panel is open, the selected country should feel intentional and
+      // match the coral/red theme of the side card — same as activated state.
+      const selColor = isPanelOpen ? "#F16458" : "#87B940";
+      const selBorder = isPanelOpen ? "#F16458" : "#97d749";
+      return {
+        color: selBorder,
+        weight: 1.8,
+        fillColor: selColor,
+        fillOpacity: 0.75,
+        opacity: 1,
+      };
+    }
+
+    if (isHovered) {
+      return {
+        color: "#F16458",
+        weight: 1.5,
+        fillColor: "#F16458",
+        fillOpacity: 0.65,
+        opacity: 1,
+      };
+    }
+
+    if (isCommonwealth) {
+      return {
+        color: "#97d749",
+        weight: 1.0,
+        fillColor: "#87B940",
+        fillOpacity: 0.35,
+        opacity: 0.95,
+      };
+    }
+
+    return {
+      color: "rgba(255, 255, 255, 0.2)",
+      weight: 1.0,
+      fillColor: "#202738",
+      fillOpacity: 0.35,
+      opacity: 0.95,
+    };
+  };
+
+  useEffect(() => {
+    if (geojsonRef.current && geojson) {
+      geojsonRef.current.eachLayer((layer) => {
+        const feature = layer.feature;
+        if (feature) {
+          layer.setStyle(getCountryStyle(feature));
+          const country = findCountryByFeature(feature, commonwealthNames);
+          const element = layer.getElement?.();
+          if (country && element) {
+            const isActivated = Boolean(
+              selectedCountry?.name && country.name === selectedCountry.name && activatedCountryName === country.name
+            );
+            const isHovered = Boolean(
+              country && hoveredCountryNormalized && normalizeName(country.name) === hoveredCountryNormalized
+            );
+            element.style.transition = `fill ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, fill-opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, stroke-width ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, opacity ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}, filter ${MAP_HIGHLIGHT_TRANSITION_MS}ms ${MAP_HIGHLIGHT_EASE}`;
+
+            if (isAttractMode) {
+              element.style.filter = "none";
+            } else if (isActivated) {
+              element.style.filter = "drop-shadow(0 2px 6px rgba(0,0,0,0.45)) drop-shadow(0 0 12px rgba(241, 100, 88, 0.5))";
+            } else if (isHovered) {
+              element.style.filter = "drop-shadow(0 2px 4px rgba(0,0,0,0.3)) drop-shadow(0 0 8px rgba(241, 100, 88, 0.35))";
+            } else if (selectedCountry?.name === country.name) {
+              element.style.filter = "drop-shadow(0 2px 4px rgba(0,0,0,0.3)) drop-shadow(0 0 8px rgba(151, 215, 73, 0.5))";
+            } else {
+              element.style.filter = "none";
+            }
+          }
+        }
+      });
+    }
+  }, [selectedCountry, activatedCountryName, hoveredCountry, isPanelOpen, isAttractMode]);
+
+  useEffect(() => {
+    if (mapRef) {
+      mapRef.current = map;
+    }
+
+    const handleBackgroundClick = () => {
+      onBackgroundClick();
+    };
+
+    map.on("click", handleBackgroundClick);
+
+    return () => {
+      map.off("click", handleBackgroundClick);
+    };
+  }, [map, mapRef]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadGeojsonWithFallback = async () => {
+      const errors = [];
+
+      for (const sourceUrl of GEOJSON_FALLBACK_URLS) {
+        try {
+          const response = await fetch(sourceUrl, { headers: { Accept: "application/json, text/plain, */*" } });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+          if (!data || !Array.isArray(data.features)) {
+            throw new Error("Invalid GeoJSON payload");
+          }
+
+          return data;
+        } catch (error) {
+          errors.push(`${sourceUrl}: ${error?.message || "Unknown error"}`);
+        }
+      }
+
+      throw new Error(errors.join(" | "));
+    };
+
+    loadGeojsonWithFallback()
+      .then((data) => {
+        if (isActive) {
+          setGeojson(data);
+          onGeojsonLoad(data);
+          onGeojsonError?.("");
+
+          // Comprehensive GeoJSON Audit
+          const auditResults = [];
+          const missingFromGeoJSON = [];
+          const foundInGeoJSON = [];
+
