@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState, useEffect } from 'react';
+import React, { useRef, useCallback, useState, useEffect, memo } from 'react';
 import MapGL, { Source, Layer, Marker } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import countries from '../data/countries.json';
@@ -457,4 +457,6 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
   );
 });
 
-export default MapLibreMap;
+// memo() prevents map re-renders when AppNew re-renders for unrelated state
+// (scroll events, gallery index changes, etc.) — only re-renders when own props change
+export default memo(MapLibreMap);

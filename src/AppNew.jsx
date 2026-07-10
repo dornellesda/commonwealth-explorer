@@ -1848,7 +1848,10 @@ export default function App() {
   const [hasOverviewOverflow, setHasOverviewOverflow] = useState(false);
   const [recordCollectionsDisplayLimit, setRecordCollectionsDisplayLimit] = useState(3);
   const [validatedHeroImage, setValidatedHeroImage] = useState(null);
-  const [isPanelScrolled, setIsPanelScrolled] = useState(false);
+  // Use a ref (not state) for scroll-driven morph so onScroll never triggers a React re-render
+  const isPanelScrolledRef = useRef(false);
+  const stampMorphRef = useRef(null);   // ref to the circular stamp div
+  const memberTextRef = useRef(null);   // ref to the "Member since" text div
   const [isIdleAttractMode, setIsIdleAttractMode] = useState(true);
   const [isButtonTransitioning, setIsButtonTransitioning] = useState(false);
   const [attractRouteSwooshes, setAttractRouteSwooshes] = useState([]);
@@ -2203,7 +2206,17 @@ const dockCardsRevealTimeoutRef = useRef(null);
     setIsPanelVisible(false);
     setIsOverlayVisible(false);
     setIsContentVisible(false);
-    setIsPanelScrolled(false);
+    // Reset scroll-morph state imperatively — no re-render needed
+    isPanelScrolledRef.current = false;
+    if (stampMorphRef.current) {
+      stampMorphRef.current.style.opacity = "0";
+      stampMorphRef.current.style.transform = "scale(1) rotate(-8deg) translateY(-8px)";
+      stampMorphRef.current.style.pointerEvents = "auto";
+    }
+    if (memberTextRef.current) {
+      memberTextRef.current.style.opacity = "0";
+      memberTextRef.current.style.transform = "translateY(10px)";
+    }
     setActivatedCountryName(null);
 
     const hasCachedCollections = Object.prototype.hasOwnProperty.call(
@@ -2230,6 +2243,10 @@ const dockCardsRevealTimeoutRef = useRef(null);
     }, 700);
     const contentTimeout = window.setTimeout(() => {
       setIsContentVisible(true);
+      // Also show the stamp imperatively (it starts at opacity:0 and isn't driven by isPanelScrolled)
+      if (stampMorphRef.current && !isPanelScrolledRef.current) {
+        stampMorphRef.current.style.opacity = "1";
+      }
     }, 760);
 
     selectionTimelineTimeoutsRef.current = [
@@ -2513,6 +2530,8 @@ const dockCardsRevealTimeoutRef = useRef(null);
     }
 
     const track = galleryTrackRef.current;
+
+    // Calculate and set gallery state — only called on mount and window resize
     const updateGalleryAffordances = () => {
       setShowGalleryNavigation(track.scrollWidth - track.clientWidth > 4);
 
@@ -2539,22 +2558,42 @@ const dockCardsRevealTimeoutRef = useRef(null);
     };
 
     updateGalleryAffordances();
-    track.addEventListener("scroll", updateGalleryAffordances, { passive: true });
 
-    let resizeObserver;
-    if (typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(updateGalleryAffordances);
-      resizeObserver.observe(track);
-    }
+    // NOTE: Only listen for horizontal gallery scroll — not vertical panel scroll.
+    // Debounce via rAF so rapid scroll events are batched into one React state update.
+    let rafId = null;
+    const handleGalleryScroll = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const trackChildren = Array.from(track.children);
+        if (!trackChildren.length) return;
+        const trackCenter = track.scrollLeft + track.clientWidth / 2;
+        let nearestIndex = 0;
+        let nearestDistance = Number.POSITIVE_INFINITY;
+        trackChildren.forEach((child, index) => {
+          const childCenter = child.offsetLeft + child.clientWidth / 2;
+          const distance = Math.abs(childCenter - trackCenter);
+          if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestIndex = index;
+          }
+        });
+        setGalleryActiveIndex(nearestIndex);
+      });
+    };
 
+    track.addEventListener("scroll", handleGalleryScroll, { passive: true });
+
+    // ResizeObserver removed — it fired on every vertical panel scroll
+    // because scrolling changes the gallery element's bounding rect.
+    // Window resize is enough to recalculate navigation visibility.
     window.addEventListener("resize", updateGalleryAffordances);
 
     return () => {
-      track.removeEventListener("scroll", updateGalleryAffordances);
+      track.removeEventListener("scroll", handleGalleryScroll);
       window.removeEventListener("resize", updateGalleryAffordances);
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
+      if (rafId) cancelAnimationFrame(rafId);
     };
   }, [selectedCountry?.name, isPanelOpen]);
 
@@ -4727,6 +4766,9 @@ const dockCardsRevealTimeoutRef = useRef(null);
             cursor: "pointer",
             transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1), height 400ms cubic-bezier(0.22, 1, 0.36, 1), border-radius 400ms ease, background 400ms ease",
             boxSizing: "border-box",
+            willChange: "width, height, border-radius", // Promote layout changes to GPU
+            transform: "translateZ(0)", // Create a stacking context to isolate child repaints
+            contain: "layout", // Prevent internal layout changes from affecting the page
           }}
         >
           {/* Conic-gradient rotating border beam (FamilySearch brand colors) that fades in/out occasionally */}
@@ -4741,6 +4783,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
             transformOrigin: "center center",
             pointerEvents: "none",
             zIndex: 1,
+            willChange: "transform, opacity", // Promote to its own GPU layer – avoids repainting parent on every frame
           }} />
 
           {/* Inner Dark Glass Container */}
@@ -5070,11 +5113,17 @@ const dockCardsRevealTimeoutRef = useRef(null);
             position: "absolute",
             inset: 0,
             background: "rgba(0, 0, 0, 0.12)",
-            backdropFilter: isOverlayVisible ? "blur(4px)" : "blur(0px)",
+            backdropFilter: isOverlayVisible ? "blur(4px)" : "none",
+            WebkitBackdropFilter: isOverlayVisible ? "blur(4px)" : "none",
             pointerEvents: "none",
             zIndex: 3,
             opacity: isOverlayVisible ? 1 : 0,
-            transition: "opacity 300ms cubic-bezier(0.22, 1, 0.36, 1), backdrop-filter 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+            transition: "opacity 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+            // GPU layer isolation — prevents the full-screen blur from being re-evaluated
+            // during every child scroll / animation frame
+            willChange: "opacity",
+            transform: "translateZ(0)",
+            display: isOverlayVisible ? undefined : "none",
           }}
         />
       </div>
@@ -5091,8 +5140,8 @@ const dockCardsRevealTimeoutRef = useRef(null);
           top: "50%",
           left: "50%",
           transform: isPanelVisible
-            ? "translate(-50%, -50%)"
-            : "translate(-50%, calc(-50% + 90px))",
+            ? "translate(-50%, -50%) translateZ(0)"
+            : "translate(-50%, calc(-50% + 90px)) translateZ(0)",
           width: "min(900px, 92vw)",
           maxHeight: "75vh",
           background: "linear-gradient(155deg, rgba(15, 23, 42, 0.86) 0%, rgba(2, 6, 23, 0.8) 52%, rgba(15, 23, 42, 0.74) 100%)",
@@ -5103,11 +5152,13 @@ const dockCardsRevealTimeoutRef = useRef(null);
           opacity: isPanelVisible ? 1 : 0,
           transition: "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1)",
           pointerEvents: isPanelVisible ? "auto" : "none",
-          overflow: "hidden", // Crucial: clip the inner scrollable container to rounded corners
+          overflow: "hidden",
           zIndex: 1000,
           border: "1px solid rgba(203, 213, 225, 0.44)",
           display: "flex",
           flexDirection: "column",
+          willChange: "transform, opacity", // Own GPU layer — scrolling inside never triggers outer repaint
+          isolation: "isolate", // Stacking context so children can't bleed into page compositor
         }}
       >
         {/* Fixed Close button at the top-right of the card */}
@@ -5209,15 +5260,14 @@ const dockCardsRevealTimeoutRef = useRef(null);
             <div style={{ position: "relative", zIndex: 4, display: "flex", flexDirection: "column", alignItems: "flex-end", height: "100%", justifyContent: "flex-end", paddingBottom: "4px" }}>
               {selectedCountryMetadata?.memberSince ? (
                 <>
-                  {/* Circular Stamp: Disappears on scroll */}
+                  {/* Circular Stamp: Disappears on scroll — driven imperatively via stampMorphRef */}
                   <div
+                    ref={stampMorphRef}
                     style={{
                       width: "140px",
-                      opacity: isPanelScrolled ? 0 : (isContentVisible ? 1 : 0),
-                      transform: isPanelScrolled
-                        ? "scale(0.7) rotate(-15deg) translateY(-20px)"
-                        : "scale(1) rotate(-8deg) translateY(-8px)",
-                      pointerEvents: isPanelScrolled ? "none" : "auto",
+                      opacity: 0, // starts hidden; isContentVisible effect sets it to 1
+                      transform: "scale(1) rotate(-8deg) translateY(-8px)",
+                      pointerEvents: "auto",
                       transition: "opacity 320ms ease, transform 380ms cubic-bezier(0.22, 1, 0.36, 1)",
                       position: "absolute",
                       right: 0,
@@ -5227,8 +5277,9 @@ const dockCardsRevealTimeoutRef = useRef(null);
                     {renderCommonwealthStamp(String(selectedCountryMetadata.memberSince))}
                   </div>
 
-                  {/* Morph text line saying "Member since [year]" */}
+                  {/* Morph text line saying "Member since [year]" — driven imperatively via memberTextRef */}
                   <div
+                    ref={memberTextRef}
                     style={{
                       fontSize: "0.7rem",
                       fontWeight: 700,
@@ -5236,11 +5287,11 @@ const dockCardsRevealTimeoutRef = useRef(null);
                       letterSpacing: "0.08em",
                       textTransform: "uppercase",
                       textShadow: "0 2px 6px rgba(0,0,0,0.5)",
-                      opacity: isPanelScrolled ? 1 : 0,
-                      transform: isPanelScrolled ? "translateY(0)" : "translateY(10px)",
+                      opacity: 0, // starts hidden; imperative scroll handler fades it in
+                      transform: "translateY(10px)",
                       transition: "opacity 320ms ease, transform 380ms cubic-bezier(0.22, 1, 0.36, 1)",
                       pointerEvents: "none",
-                      marginBottom: "6px", // Sits just above the image credit line!
+                      marginBottom: "6px",
                     }}
                   >
                     Member since {selectedCountryMetadata.memberSince}
@@ -5285,7 +5336,22 @@ const dockCardsRevealTimeoutRef = useRef(null);
           className="floating-story-card-scroll"
           onScroll={(e) => {
             const scrollTop = e.currentTarget.scrollTop;
-            setIsPanelScrolled(scrollTop > 20);
+            const scrolled = scrollTop > 20;
+            // Only update DOM if threshold crossed — no React setState, no re-render
+            if (scrolled !== isPanelScrolledRef.current) {
+              isPanelScrolledRef.current = scrolled;
+              if (stampMorphRef.current) {
+                stampMorphRef.current.style.opacity = scrolled ? "0" : "1";
+                stampMorphRef.current.style.transform = scrolled
+                  ? "scale(0.7) rotate(-15deg) translateY(-20px)"
+                  : "scale(1) rotate(-8deg) translateY(-8px)";
+                stampMorphRef.current.style.pointerEvents = scrolled ? "none" : "auto";
+              }
+              if (memberTextRef.current) {
+                memberTextRef.current.style.opacity = scrolled ? "1" : "0";
+                memberTextRef.current.style.transform = scrolled ? "translateY(0)" : "translateY(10px)";
+              }
+            }
           }}
           style={{
             width: "100%",

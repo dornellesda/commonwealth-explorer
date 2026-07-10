@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, memo } from 'react';
 
 const SMOOTH_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -12,7 +12,7 @@ function buildIndex(countries) {
   return index;
 }
 
-export default function UniversalDock({
+function UniversalDock({
   isMenuOpen,
   isDockTransitioning,
   markDockInteraction,
@@ -301,3 +301,6 @@ export default function UniversalDock({
     </div>
   );
 }
+
+// memo() prevents re-renders when AppNew updates unrelated state
+export default memo(UniversalDock);
