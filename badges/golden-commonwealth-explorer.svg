@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFE47E"/><stop offset="30%" stop-color="#E5B22D"/><stop offset="70%" stop-color="#B3861B"/><stop offset="100%" stop-color="#FFE47E"/></linearGradient>
+    <linearGradient id="purple" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C48BE0"/><stop offset="50%" stop-color="#8A42B5"/><stop offset="100%" stop-color="#4A156B"/></linearGradient>
+    <linearGradient id="accent" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#fff"/><stop offset="50%" stop-color="#FFE066"/><stop offset="100%" stop-color="#9C7310"/></linearGradient>
+  </defs>
+  <polygon points="50,6 88.1,28 88.1,72 50,94 11.9,72 11.9,28" fill="url(#gold)"/><polygon points="50,9 85.5,29.5 85.5,70.5 50,91 14.5,70.5 14.5,29.5" fill="url(#purple)"/><path d="m50 9 35.5 20.5L50 50Z" fill="url(#gold)" opacity=".25"/><path d="m85.5 70.5L50 91V50Z" fill="url(#gold)" opacity=".2"/><path d="m14.5 70.5L50 91V50Z" fill="url(#gold)" opacity=".35"/>
+  <g transform="translate(15 15) scale(.7)"><path d="m50 5 4 41-4 4-4-4z" fill="url(#accent)"/><path d="m50 95 4-41-4-4-4 4z" fill="url(#gold)"/><path d="m5 50 41-4 4 4-4 4z" fill="url(#gold)"/><path d="m95 50-41-4-4 4 4 4z" fill="url(#accent)"/><circle cx="50" cy="50" r="5" fill="url(#gold)" stroke="#fff" stroke-width=".5"/></g>
+  <polygon points="50,11 83.5,30.5 83.5,69.5 50,89 16.5,69.5 16.5,30.5" stroke="url(#gold)" stroke-width=".75"/>
+</svg>
