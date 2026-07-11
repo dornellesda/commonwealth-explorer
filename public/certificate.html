@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Opening your certificate…</title>
+  <meta name="robots" content="noindex" />
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #EFE9DA;
+      color: #4a4535;
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <p>Opening your certificate…</p>
+  <script>
+    // This static file lets the QR code / certificate URL resolve correctly
+    // on GitHub Pages (which has no server-side routing) even before the
+    // React app has loaded. It simply forwards the encoded payload to the
+    // SPA running at "/", which renders the real certificate page.
+    (function () {
+      var search = window.location.search; // includes leading "?" or is ""
+      var suffix = search ? (search + "&certificate=1") : "?certificate=1";
+      window.location.replace("/" + suffix);
+    })();
+  </script>
+  <noscript>
+    Please enable JavaScript, or <a href="/?certificate=1">continue to your certificate</a>.
+  </noscript>
+</body>
+</html>

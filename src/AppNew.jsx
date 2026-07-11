@@ -4,6 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import { GeoJSON, MapContainer, useMap } from "react-leaflet";
 import MapLibreMap from './components/MapLibreMap';
+import AchievementModal from './components/certificate/AchievementModal';
+import CertificateNameDialog from './components/certificate/CertificateNameDialog';
+import CertificateQRCode from './components/certificate/CertificateQRCode';
+import { LEVEL_NAMES } from './components/certificate/badges';
+import { buildCertificateUrl } from './components/certificate/payload';
 import countries from "./data/countries.json";
 import countryResearchLinks from "./data/countryResearchLinks.json";
 import commonwealthMetadata from "./data/commonwealthMetadata.json";
@@ -1864,6 +1869,13 @@ const dockCardsRevealTimeoutRef = useRef(null);
   const [voyagerNotice, setVoyagerNotice] = useState(null);
   const [voyagerCompletionVisible, setVoyagerCompletionVisible] = useState(false);
   const [achievementUnlocked, setAchievementUnlocked] = useState(null);
+  // Certificate flow state (Phases 2 & 3): null | 'name' | 'qr'.
+  // Kept separate from achievementUnlocked so the achievement modal can be
+  // dismissed on its own while the certificate flow, once started, carries
+  // its own name entry and QR steps.
+  const [certificateStep, setCertificateStep] = useState(null);
+  const [certificateName, setCertificateName] = useState('');
+  const storyCardWrapperRef = useRef(null);
   const [isVoyagerExpanded, setIsVoyagerExpanded] = useState(false);
   const [voyagerBadgeAnimToken, setVoyagerBadgeAnimToken] = useState(0);
   const [voyagerAuraToken, setVoyagerAuraToken] = useState(0);
@@ -2087,8 +2099,8 @@ const dockCardsRevealTimeoutRef = useRef(null);
     window.__test_trigger = () => {
       setAchievementUnlocked({
         count: 5,
-        title: "Curious Explorer",
-        badge: getBadgeForCount(5)
+        badgeLevel: 5,
+        levelName: LEVEL_NAMES[5],
       });
     };
   }, []);
@@ -2136,14 +2148,6 @@ const dockCardsRevealTimeoutRef = useRef(null);
 
       // Check for milestone achievements
       const milestoneCounts = [5, 10, 25, 40, 56];
-      const milestoneTitles = {
-        5: "It Begins as a Curious Explorer",
-        10: "That Feeling of Commonwealth Traveller",
-        25: "You're a serious Global Navigator",
-        40: "Way to go World Voyager",
-        56: "You're a Golden Commonwealth Explorer"
-      };
-
       const reachedMilestone = milestoneCounts.find(m => nextVisitedCountries.length === m);
 
       if (reachedMilestone) {
@@ -2151,18 +2155,15 @@ const dockCardsRevealTimeoutRef = useRef(null);
         // Fire aura immediately on milestone
         setVoyagerAuraToken((t) => t + 1);
 
-        // Show achievement unlock animation
+        // Show the achievement modal. It stays open — with a Congratulations
+        // message and a View Certificate action — until the visitor
+        // dismisses it or starts the certificate flow, per the museum-quality
+        // achievement experience (no auto-dismiss, no loud effects).
         setAchievementUnlocked({
           count: reachedMilestone,
-          title: milestoneTitles[reachedMilestone],
-          badge: getBadgeForCount(reachedMilestone)
+          badgeLevel: reachedMilestone,
+          levelName: LEVEL_NAMES[reachedMilestone],
         });
-
-        // Auto-dismiss after 4 seconds
-        achievementUnlockTimeoutRef.current = window.setTimeout(() => {
-          setAchievementUnlocked(null);
-          achievementUnlockTimeoutRef.current = null;
-        }, 4000);
       } else {
         // Fire aura 800ms after a regular new country discovery
         if (voyagerAuraTimeoutRef.current) clearTimeout(voyagerAuraTimeoutRef.current);
@@ -2247,6 +2248,31 @@ const dockCardsRevealTimeoutRef = useRef(null);
   const handleClosePanel = () => {
     handleReset();
   };
+
+  // Clicking anywhere outside the country popup card closes it and
+  // recentres the map back to the full Commonwealth view (same as the
+  // close "x" button / clicking bare map background), except while the
+  // achievement or certificate overlays are showing on top of it.
+  useEffect(() => {
+    if (!selectedCountry || achievementUnlocked || certificateStep) {
+      return undefined;
+    }
+
+    const handleOutsidePointer = (event) => {
+      if (storyCardWrapperRef.current && storyCardWrapperRef.current.contains(event.target)) {
+        return;
+      }
+      handleClosePanel();
+    };
+
+    document.addEventListener("mousedown", handleOutsidePointer);
+    document.addEventListener("touchstart", handleOutsidePointer, { passive: true });
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsidePointer);
+      document.removeEventListener("touchstart", handleOutsidePointer);
+    };
+  }, [selectedCountry, achievementUnlocked, certificateStep]);
 
   const handleViewEntireCommonwealth = () => {
     handleReset();
@@ -5116,6 +5142,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
 
       {/* FLOATING STORY CARD - Decoupled background to prevent scroll repaint flicker */}
       <div
+        ref={storyCardWrapperRef}
         className="floating-story-card-wrapper"
         onClick={(event) => event.stopPropagation()}
         onWheel={(event) => event.stopPropagation()}
@@ -5730,119 +5757,42 @@ const dockCardsRevealTimeoutRef = useRef(null);
         </div>
       </div>
 
-      {/* ACHIEVEMENT UNLOCK OVERLAY */}
-      {achievementUnlocked ? (
-        <div
-          onClick={(event) => event.stopPropagation()}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.75)",
-            backdropFilter: "blur(8px)",
-            zIndex: 9998,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "2rem",
-            animation: "achievementUnlock 400ms ease-out",
-            pointerEvents: "auto",
+      {/* ACHIEVEMENT + CERTIFICATE FLOW (Phases 1-3) */}
+      {achievementUnlocked && !certificateStep ? (
+        <AchievementModal
+          unlocked={achievementUnlocked}
+          onClose={() => setAchievementUnlocked(null)}
+          onViewCertificate={() => setCertificateStep('name')}
+        />
+      ) : null}
+
+      {certificateStep === 'name' ? (
+        <CertificateNameDialog
+          onCancel={() => setCertificateStep(null)}
+          onSubmit={(name) => {
+            setCertificateName(name);
+            setCertificateStep('qr');
           }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "1.5rem",
-              animation: "badgeScale 600ms cubic-bezier(0.22, 1, 0.36, 1)",
-            }}
-          >
-            {/* Badge with FamilySearch rotating neon border beam */}
-            <div style={{
-              position: "relative",
-              width: "180px",
-              height: "180px",
-              borderRadius: "50%",
-              padding: "2px", // Thickness of the glowing border
-              background: "rgba(255, 255, 255, 0.05)",
-              overflow: "hidden",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
-              animation: "badgeScale 620ms cubic-bezier(0.34, 1.56, 0.64, 1)",
-              marginBottom: "1.5rem",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}>
-              {/* Rotating conic gradient using FS Green & Blue */}
-              <div style={{
-                position: "absolute",
-                top: "-150%",
-                left: "-150%",
-                width: "400%",
-                height: "400%",
-                background: "conic-gradient(from 0deg, transparent 35%, #87b940 48%, #1ba9e6 58%, #87b940 70%, transparent 85%)",
-                animation: "spin 3.5s linear infinite",
-                transformOrigin: "center center",
-                pointerEvents: "none",
-                zIndex: 1,
-              }} />
+        />
+      ) : null}
 
-              {/* Inner Dark Glass circle */}
-              <div style={{
-                position: "relative",
-                zIndex: 2,
-                width: "100%",
-                height: "100%",
-                borderRadius: "50%",
-                background: "rgba(15, 23, 42, 0.88)", // Dark slate glass
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
-              }}>
-                <div style={{ 
-                  width: "144px", 
-                  height: "144px", 
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  animation: "celebrationPulse 1.4s ease-in-out 620ms infinite",
-                }}>
-                  {achievementUnlocked.badge}
-                </div>
-              </div>
-            </div>
-
-            {/* Title with fade-in */}
-            <div
-              style={{
-                fontSize: "clamp(1.8rem, 4vw, 2.8rem)",
-                fontWeight: 700,
-                color: "#fff",
-                textAlign: "center",
-                textShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
-                animation: "titleFadeIn 500ms ease-out 200ms both",
-                letterSpacing: "0.02em",
-              }}
-            >
-              {achievementUnlocked.title}
-            </div>
-
-            {/* Count indicator */}
-            <div
-              style={{
-                fontSize: "1rem",
-                color: "rgba(255, 255, 255, 0.8)",
-                textTransform: "uppercase",
-                letterSpacing: "0.15em",
-                fontWeight: 600,
-                animation: "titleFadeIn 500ms ease-out 400ms both",
-              }}
-            >
-              {achievementUnlocked.count} of 56 Countries
-            </div>
-          </div>
-        </div>
+      {certificateStep === 'qr' && achievementUnlocked ? (
+        <CertificateQRCode
+          name={certificateName}
+          badgeLevel={achievementUnlocked.badgeLevel}
+          levelName={achievementUnlocked.levelName}
+          certificateUrl={buildCertificateUrl({
+            name: certificateName,
+            level: achievementUnlocked.levelName,
+            badgeLevel: achievementUnlocked.badgeLevel,
+            date: new Date().toISOString(),
+          })}
+          onClose={() => {
+            setAchievementUnlocked(null);
+            setCertificateStep(null);
+            setCertificateName('');
+          }}
+        />
       ) : null}
 
       {lightboxItem ? (
