@@ -1,0 +1,1502 @@
+diff --git a/package.json b/package.json
+index 999cd40..64baa8d 100644
+--- a/package.json
++++ b/package.json
+@@ -20,10 +20,13 @@
+   "dependencies": {
+     "cors": "^2.8.6",
+     "express": "^5.2.1",
++    "html-to-image": "^1.11.13",
++    "jspdf": "^4.2.1",
+     "leaflet": "^1.9.4",
+     "lucide-react": "^1.24.0",
+     "maplibre-gl": "^5.24.0",
+     "multer": "^2.2.0",
++    "qrcode.react": "^4.2.0",
+     "react": "^19.2.7",
+     "react-dom": "^19.2.7",
+     "react-leaflet": "^5.0.0",
+diff --git a/public/certificate.html b/public/certificate.html
+new file mode 100644
+index 0000000..d802c17
+--- /dev/null
++++ b/public/certificate.html
+@@ -0,0 +1,37 @@
++<!doctype html>
++<html lang="en">
++<head>
++  <meta charset="UTF-8" />
++  <title>Opening your certificate…</title>
++  <meta name="robots" content="noindex" />
++  <style>
++    body {
++      margin: 0;
++      min-height: 100vh;
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      background: #EFE9DA;
++      color: #4a4535;
++      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
++    }
++  </style>
++</head>
++<body>
++  <p>Opening your certificate…</p>
++  <script>
++    // This static file lets the QR code / certificate URL resolve correctly
++    // on GitHub Pages (which has no server-side routing) even before the
++    // React app has loaded. It simply forwards the encoded payload to the
++    // SPA running at "/", which renders the real certificate page.
++    (function () {
++      var search = window.location.search; // includes leading "?" or is ""
++      var suffix = search ? (search + "&certificate=1") : "?certificate=1";
++      window.location.replace("/" + suffix);
++    })();
++  </script>
++  <noscript>
++    Please enable JavaScript, or <a href="/?certificate=1">continue to your certificate</a>.
++  </noscript>
++</body>
++</html>
+diff --git a/src/AppNew.jsx b/src/AppNew.jsx
+index a06cead..bc87109 100644
+--- a/src/AppNew.jsx
++++ b/src/AppNew.jsx
+@@ -4,6 +4,11 @@ import { useEffect, useRef, useState } from "react";
+ import L from "leaflet";
+ import { GeoJSON, MapContainer, useMap } from "react-leaflet";
+ import MapLibreMap from './components/MapLibreMap';
++import AchievementModal from './components/certificate/AchievementModal';
++import CertificateNameDialog from './components/certificate/CertificateNameDialog';
++import CertificateQRCode from './components/certificate/CertificateQRCode';
++import { LEVEL_NAMES } from './components/certificate/badges';
++import { buildCertificateUrl } from './components/certificate/payload';
+ import countries from "./data/countries.json";
+ import countryResearchLinks from "./data/countryResearchLinks.json";
+ import commonwealthMetadata from "./data/commonwealthMetadata.json";
+@@ -1864,6 +1869,13 @@ const dockCardsRevealTimeoutRef = useRef(null);
+   const [voyagerNotice, setVoyagerNotice] = useState(null);
+   const [voyagerCompletionVisible, setVoyagerCompletionVisible] = useState(false);
+   const [achievementUnlocked, setAchievementUnlocked] = useState(null);
++  // Certificate flow state (Phases 2 & 3): null | 'name' | 'qr'.
++  // Kept separate from achievementUnlocked so the achievement modal can be
++  // dismissed on its own while the certificate flow, once started, carries
++  // its own name entry and QR steps.
++  const [certificateStep, setCertificateStep] = useState(null);
++  const [certificateName, setCertificateName] = useState('');
++  const storyCardWrapperRef = useRef(null);
+   const [isVoyagerExpanded, setIsVoyagerExpanded] = useState(false);
+   const [voyagerBadgeAnimToken, setVoyagerBadgeAnimToken] = useState(0);
+   const [voyagerAuraToken, setVoyagerAuraToken] = useState(0);
+@@ -2087,8 +2099,8 @@ const dockCardsRevealTimeoutRef = useRef(null);
+     window.__test_trigger = () => {
+       setAchievementUnlocked({
+         count: 5,
+-        title: "Curious Explorer",
+-        badge: getBadgeForCount(5)
++        badgeLevel: 5,
++        levelName: LEVEL_NAMES[5],
+       });
+     };
+   }, []);
+@@ -2136,14 +2148,6 @@ const dockCardsRevealTimeoutRef = useRef(null);
+ 
+       // Check for milestone achievements
+       const milestoneCounts = [5, 10, 25, 40, 56];
+-      const milestoneTitles = {
+-        5: "It Begins as a Curious Explorer",
+-        10: "That Feeling of Commonwealth Traveller",
+-        25: "You're a serious Global Navigator",
+-        40: "Way to go World Voyager",
+-        56: "You're a Golden Commonwealth Explorer"
+-      };
+-
+       const reachedMilestone = milestoneCounts.find(m => nextVisitedCountries.length === m);
+ 
+       if (reachedMilestone) {
+@@ -2151,18 +2155,15 @@ const dockCardsRevealTimeoutRef = useRef(null);
+         // Fire aura immediately on milestone
+         setVoyagerAuraToken((t) => t + 1);
+ 
+-        // Show achievement unlock animation
++        // Show the achievement modal. It stays open — with a Congratulations
++        // message and a View Certificate action — until the visitor
++        // dismisses it or starts the certificate flow, per the museum-quality
++        // achievement experience (no auto-dismiss, no loud effects).
+         setAchievementUnlocked({
+           count: reachedMilestone,
+-          title: milestoneTitles[reachedMilestone],
+-          badge: getBadgeForCount(reachedMilestone)
++          badgeLevel: reachedMilestone,
++          levelName: LEVEL_NAMES[reachedMilestone],
+         });
+-
+-        // Auto-dismiss after 4 seconds
+-        achievementUnlockTimeoutRef.current = window.setTimeout(() => {
+-          setAchievementUnlocked(null);
+-          achievementUnlockTimeoutRef.current = null;
+-        }, 4000);
+       } else {
+         // Fire aura 800ms after a regular new country discovery
+         if (voyagerAuraTimeoutRef.current) clearTimeout(voyagerAuraTimeoutRef.current);
+@@ -2248,6 +2249,31 @@ const dockCardsRevealTimeoutRef = useRef(null);
+     handleReset();
+   };
+ 
++  // Clicking anywhere outside the country popup card closes it and
++  // recentres the map back to the full Commonwealth view (same as the
++  // close "x" button / clicking bare map background), except while the
++  // achievement or certificate overlays are showing on top of it.
++  useEffect(() => {
++    if (!selectedCountry || achievementUnlocked || certificateStep) {
++      return undefined;
++    }
++
++    const handleOutsidePointer = (event) => {
++      if (storyCardWrapperRef.current && storyCardWrapperRef.current.contains(event.target)) {
++        return;
++      }
++      handleClosePanel();
++    };
++
++    document.addEventListener("mousedown", handleOutsidePointer);
++    document.addEventListener("touchstart", handleOutsidePointer, { passive: true });
++
++    return () => {
++      document.removeEventListener("mousedown", handleOutsidePointer);
++      document.removeEventListener("touchstart", handleOutsidePointer);
++    };
++  }, [selectedCountry, achievementUnlocked, certificateStep]);
++
+   const handleViewEntireCommonwealth = () => {
+     handleReset();
+   };
+@@ -5116,6 +5142,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
+ 
+       {/* FLOATING STORY CARD - Decoupled background to prevent scroll repaint flicker */}
+       <div
++        ref={storyCardWrapperRef}
+         className="floating-story-card-wrapper"
+         onClick={(event) => event.stopPropagation()}
+         onWheel={(event) => event.stopPropagation()}
+@@ -5730,119 +5757,42 @@ const dockCardsRevealTimeoutRef = useRef(null);
+         </div>
+       </div>
+ 
+-      {/* ACHIEVEMENT UNLOCK OVERLAY */}
+-      {achievementUnlocked ? (
+-        <div
+-          onClick={(event) => event.stopPropagation()}
+-          style={{
+-            position: "fixed",
+-            inset: 0,
+-            background: "rgba(0, 0, 0, 0.75)",
+-            backdropFilter: "blur(8px)",
+-            zIndex: 9998,
+-            display: "flex",
+-            alignItems: "center",
+-            justifyContent: "center",
+-            padding: "2rem",
+-            animation: "achievementUnlock 400ms ease-out",
+-            pointerEvents: "auto",
+-          }}
+-        >
+-          <div
+-            style={{
+-              display: "flex",
+-              flexDirection: "column",
+-              alignItems: "center",
+-              gap: "1.5rem",
+-              animation: "badgeScale 600ms cubic-bezier(0.22, 1, 0.36, 1)",
+-            }}
+-          >
+-            {/* Badge with FamilySearch rotating neon border beam */}
+-            <div style={{
+-              position: "relative",
+-              width: "180px",
+-              height: "180px",
+-              borderRadius: "50%",
+-              padding: "2px", // Thickness of the glowing border
+-              background: "rgba(255, 255, 255, 0.05)",
+-              overflow: "hidden",
+-              boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
+-              animation: "badgeScale 620ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+-              marginBottom: "1.5rem",
+-              display: "flex",
+-              alignItems: "center",
+-              justifyContent: "center",
+-            }}>
+-              {/* Rotating conic gradient using FS Green & Blue */}
+-              <div style={{
+-                position: "absolute",
+-                top: "-150%",
+-                left: "-150%",
+-                width: "400%",
+-                height: "400%",
+-                background: "conic-gradient(from 0deg, transparent 35%, #87b940 48%, #1ba9e6 58%, #87b940 70%, transparent 85%)",
+-                animation: "spin 3.5s linear infinite",
+-                transformOrigin: "center center",
+-                pointerEvents: "none",
+-                zIndex: 1,
+-              }} />
+-
+-              {/* Inner Dark Glass circle */}
+-              <div style={{
+-                position: "relative",
+-                zIndex: 2,
+-                width: "100%",
+-                height: "100%",
+-                borderRadius: "50%",
+-                background: "rgba(15, 23, 42, 0.88)", // Dark slate glass
+-                display: "flex",
+-                alignItems: "center",
+-                justifyContent: "center",
+-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
+-              }}>
+-                <div style={{ 
+-                  width: "144px", 
+-                  height: "144px", 
+-                  display: "flex",
+-                  alignItems: "center",
+-                  justifyContent: "center",
+-                  animation: "celebrationPulse 1.4s ease-in-out 620ms infinite",
+-                }}>
+-                  {achievementUnlocked.badge}
+-                </div>
+-              </div>
+-            </div>
++      {/* ACHIEVEMENT + CERTIFICATE FLOW (Phases 1-3) */}
++      {achievementUnlocked && !certificateStep ? (
++        <AchievementModal
++          unlocked={achievementUnlocked}
++          onClose={() => setAchievementUnlocked(null)}
++          onViewCertificate={() => setCertificateStep('name')}
++        />
++      ) : null}
+ 
+-            {/* Title with fade-in */}
+-            <div
+-              style={{
+-                fontSize: "clamp(1.8rem, 4vw, 2.8rem)",
+-                fontWeight: 700,
+-                color: "#fff",
+-                textAlign: "center",
+-                textShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+-                animation: "titleFadeIn 500ms ease-out 200ms both",
+-                letterSpacing: "0.02em",
+-              }}
+-            >
+-              {achievementUnlocked.title}
+-            </div>
++      {certificateStep === 'name' ? (
++        <CertificateNameDialog
++          onCancel={() => setCertificateStep(null)}
++          onSubmit={(name) => {
++            setCertificateName(name);
++            setCertificateStep('qr');
++          }}
++        />
++      ) : null}
+ 
+-            {/* Count indicator */}
+-            <div
+-              style={{
+-                fontSize: "1rem",
+-                color: "rgba(255, 255, 255, 0.8)",
+-                textTransform: "uppercase",
+-                letterSpacing: "0.15em",
+-                fontWeight: 600,
+-                animation: "titleFadeIn 500ms ease-out 400ms both",
+-              }}
+-            >
+-              {achievementUnlocked.count} of 56 Countries
+-            </div>
+-          </div>
+-        </div>
++      {certificateStep === 'qr' && achievementUnlocked ? (
++        <CertificateQRCode
++          name={certificateName}
++          badgeLevel={achievementUnlocked.badgeLevel}
++          levelName={achievementUnlocked.levelName}
++          certificateUrl={buildCertificateUrl({
++            name: certificateName,
++            level: achievementUnlocked.levelName,
++            badgeLevel: achievementUnlocked.badgeLevel,
++            date: new Date().toISOString(),
++          })}
++          onClose={() => {
++            setAchievementUnlocked(null);
++            setCertificateStep(null);
++            setCertificateName('');
++          }}
++        />
+       ) : null}
+ 
+       {lightboxItem ? (
+diff --git a/src/components/certificate/AchievementModal.jsx b/src/components/certificate/AchievementModal.jsx
+new file mode 100644
+index 0000000..749ab94
+--- /dev/null
++++ b/src/components/certificate/AchievementModal.jsx
+@@ -0,0 +1,204 @@
++import { BADGE_ICONS, BADGE_COLORS } from "./badges";
++
++// Phase 1 — Achievement overlay.
++// Museum-quality, calm celebration. Badge is the visual focus; everything
++// else (motion, color, copy) stays quiet and confident.
++export default function AchievementModal({ unlocked, onClose, onViewCertificate }) {
++  if (!unlocked) return null;
++
++  const { badgeLevel, levelName } = unlocked;
++  const icon = BADGE_ICONS[badgeLevel];
++  const colors = BADGE_COLORS[badgeLevel] || { primary: "#C9A24B", glow: "rgba(201, 162, 75, 0.35)" };
++
++  return (
++    <div
++      onClick={(event) => event.stopPropagation()}
++      role="dialog"
++      aria-modal="true"
++      aria-label="Achievement unlocked"
++      style={{
++        position: "fixed",
++        inset: 0,
++        zIndex: 9970,
++        display: "flex",
++        alignItems: "center",
++        justifyContent: "center",
++        padding: "2rem",
++        background: "rgba(10, 12, 18, 0.55)",
++        backdropFilter: "blur(10px)",
++        WebkitBackdropFilter: "blur(10px)",
++        animation: "cert-fadeIn 420ms cubic-bezier(0.22, 1, 0.36, 1) both",
++      }}
++    >
++      <style>{`
++        @keyframes cert-fadeIn { from { opacity: 0; } to { opacity: 1; } }
++        @keyframes cert-badgeIn {
++          0% { transform: scale(0.95); opacity: 0; }
++          100% { transform: scale(1); opacity: 1; }
++        }
++        @keyframes cert-glowPulse {
++          0%, 100% { opacity: 0.5; transform: scale(1); }
++          50% { opacity: 0.85; transform: scale(1.08); }
++        }
++        @keyframes cert-riseIn {
++          from { opacity: 0; transform: translateY(8px); }
++          to { opacity: 1; transform: translateY(0); }
++        }
++      `}</style>
++
++      <div
++        style={{
++          width: "min(420px, 100%)",
++          display: "flex",
++          flexDirection: "column",
++          alignItems: "center",
++          textAlign: "center",
++          background: "linear-gradient(165deg, rgba(28, 26, 22, 0.92) 0%, rgba(16, 15, 13, 0.96) 100%)",
++          border: "1px solid rgba(201, 162, 75, 0.28)",
++          borderRadius: "24px",
++          padding: "3rem 2.25rem 2.25rem",
++          boxShadow: "0 40px 100px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
++          position: "relative",
++          animation: "cert-riseIn 480ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both",
++        }}
++      >
++        <button
++          onClick={onClose}
++          aria-label="Close"
++          style={{
++            position: "absolute",
++            top: "1rem",
++            right: "1rem",
++            width: "36px",
++            height: "36px",
++            borderRadius: "50%",
++            border: "1px solid rgba(255,255,255,0.16)",
++            background: "rgba(255,255,255,0.04)",
++            color: "rgba(255,255,255,0.72)",
++            fontSize: "1.1rem",
++            lineHeight: 1,
++            cursor: "pointer",
++            display: "flex",
++            alignItems: "center",
++            justifyContent: "center",
++            transition: "all 200ms ease",
++          }}
++          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "#fff"; }}
++          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.72)"; }}
++        >
++          ×
++        </button>
++
++        {/* Badge medallion with a very gentle glow behind it */}
++        <div
++          style={{
++            position: "relative",
++            width: "148px",
++            height: "148px",
++            marginBottom: "1.75rem",
++            display: "flex",
++            alignItems: "center",
++            justifyContent: "center",
++          }}
++        >
++          <div
++            style={{
++              position: "absolute",
++              inset: "-18px",
++              borderRadius: "50%",
++              background: `radial-gradient(circle, ${colors.glow} 0%, rgba(0,0,0,0) 70%)`,
++              animation: "cert-glowPulse 3.6s ease-in-out infinite",
++              pointerEvents: "none",
++            }}
++          />
++          <div
++            style={{
++              position: "relative",
++              width: "132px",
++              height: "132px",
++              borderRadius: "50%",
++              padding: "14px",
++              background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.06), rgba(0,0,0,0.2))",
++              border: `1px solid ${colors.primary}55`,
++              boxShadow: "0 18px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)",
++              animation: "cert-badgeIn 620ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both",
++            }}
++          >
++            {icon}
++          </div>
++        </div>
++
++        <div
++          style={{
++            fontSize: "0.8rem",
++            fontWeight: 600,
++            letterSpacing: "0.16em",
++            textTransform: "uppercase",
++            color: "rgba(201, 162, 75, 0.92)",
++            marginBottom: "0.6rem",
++            animation: "cert-riseIn 460ms ease-out 220ms both",
++          }}
++        >
++          Congratulations
++        </div>
++
++        <div
++          style={{
++            fontSize: "1rem",
++            color: "rgba(255,255,255,0.62)",
++            marginBottom: "0.35rem",
++            animation: "cert-riseIn 460ms ease-out 280ms both",
++          }}
++        >
++          You have reached
++        </div>
++
++        <div
++          style={{
++            fontSize: "clamp(1.5rem, 4vw, 1.9rem)",
++            fontWeight: 600,
++            color: "#F6F1E7",
++            letterSpacing: "0.01em",
++            fontFamily: "'Roboto Slab', Georgia, serif",
++            marginBottom: "2.25rem",
++            animation: "cert-riseIn 460ms ease-out 340ms both",
++          }}
++        >
++          {levelName}
++        </div>
++
++        <div
++          style={{
++            display: "flex",
++            flexDirection: "column",
++            gap: "0.7rem",
++            width: "100%",
++            animation: "cert-riseIn 460ms ease-out 400ms both",
++          }}
++        >
++          <button
++            onClick={onViewCertificate}
++            style={{
++              width: "100%",
++              padding: "0.9rem 1.5rem",
++              borderRadius: "999px",
++              border: "1px solid rgba(201, 162, 75, 0.6)",
++              background: "linear-gradient(135deg, #C9A24B 0%, #A47C2C 100%)",
++              color: "#1b1712",
++              fontWeight: 600,
++              fontSize: "0.98rem",
++              letterSpacing: "0.01em",
++              cursor: "pointer",
++              transition: "transform 200ms ease, box-shadow 200ms ease",
++              boxShadow: "0 10px 24px rgba(201, 162, 75, 0.25)",
++            }}
++            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
++            onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
++          >
++            View Certificate
++          </button>
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/components/certificate/CertificateNameDialog.jsx b/src/components/certificate/CertificateNameDialog.jsx
+new file mode 100644
+index 0000000..2b11830
+--- /dev/null
++++ b/src/components/certificate/CertificateNameDialog.jsx
+@@ -0,0 +1,131 @@
++import { useState } from "react";
++
++// Phase 2 — Name entry.
++// No account, no login, no database — the name lives only in local state
++// for the duration of this flow.
++export default function CertificateNameDialog({ onCancel, onSubmit }) {
++  const [name, setName] = useState("");
++
++  const trimmed = name.trim();
++
++  const handleSubmit = (event) => {
++    event.preventDefault();
++    if (!trimmed) return;
++    onSubmit(trimmed);
++  };
++
++  return (
++    <div
++      onClick={onCancel}
++      role="dialog"
++      aria-modal="true"
++      aria-label="Personalise your certificate"
++      style={{
++        position: "fixed",
++        inset: 0,
++        zIndex: 9970,
++        display: "flex",
++        alignItems: "center",
++        justifyContent: "center",
++        padding: "2rem",
++        background: "rgba(10, 12, 18, 0.55)",
++        backdropFilter: "blur(10px)",
++        WebkitBackdropFilter: "blur(10px)",
++        animation: "cert-fadeIn 380ms cubic-bezier(0.22, 1, 0.36, 1) both",
++      }}
++    >
++      <style>{`
++        @keyframes cert-fadeIn { from { opacity: 0; } to { opacity: 1; } }
++        @keyframes cert-riseIn {
++          from { opacity: 0; transform: translateY(8px); }
++          to { opacity: 1; transform: translateY(0); }
++        }
++      `}</style>
++
++      <form
++        onClick={(event) => event.stopPropagation()}
++        onSubmit={handleSubmit}
++        style={{
++          width: "min(400px, 100%)",
++          display: "flex",
++          flexDirection: "column",
++          alignItems: "center",
++          textAlign: "center",
++          background: "linear-gradient(165deg, rgba(28, 26, 22, 0.92) 0%, rgba(16, 15, 13, 0.96) 100%)",
++          border: "1px solid rgba(201, 162, 75, 0.28)",
++          borderRadius: "24px",
++          padding: "2.5rem 2rem",
++          boxShadow: "0 40px 100px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
++          animation: "cert-riseIn 460ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both",
++        }}
++      >
++        <div
++          style={{
++            fontSize: "clamp(1.3rem, 3.4vw, 1.6rem)",
++            fontWeight: 600,
++            color: "#F6F1E7",
++            fontFamily: "'Roboto Slab', Georgia, serif",
++            marginBottom: "0.6rem",
++          }}
++        >
++          Certificate of Achievement
++        </div>
++
++        <div
++          style={{
++            fontSize: "0.95rem",
++            color: "rgba(255,255,255,0.6)",
++            marginBottom: "1.75rem",
++            lineHeight: 1.5,
++          }}
++        >
++          Personalise your certificate by entering your name.
++        </div>
++
++        <input
++          type="text"
++          value={name}
++          onChange={(event) => setName(event.target.value)}
++          placeholder="Name"
++          autoFocus
++          maxLength={60}
++          style={{
++            width: "100%",
++            boxSizing: "border-box",
++            padding: "0.85rem 1.1rem",
++            borderRadius: "12px",
++            border: "1px solid rgba(255,255,255,0.16)",
++            background: "rgba(255,255,255,0.05)",
++            color: "#F6F1E7",
++            fontSize: "1rem",
++            marginBottom: "1.5rem",
++            outline: "none",
++            transition: "border-color 200ms ease, background 200ms ease",
++          }}
++          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(201, 162, 75, 0.6)"; e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
++          onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.16)"; e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
++        />
++
++        <button
++          type="submit"
++          disabled={!trimmed}
++          style={{
++            width: "100%",
++            padding: "0.9rem 1.5rem",
++            borderRadius: "999px",
++            border: "1px solid rgba(201, 162, 75, 0.6)",
++            background: trimmed ? "linear-gradient(135deg, #C9A24B 0%, #A47C2C 100%)" : "rgba(255,255,255,0.08)",
++            color: trimmed ? "#1b1712" : "rgba(255,255,255,0.35)",
++            fontWeight: 600,
++            fontSize: "0.98rem",
++            cursor: trimmed ? "pointer" : "not-allowed",
++            transition: "transform 200ms ease",
++            boxShadow: trimmed ? "0 10px 24px rgba(201, 162, 75, 0.25)" : "none",
++          }}
++        >
++          Generate Certificate
++        </button>
++      </form>
++    </div>
++  );
++}
+diff --git a/src/components/certificate/CertificatePage.jsx b/src/components/certificate/CertificatePage.jsx
+new file mode 100644
+index 0000000..fd46113
+--- /dev/null
++++ b/src/components/certificate/CertificatePage.jsx
+@@ -0,0 +1,372 @@
++import { useEffect, useRef, useState } from "react";
++import { BADGE_ICONS, BADGE_COLORS, LEVEL_NAMES, FAMILYSEARCH_LOGO_URL } from "./badges";
++import { readCertificatePayloadFromLocation } from "./payload";
++
++function formatDate(isoDate) {
++  try {
++    const date = isoDate ? new Date(isoDate) : new Date();
++    return date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
++  } catch {
++    return "";
++  }
++}
++
++// Phase 4 — Mobile certificate page, served at /certificate.
++// This is a standalone page load (reached by scanning the kiosk QR code),
++// so it reads everything it needs from the encoded URL payload rather than
++// from any app state — no account, no backend, no database.
++export default function CertificatePage() {
++  const [payload] = useState(() => readCertificatePayloadFromLocation());
++  const certificateRef = useRef(null);
++  const [isExporting, setIsExporting] = useState(false);
++  const [exportError, setExportError] = useState("");
++
++  useEffect(() => {
++    document.title = "Certificate of Achievement | FamilySearch Commonwealth Explorer";
++  }, []);
++
++  if (!payload || !payload.name) {
++    return (
++      <div style={styles.notFoundWrap}>
++        <img src={FAMILYSEARCH_LOGO_URL} alt="FamilySearch" style={{ width: "160px", marginBottom: "1.5rem" }} />
++        <div style={{ fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.5rem" }}>Certificate not found</div>
++        <div style={{ fontSize: "0.95rem", color: "#8a8271", maxWidth: "320px" }}>
++          This link is missing its certificate details. Please scan the QR code from the exhibit again.
++        </div>
++      </div>
++    );
++  }
++
++  const { name, badgeLevel, level, date } = payload;
++  const levelName = level || LEVEL_NAMES[badgeLevel] || "Commonwealth Explorer";
++  const icon = BADGE_ICONS[badgeLevel];
++  const colors = BADGE_COLORS[badgeLevel] || { primary: "#C9A24B", glow: "rgba(201, 162, 75, 0.35)" };
++  const displayDate = formatDate(date);
++
++  const handleSaveImage = async () => {
++    if (!certificateRef.current) return;
++    setExportError("");
++    setIsExporting(true);
++    try {
++      const { toPng } = await import("html-to-image");
++      const dataUrl = await toPng(certificateRef.current, { pixelRatio: 2, cacheBust: true });
++      const link = document.createElement("a");
++      link.download = `Commonwealth-Explorer-Certificate-${name.replace(/\s+/g, "-")}.png`;
++      link.href = dataUrl;
++      link.click();
++    } catch (error) {
++      console.error("Save image failed", error);
++      setExportError("Couldn't save the image. Please try again.");
++    } finally {
++      setIsExporting(false);
++    }
++  };
++
++  const handleDownloadPdf = async () => {
++    if (!certificateRef.current) return;
++    setExportError("");
++    setIsExporting(true);
++    try {
++      const [{ toPng }, { default: jsPDF }] = await Promise.all([
++        import("html-to-image"),
++        import("jspdf"),
++      ]);
++      const node = certificateRef.current;
++      const dataUrl = await toPng(node, { pixelRatio: 2, cacheBust: true });
++      const { width, height } = node.getBoundingClientRect();
++      const orientation = width >= height ? "landscape" : "portrait";
++      const pdf = new jsPDF({ orientation, unit: "px", format: [width, height] });
++      pdf.addImage(dataUrl, "PNG", 0, 0, width, height);
++      pdf.save(`Commonwealth-Explorer-Certificate-${name.replace(/\s+/g, "-")}.pdf`);
++    } catch (error) {
++      console.error("PDF export failed", error);
++      setExportError("Couldn't create the PDF. Please try again.");
++    } finally {
++      setIsExporting(false);
++    }
++  };
++
++  const handleShare = async () => {
++    setExportError("");
++    const shareData = {
++      title: "Commonwealth Explorer Certificate",
++      text: `${name} reached ${levelName} on the FamilySearch Commonwealth Explorer.`,
++      url: window.location.href,
++    };
++    try {
++      if (navigator.share) {
++        await navigator.share(shareData);
++        return;
++      }
++      if (navigator.clipboard) {
++        await navigator.clipboard.writeText(shareData.url);
++        setExportError("Link copied to clipboard.");
++        return;
++      }
++    } catch (error) {
++      if (error && error.name === "AbortError") return;
++      console.error("Share failed", error);
++      setExportError("Couldn't share right now.");
++    }
++  };
++
++  return (
++    <div style={styles.page}>
++      <style>{`
++        @keyframes cert-riseIn {
++          from { opacity: 0; transform: translateY(10px); }
++          to { opacity: 1; transform: translateY(0); }
++        }
++      `}</style>
++
++      <div ref={certificateRef} style={styles.certificate}>
++        {/* Extremely subtle contour / paper texture */}
++        <svg
++          aria-hidden="true"
++          style={styles.textureOverlay}
++          viewBox="0 0 600 800"
++          preserveAspectRatio="none"
++        >
++          <defs>
++            <pattern id="cert-contours" width="120" height="120" patternUnits="userSpaceOnUse">
++              <circle cx="60" cy="60" r="50" fill="none" stroke="#C9A24B" strokeWidth="0.5" />
++              <circle cx="60" cy="60" r="30" fill="none" stroke="#C9A24B" strokeWidth="0.5" />
++            </pattern>
++          </defs>
++          <rect width="600" height="800" fill="url(#cert-contours)" />
++        </svg>
++
++        <div style={styles.certificateInner}>
++          <img src={FAMILYSEARCH_LOGO_URL} alt="FamilySearch" style={styles.logo} />
++
++          <div style={styles.eyebrow}>Certificate of Achievement</div>
++
++          <div style={styles.rule} />
++
++          <div style={styles.presentedTo}>Presented to</div>
++          <div style={styles.name}>{name}</div>
++
++          <div style={styles.body}>
++            in recognition of reaching the level of
++            <br />
++            <span style={styles.levelName}>{levelName}</span>
++          </div>
++
++          <div style={styles.description}>
++            for demonstrating growing expertise in Commonwealth family history, records,
++            migration stories, and ancestral discovery through the One Commonwealth,
++            Many Families experience.
++          </div>
++
++          <div style={styles.badgeWrap}>
++            <div
++              style={{
++                ...styles.badgeMedallion,
++                border: `1px solid ${colors.primary}66`,
++                boxShadow: `0 10px 30px ${colors.glow}`,
++              }}
++            >
++              {icon}
++            </div>
++          </div>
++
++          <div style={styles.date}>{displayDate}</div>
++
++          <div style={styles.rule} />
++
++          <div style={styles.footer}>FamilySearch Commonwealth Explorer</div>
++        </div>
++      </div>
++
++      <div style={styles.actions}>
++        <button
++          onClick={handleSaveImage}
++          disabled={isExporting}
++          style={{ ...styles.actionButton, ...styles.actionPrimary }}
++        >
++          Save Image
++        </button>
++        <button
++          onClick={handleDownloadPdf}
++          disabled={isExporting}
++          style={{ ...styles.actionButton, ...styles.actionSecondary }}
++        >
++          Download PDF
++        </button>
++        <button
++          onClick={handleShare}
++          disabled={isExporting}
++          style={{ ...styles.actionButton, ...styles.actionSecondary }}
++        >
++          Share
++        </button>
++      </div>
++
++      {exportError ? <div style={styles.exportError}>{exportError}</div> : null}
++    </div>
++  );
++}
++
++const SERIF = "'Roboto Slab', Georgia, serif";
++
++const styles = {
++  page: {
++    minHeight: "100vh",
++    width: "100%",
++    background: "#EFE9DA",
++    display: "flex",
++    flexDirection: "column",
++    alignItems: "center",
++    padding: "clamp(1.25rem, 5vw, 3rem) 1rem 3rem",
++    boxSizing: "border-box",
++    fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
++  },
++  notFoundWrap: {
++    minHeight: "100vh",
++    width: "100%",
++    background: "#EFE9DA",
++    display: "flex",
++    flexDirection: "column",
++    alignItems: "center",
++    justifyContent: "center",
++    textAlign: "center",
++    padding: "2rem",
++    boxSizing: "border-box",
++    fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
++    color: "#3a3529",
++  },
++  certificate: {
++    position: "relative",
++    width: "min(560px, 100%)",
++    background: "linear-gradient(165deg, #FBF7EE 0%, #F3ECDB 100%)",
++    borderRadius: "18px",
++    overflow: "hidden",
++    boxShadow: "0 30px 80px rgba(58, 48, 28, 0.18), 0 2px 0 rgba(255,255,255,0.6) inset",
++    border: "1px solid rgba(180, 150, 90, 0.25)",
++    animation: "cert-riseIn 520ms cubic-bezier(0.22, 1, 0.36, 1) both",
++  },
++  textureOverlay: {
++    position: "absolute",
++    inset: 0,
++    width: "100%",
++    height: "100%",
++    opacity: 0.05,
++    pointerEvents: "none",
++  },
++  certificateInner: {
++    position: "relative",
++    display: "flex",
++    flexDirection: "column",
++    alignItems: "center",
++    textAlign: "center",
++    padding: "clamp(2rem, 6vw, 3.25rem) clamp(1.5rem, 6vw, 3rem) 2.5rem",
++  },
++  logo: {
++    width: "150px",
++    height: "auto",
++    marginBottom: "1.75rem",
++    opacity: 0.92,
++  },
++  eyebrow: {
++    fontFamily: SERIF,
++    fontSize: "clamp(1.3rem, 4.5vw, 1.7rem)",
++    fontWeight: 600,
++    color: "#2E2A20",
++    letterSpacing: "0.02em",
++    marginBottom: "1.25rem",
++  },
++  rule: {
++    width: "72px",
++    height: "2px",
++    background: "linear-gradient(90deg, transparent, #C9A24B, transparent)",
++    margin: "0.25rem 0 1.5rem",
++  },
++  presentedTo: {
++    fontSize: "0.85rem",
++    letterSpacing: "0.14em",
++    textTransform: "uppercase",
++    color: "#8a7d5a",
++    marginBottom: "0.5rem",
++  },
++  name: {
++    fontFamily: SERIF,
++    fontSize: "clamp(1.6rem, 6vw, 2.1rem)",
++    fontWeight: 600,
++    color: "#2E2A20",
++    marginBottom: "1.5rem",
++    wordBreak: "break-word",
++  },
++  body: {
++    fontSize: "1rem",
++    color: "#4a4535",
++    lineHeight: 1.7,
++    marginBottom: "1rem",
++  },
++  levelName: {
++    fontFamily: SERIF,
++    fontSize: "1.15rem",
++    fontWeight: 600,
++    color: "#8A6A1D",
++  },
++  description: {
++    fontSize: "0.9rem",
++    color: "#6b6450",
++    lineHeight: 1.7,
++    maxWidth: "420px",
++    marginBottom: "2rem",
++  },
++  badgeWrap: {
++    marginBottom: "1.75rem",
++  },
++  badgeMedallion: {
++    width: "104px",
++    height: "104px",
++    borderRadius: "50%",
++    padding: "12px",
++    background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.7), rgba(255,255,255,0.15))",
++  },
++  date: {
++    fontSize: "0.95rem",
++    color: "#4a4535",
++    marginBottom: "1.5rem",
++  },
++  footer: {
++    fontSize: "0.85rem",
++    letterSpacing: "0.08em",
++    textTransform: "uppercase",
++    color: "#8a7d5a",
++    marginTop: "0.25rem",
++  },
++  actions: {
++    width: "min(560px, 100%)",
++    display: "flex",
++    gap: "0.75rem",
++    marginTop: "1.75rem",
++    flexWrap: "wrap",
++  },
++  actionButton: {
++    flex: "1 1 140px",
++    padding: "0.85rem 1rem",
++    borderRadius: "999px",
++    fontSize: "0.92rem",
++    fontWeight: 600,
++    cursor: "pointer",
++    transition: "transform 180ms ease, opacity 180ms ease",
++    border: "1px solid transparent",
++  },
++  actionPrimary: {
++    background: "linear-gradient(135deg, #C9A24B 0%, #A47C2C 100%)",
++    color: "#1b1712",
++    border: "1px solid rgba(201, 162, 75, 0.6)",
++  },
++  actionSecondary: {
++    background: "rgba(46, 42, 32, 0.06)",
++    color: "#2E2A20",
++    border: "1px solid rgba(46, 42, 32, 0.18)",
++  },
++  exportError: {
++    marginTop: "1rem",
++    fontSize: "0.85rem",
++    color: "#8A6A1D",
++  },
++};
+diff --git a/src/components/certificate/CertificateQRCode.jsx b/src/components/certificate/CertificateQRCode.jsx
+new file mode 100644
+index 0000000..c038fc7
+--- /dev/null
++++ b/src/components/certificate/CertificateQRCode.jsx
+@@ -0,0 +1,155 @@
++import { QRCodeSVG } from "qrcode.react";
++import { BADGE_ICONS, BADGE_COLORS, FAMILYSEARCH_LOGO_URL } from "./badges";
++
++// Phase 3 — QR certificate screen.
++// The QR code is the primary interaction: large, high-contrast, and
++// uncluttered. No account is required — the certificate lives entirely
++// in the encoded URL.
++export default function CertificateQRCode({ name, badgeLevel, levelName, certificateUrl, onClose }) {
++  const icon = BADGE_ICONS[badgeLevel];
++  const colors = BADGE_COLORS[badgeLevel] || { primary: "#C9A24B", glow: "rgba(201, 162, 75, 0.35)" };
++
++  return (
++    <div
++      onClick={(event) => event.stopPropagation()}
++      role="dialog"
++      aria-modal="true"
++      aria-label="Certificate ready"
++      style={{
++        position: "fixed",
++        inset: 0,
++        zIndex: 9970,
++        display: "flex",
++        alignItems: "center",
++        justifyContent: "center",
++        padding: "2rem",
++        background: "rgba(10, 12, 18, 0.55)",
++        backdropFilter: "blur(10px)",
++        WebkitBackdropFilter: "blur(10px)",
++        animation: "cert-fadeIn 380ms cubic-bezier(0.22, 1, 0.36, 1) both",
++      }}
++    >
++      <style>{`
++        @keyframes cert-fadeIn { from { opacity: 0; } to { opacity: 1; } }
++        @keyframes cert-riseIn {
++          from { opacity: 0; transform: translateY(8px); }
++          to { opacity: 1; transform: translateY(0); }
++        }
++      `}</style>
++
++      <div
++        onClick={(event) => event.stopPropagation()}
++        style={{
++          width: "min(420px, 100%)",
++          display: "flex",
++          flexDirection: "column",
++          alignItems: "center",
++          textAlign: "center",
++          background: "linear-gradient(165deg, rgba(28, 26, 22, 0.92) 0%, rgba(16, 15, 13, 0.96) 100%)",
++          border: "1px solid rgba(201, 162, 75, 0.28)",
++          borderRadius: "24px",
++          padding: "2.5rem 2rem 2.25rem",
++          boxShadow: "0 40px 100px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
++          animation: "cert-riseIn 460ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both",
++        }}
++      >
++        <div
++          style={{
++            width: "56px",
++            height: "56px",
++            borderRadius: "50%",
++            padding: "8px",
++            marginBottom: "1rem",
++            background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.06), rgba(0,0,0,0.2))",
++            border: `1px solid ${colors.primary}55`,
++          }}
++        >
++          {icon}
++        </div>
++
++        <div
++          style={{
++            fontSize: "1.3rem",
++            fontWeight: 600,
++            color: "#F6F1E7",
++            fontFamily: "'Roboto Slab', Georgia, serif",
++            marginBottom: "0.4rem",
++          }}
++        >
++          Certificate Ready
++        </div>
++
++        <div style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.5)", marginBottom: "0.15rem" }}>
++          Prepared for
++        </div>
++        <div
++          style={{
++            fontSize: "1.1rem",
++            fontWeight: 600,
++            color: "rgba(201, 162, 75, 0.95)",
++            marginBottom: "0.35rem",
++          }}
++        >
++          {name}
++        </div>
++        <div style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.45)", marginBottom: "1.75rem" }}>
++          {levelName}
++        </div>
++
++        <div
++          style={{
++            width: "220px",
++            height: "220px",
++            padding: "14px",
++            borderRadius: "16px",
++            background: "#F6F1E7",
++            boxShadow: "0 18px 40px rgba(0,0,0,0.35)",
++            display: "flex",
++            alignItems: "center",
++            justifyContent: "center",
++            marginBottom: "1.5rem",
++          }}
++        >
++          <QRCodeSVG value={certificateUrl} size={192} level="M" fgColor="#1b1712" bgColor="#F6F1E7" />
++        </div>
++
++        <div
++          style={{
++            fontSize: "0.9rem",
++            color: "rgba(255,255,255,0.6)",
++            lineHeight: 1.5,
++            marginBottom: "2rem",
++          }}
++        >
++          Scan with your phone to view and save your certificate.
++        </div>
++
++        <button
++          onClick={onClose}
++          style={{
++            width: "100%",
++            padding: "0.85rem 1.5rem",
++            borderRadius: "999px",
++            border: "1px solid rgba(255,255,255,0.16)",
++            background: "rgba(255,255,255,0.05)",
++            color: "rgba(255,255,255,0.85)",
++            fontWeight: 600,
++            fontSize: "0.95rem",
++            cursor: "pointer",
++            transition: "all 200ms ease",
++          }}
++          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
++          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
++        >
++          Close
++        </button>
++
++        <img
++          src={FAMILYSEARCH_LOGO_URL}
++          alt="FamilySearch"
++          style={{ width: "110px", height: "auto", opacity: 0.5, marginTop: "1.5rem", filter: "brightness(0) invert(1)" }}
++        />
++      </div>
++    </div>
++  );
++}
+diff --git a/src/components/certificate/badges.jsx b/src/components/certificate/badges.jsx
+new file mode 100644
+index 0000000..6a5ffd8
+--- /dev/null
++++ b/src/components/certificate/badges.jsx
+@@ -0,0 +1,194 @@
++// Shared badge/level data for the achievement + certificate flow.
++// Single source of truth so the in-app achievement modal, the QR kiosk
++// screen, and the standalone /certificate page (loaded fresh on a
++// visitor's phone) all render an identical badge.
++
++export const BADGE_LEVELS = [5, 10, 25, 40, 56];
++
++// Short, formal level names used on the certificate + achievement modal.
++export const LEVEL_NAMES = {
++  5: "Curious Explorer",
++  10: "Commonwealth Traveller",
++  25: "Global Navigator",
++  40: "World Voyager",
++  56: "Golden Commonwealth Explorer",
++};
++
++export const BADGE_COLORS = {
++  5: { primary: "#87B940", glow: "rgba(135, 185, 64, 0.6)" },
++  10: { primary: "#9C947A", glow: "rgba(156, 148, 122, 0.56)" },
++  25: { primary: "#F16458", glow: "rgba(241, 100, 88, 0.58)" },
++  40: { primary: "#27C4F4", glow: "rgba(39, 196, 244, 0.58)" },
++  56: { primary: "#996799", glow: "rgba(153, 103, 153, 0.64)" },
++};
++
++export const BADGE_ICONS = {
++  5: ( // Curious Explorer - Gold Faceted Star
++    <svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
++      <defs>
++        <linearGradient id="cert-gold1" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#FFF9D4" />
++          <stop offset="100%" stopColor="#D4AF37" />
++        </linearGradient>
++        <linearGradient id="cert-gold2" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#E5C158" />
++          <stop offset="100%" stopColor="#AA7C11" />
++        </linearGradient>
++        <linearGradient id="cert-gold3" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#A37A1A" />
++          <stop offset="100%" stopColor="#624602" />
++        </linearGradient>
++        <linearGradient id="cert-gold4" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#FFF1A0" />
++          <stop offset="100%" stopColor="#8C6615" />
++        </linearGradient>
++      </defs>
++      <polygon points="50,5 60.6,35.4 92.8,36.1 67.1,55.6 76.5,86.4 50,68 23.5,86.4 32.9,55.6 7.2,36.1 39.4,35.4" fill="url(#cert-gold2)" stroke="#FFF9D4" strokeWidth="0.75" />
++      <polygon points="50,5 50,50 39.4,35.4" fill="url(#cert-gold1)" />
++      <polygon points="50,5 50,50 60.6,35.4" fill="url(#cert-gold4)" />
++      <polygon points="92.8,36.1 50,50 60.6,35.4" fill="url(#cert-gold2)" />
++      <polygon points="92.8,36.1 50,50 67.1,55.6" fill="url(#cert-gold3)" />
++      <polygon points="76.5,86.4 50,50 67.1,55.6" fill="url(#cert-gold1)" />
++      <polygon points="76.5,86.4 50,50 50,68" fill="url(#cert-gold4)" />
++      <polygon points="23.5,86.4 50,50 50,68" fill="url(#cert-gold2)" />
++      <polygon points="23.5,86.4 50,50 32.9,55.6" fill="url(#cert-gold3)" />
++      <polygon points="7.2,36.1 50,50 32.9,55.6" fill="url(#cert-gold1)" />
++      <polygon points="7.2,36.1 50,50 39.4,35.4" fill="url(#cert-gold4)" />
++      <polygon points="50,5 60.6,35.4 92.8,36.1 67.1,55.6 76.5,86.4 50,68 23.5,86.4 32.9,55.6 7.2,36.1 39.4,35.4" fill="none" stroke="#FFE875" strokeWidth="0.4" strokeLinejoin="round" />
++      <circle cx="50" cy="50" r="1.5" fill="#FFFFFF" />
++    </svg>
++  ),
++  10: ( // Commonwealth Traveller - Metallic Lime Circles
++    <svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
++      <defs>
++        <linearGradient id="cert-silverMetal" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#FFFFFF" />
++          <stop offset="25%" stopColor="#CCCCCC" />
++          <stop offset="50%" stopColor="#8E8E93" />
++          <stop offset="75%" stopColor="#D1D1D6" />
++          <stop offset="100%" stopColor="#AEAEB2" />
++        </linearGradient>
++        <linearGradient id="cert-limeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#C0EB75" />
++          <stop offset="100%" stopColor="#75A827" />
++        </linearGradient>
++        <linearGradient id="cert-darkMetal" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#48484A" />
++          <stop offset="100%" stopColor="#1C1C1E" />
++        </linearGradient>
++        <radialGradient id="cert-reflection" cx="35%" cy="30%" r="60%">
++          <stop offset="0%" stopColor="rgba(255,255,255,0.6)" />
++          <stop offset="50%" stopColor="rgba(255,255,255,0)" />
++          <stop offset="100%" stopColor="rgba(0,0,0,0.4)" />
++        </radialGradient>
++      </defs>
++      <circle cx="50" cy="50" r="46" fill="url(#cert-silverMetal)" stroke="#AEAEB2" strokeWidth="0.5" />
++      <circle cx="50" cy="50" r="43" fill="url(#cert-darkMetal)" />
++      <circle cx="50" cy="50" r="36" fill="url(#cert-limeGrad)" stroke="url(#cert-silverMetal)" strokeWidth="1.5" />
++      <circle cx="50" cy="50" r="26" fill="url(#cert-silverMetal)" stroke="#8E8E93" strokeWidth="0.5" />
++      <circle cx="50" cy="50" r="22" fill="url(#cert-darkMetal)" />
++      <circle cx="50" cy="50" r="12" fill="url(#cert-silverMetal)" />
++      <circle cx="50" cy="50" r="9" fill="url(#cert-reflection)" />
++      <circle cx="50" cy="50" r="2.5" fill="#FFFFFF" opacity="0.9" />
++    </svg>
++  ),
++  25: ( // Global Navigator - Silver Shield & Coral Rings
++    <svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
++      <defs>
++        <linearGradient id="cert-silverMetal25" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#FFFFFF" />
++          <stop offset="30%" stopColor="#CCCCCC" />
++          <stop offset="70%" stopColor="#8E8E93" />
++          <stop offset="100%" stopColor="#D1D1D6" />
++        </linearGradient>
++        <linearGradient id="cert-coralGrad" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#FF7A6E" />
++          <stop offset="100%" stopColor="#D0453A" />
++        </linearGradient>
++        <linearGradient id="cert-shieldBg" x1="0%" y1="0%" x2="0%" y2="100%">
++          <stop offset="0%" stopColor="#E5E5EA" />
++          <stop offset="100%" stopColor="#AEAEB2" />
++        </linearGradient>
++      </defs>
++      <path d="M 22 15 L 78 15 Q 82 15 82 20 L 82 72 Q 82 82 74 86 L 50 96 L 26 86 Q 18 82 18 72 L 18 20 Q 18 15 22 15 Z" fill="url(#cert-shieldBg)" stroke="url(#cert-silverMetal25)" strokeWidth="3" />
++      <path d="M 24 17 L 76 17 Q 80 17 80 22 L 80 71 Q 80 80 72 84 L 50 93 L 28 84 Q 20 80 20 71 L 20 22 Q 20 17 24 17 Z" fill="none" stroke="#FFFFFF" strokeWidth="0.5" />
++      <g opacity="0.9">
++        <circle cx="41" cy="46" r="18" fill="url(#cert-coralGrad)" stroke="url(#cert-silverMetal25)" strokeWidth="1.5" />
++        <circle cx="59" cy="46" r="18" fill="url(#cert-coralGrad)" stroke="url(#cert-silverMetal25)" strokeWidth="1.5" />
++      </g>
++      <path d="M 50 20 L 52 25 L 57 25 L 53 28 L 55 33 L 50 30 L 45 33 L 47 28 L 43 25 L 48 25 Z" fill="#FFD700" stroke="#B8860B" strokeWidth="0.5" />
++    </svg>
++  ),
++  40: ( // World Voyager - Teal/Silver Split Hexagon
++    <svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
++      <defs>
++        <linearGradient id="cert-silverMetal40" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#FFFFFF" />
++          <stop offset="50%" stopColor="#AEAEB2" />
++          <stop offset="100%" stopColor="#7E7E82" />
++        </linearGradient>
++        <linearGradient id="cert-tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#5BE1F9" />
++          <stop offset="100%" stopColor="#1E8B9E" />
++        </linearGradient>
++        <linearGradient id="cert-whiteGrad" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#FFFFFF" />
++          <stop offset="100%" stopColor="#E5E5EA" />
++        </linearGradient>
++      </defs>
++      <polygon points="50,6 88.1,28 88.1,72 50,94 11.9,72 11.9,28" fill="url(#cert-silverMetal40)" />
++      <polygon points="50,9 85.5,29.5 85.5,70.5 50,91 14.5,70.5 14.5,29.5" fill="#3A3A3C" />
++      <path d="M 50 9 L 14.5 29.5 L 14.5 70.5 L 50 91 Z" fill="url(#cert-tealGrad)" />
++      <path d="M 50 9 L 85.5 29.5 L 85.5 70.5 L 50 91 Z" fill="url(#cert-whiteGrad)" />
++      <circle cx="50" cy="50" r="20" fill="none" stroke="url(#cert-silverMetal40)" strokeWidth="2.5" />
++      <circle cx="50" cy="50" r="15" fill="none" stroke="#FFFFFF" strokeWidth="0.5" />
++      <line x1="50" y1="9" x2="50" y2="91" stroke="url(#cert-silverMetal40)" strokeWidth="1.5" />
++    </svg>
++  ),
++  56: ( // Golden Commonwealth Explorer - Gold/Purple Emblem
++    <svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
++      <defs>
++        <linearGradient id="cert-goldGrad56" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#FFE47E" />
++          <stop offset="30%" stopColor="#E5B22D" />
++          <stop offset="70%" stopColor="#B3861B" />
++          <stop offset="100%" stopColor="#FFE47E" />
++        </linearGradient>
++        <linearGradient id="cert-purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
++          <stop offset="0%" stopColor="#C48BE0" />
++          <stop offset="50%" stopColor="#8A42B5" />
++          <stop offset="100%" stopColor="#4A156B" />
++        </linearGradient>
++        <linearGradient id="cert-metallicAccent" x1="100%" y1="0%" x2="0%" y2="100%">
++          <stop offset="0%" stopColor="#FFFFFF" />
++          <stop offset="50%" stopColor="#FFE066" />
++          <stop offset="100%" stopColor="#9C7310" />
++        </linearGradient>
++      </defs>
++      <polygon points="50,6 88.1,28 88.1,72 50,94 11.9,72 11.9,28" fill="url(#cert-goldGrad56)" />
++      <polygon points="50,9 85.5,29.5 85.5,70.5 50,91 14.5,70.5 14.5,29.5" fill="url(#cert-purpleGrad)" />
++      <path d="M 50 9 L 85.5 29.5 L 50 50 Z" fill="url(#cert-goldGrad56)" opacity="0.25" />
++      <path d="M 85.5 70.5 L 50 91 L 50 50 Z" fill="url(#cert-goldGrad56)" opacity="0.2" />
++      <path d="M 14.5 70.5 L 50 91 L 50 50 Z" fill="url(#cert-goldGrad56)" opacity="0.35" />
++      <g transform="translate(15, 15) scale(0.7)">
++        <path d="M50,5 L54,46 L50,50 L46,46 Z" fill="url(#cert-metallicAccent)" />
++        <path d="M50,95 L54,54 L50,50 L46,54 Z" fill="url(#cert-goldGrad56)" />
++        <path d="M5,50 L46,46 L50,50 L46,54 Z" fill="url(#cert-goldGrad56)" />
++        <path d="M95,50 L54,46 L50,50 L54,54 Z" fill="url(#cert-metallicAccent)" />
++        <circle cx="50" cy="50" r="5" fill="url(#cert-goldGrad56)" stroke="#FFFFFF" strokeWidth="0.5" />
++      </g>
++      <polygon points="50,11 83.5,30.5 83.5,69.5 50,89 16.5,69.5 16.5,30.5" fill="none" stroke="url(#cert-goldGrad56)" strokeWidth="0.75" />
++    </svg>
++  ),
++};
++
++export function getBadgeLevelForCount(count) {
++  let level = null;
++  BADGE_LEVELS.forEach((l) => {
++    if (count >= l) level = l;
++  });
++  return level;
++}
++
++export const FAMILYSEARCH_LOGO_URL =
++  "https://edge.fscdn.org/assets/static/media/familysearch-tree.dc22204d2135c739e39d0af7d519e182.svg";
+diff --git a/src/components/certificate/payload.js b/src/components/certificate/payload.js
+new file mode 100644
+index 0000000..99fd596
+--- /dev/null
++++ b/src/components/certificate/payload.js
+@@ -0,0 +1,44 @@
++// Safe, URL-friendly payload encoding for the certificate QR flow.
++// No account, no backend, no database — everything the /certificate
++// page needs to render travels inside the URL itself.
++
++export function encodeCertificatePayload(payload) {
++  try {
++    const json = JSON.stringify(payload);
++    const base64 = btoa(unescape(encodeURIComponent(json)));
++    // Make URL-safe (RFC 4648 base64url) so it survives copy/paste and QR encoding cleanly.
++    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
++  } catch (error) {
++    console.error("Failed to encode certificate payload", error);
++    return "";
++  }
++}
++
++export function decodeCertificatePayload(encoded) {
++  if (!encoded) return null;
++  try {
++    let base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
++    while (base64.length % 4 !== 0) base64 += "=";
++    const json = decodeURIComponent(escape(atob(base64)));
++    return JSON.parse(json);
++  } catch (error) {
++    console.error("Failed to decode certificate payload", error);
++    return null;
++  }
++}
++
++// The certificate is served from a static, dependency-free redirect file
++// (public/certificate.html) so it resolves correctly on GitHub Pages
++// without any server-side routing. It immediately forwards the visitor
++// into the SPA at "/" with the payload preserved as a query param.
++export function buildCertificateUrl(payload) {
++  const encoded = encodeCertificatePayload(payload);
++  const origin = window.location.origin;
++  return `${origin}/certificate.html?p=${encoded}`;
++}
++
++export function readCertificatePayloadFromLocation() {
++  const params = new URLSearchParams(window.location.search);
++  const encoded = params.get("p");
++  return decodeCertificatePayload(encoded);
++}
+diff --git a/src/main.jsx b/src/main.jsx
+index 137973f..bd459ed 100644
+--- a/src/main.jsx
++++ b/src/main.jsx
+@@ -4,12 +4,24 @@ import './index.css'
+ import App from './App.jsx'
+ import AppNew from './AppNew.jsx'
+ import AdminPanel from './AdminPanel.jsx'
++import CertificatePage from './components/certificate/CertificatePage.jsx'
+ import { ErrorBoundary } from './ErrorBoundary.jsx'
+ 
+ const isAdminRoute = window.location.pathname.startsWith('/admin')
+ const isLeafletPreview = window.location.search.includes('leaflet=true')
++// The certificate page is reached either by a direct "/certificate" path
++// (works when served by a real router / dev server) or by "?certificate=1",
++// which is how the static public/certificate.html redirect hands off to
++// the SPA on static hosts like GitHub Pages that have no server routing.
++const isCertificateRoute =
++  window.location.pathname.startsWith('/certificate') ||
++  new URLSearchParams(window.location.search).get('certificate') === '1'
+ // MapLibre (AppNew) is now the default app. Leaflet is available via ?leaflet=true
+-const RootComponent = isAdminRoute ? AdminPanel : (isLeafletPreview ? App : AppNew)
++const RootComponent = isAdminRoute
++  ? AdminPanel
++  : isCertificateRoute
++    ? CertificatePage
++    : (isLeafletPreview ? App : AppNew)
+ 
+ createRoot(document.getElementById('root')).render(
+   <StrictMode>
