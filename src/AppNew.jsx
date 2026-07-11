@@ -2854,6 +2854,12 @@ const dockCardsRevealTimeoutRef = useRef(null);
   const voyagerCountriesUntilSurprise = Math.max(5 - voyagerProgressCount, 0);
   const voyagerProgressPercent = Math.min((voyagerProgressCount / VOYAGER_TOTAL_COUNTRIES) * 100, 100);
   const voyagerProgressTitle = getVoyagerTitle(voyagerProgressCount);
+  const voyagerPillLabel = voyagerProgressCount >= 5
+    ? voyagerProgressTitle
+    : `${voyagerCountriesUntilSurprise} ${voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} to go!`;
+  // The compact pill is right-anchored, so extra room grows to the left and
+  // always leaves breathing room after the progress count.
+  const voyagerCollapsedWidth = Math.max(200, Math.ceil(96 + voyagerPillLabel.length * 8.5));
   const displayedFamilySearchPreferredCollections = visibleFamilySearchPreferredCollections.slice(
     0,
     recordCollectionsDisplayLimit
@@ -4762,11 +4768,13 @@ const dockCardsRevealTimeoutRef = useRef(null);
           onClick={() => setIsVoyagerExpanded((value) => !value)}
           style={{
             position: "fixed",
-            top: "1.5rem",
-            right: "1.5rem",
+            top: "clamp(0.75rem, 3vw, 1.5rem)",
+            right: "clamp(0.75rem, 3vw, 1.5rem)",
             zIndex: 820,
             // Smooth morphing dimensions — larger dark-glass card layout
-            width: isVoyagerExpanded ? "340px" : "200px",
+            width: isVoyagerExpanded
+              ? "min(340px, calc(100vw - 1.5rem))"
+              : `min(${voyagerCollapsedWidth}px, calc(100vw - 1.5rem))`,
             height: isVoyagerExpanded ? (voyagerProgressCount >= 5 ? "236px" : "170px") : "44px",
             borderRadius: isVoyagerExpanded ? "22px" : "999px",
             padding: "1.5px", // Thickness of the glowing border
@@ -4984,7 +4992,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
             {/* Classy Cross-fade container for Minimal View */}
             <div style={{
               position: "absolute",
-              inset: "0 12px",
+              inset: "0 16px",
               opacity: isVoyagerExpanded ? 0 : 1,
               visibility: isVoyagerExpanded ? "hidden" : "visible",
               pointerEvents: isVoyagerExpanded ? "none" : "auto",
@@ -5011,6 +5019,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
                     letterSpacing: "0.02em",
                     color: "#ffffff",
                     whiteSpace: "nowrap",
+                    flexShrink: 0,
                   }}>
                     {voyagerProgressTitle}
                   </div>
@@ -5020,6 +5029,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
                     letterSpacing: "0.01em",
                     color: "#97d749", // FamilySearch Green
                     marginLeft: "auto",
+                    flexShrink: 0,
                   }}>
                     {voyagerProgressCount}/{VOYAGER_TOTAL_COUNTRIES}
                   </div>

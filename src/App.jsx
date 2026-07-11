@@ -4586,10 +4586,12 @@ const dockCardsRevealTimeoutRef = useRef(null);
           onClick={() => setIsVoyagerExpanded((value) => !value)}
           style={{
             position: "fixed",
-            top: "1.5rem",
-            right: "1.5rem",
+            top: "clamp(0.75rem, 3vw, 1.5rem)",
+            right: "clamp(0.75rem, 3vw, 1.5rem)",
             zIndex: 820,
-            width: isVoyagerExpanded ? "min(320px, calc(100vw - 3rem))" : "auto",
+            boxSizing: "border-box",
+            width: isVoyagerExpanded ? "min(320px, calc(100vw - 1.5rem))" : "fit-content",
+            maxWidth: "calc(100vw - 1.5rem)",
             padding: isVoyagerExpanded ? "1rem 1.1rem 0.9rem" : "0.58rem 1.35rem 0.58rem 0.95rem",
             borderRadius: isVoyagerExpanded ? "22px" : "999px",
             border: "1px solid rgba(255,255,255,0.52)",
@@ -4760,6 +4762,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
               gap: "0.5rem",
               position: "relative",
               zIndex: 1,
+              minWidth: 0,
             }}>
               {voyagerProgressCount >= 5 ? (
                 <>
@@ -4775,7 +4778,8 @@ const dockCardsRevealTimeoutRef = useRef(null);
                     letterSpacing: "0.04em",
                     color: "rgba(15,23,42,0.84)",
                     textShadow: "none",
-                    whiteSpace: "nowrap",
+                    minWidth: 0,
+                    overflowWrap: "anywhere",
                   }}>
                     {voyagerProgressTitle}
                   </div>
@@ -4801,10 +4805,14 @@ const dockCardsRevealTimeoutRef = useRef(null);
                   letterSpacing: "0.03em",
                   color: "rgba(15,23,42,0.9)",
                   textShadow: "none",
-                  whiteSpace: "nowrap",
+                  maxWidth: "100%",
+                  minWidth: 0,
+                  lineHeight: 1.35,
+                  whiteSpace: "normal",
+                  overflowWrap: "anywhere",
                 }}>
                   <span style={{ display: "inline-flex", alignItems: "center" }}>{renderGiftIcon(14)}</span>
-                  <span>{voyagerCountriesUntilSurprise} {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} for surprise!</span>
+                  <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{voyagerCountriesUntilSurprise} {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} for surprise!</span>
                 </div>
               )}
             </div>
