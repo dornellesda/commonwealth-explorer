@@ -4811,7 +4811,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
             alignItems: "center",
             width: "100%",
             height: "100%",
-            padding: isVoyagerExpanded ? "1.1rem 1.2rem" : "6px 12px",
+            padding: isVoyagerExpanded ? "1.1rem 1.2rem" : "6px 16px 6px 12px",
             boxSizing: "border-box",
             justifyContent: "space-between",
             color: "#ffffff",

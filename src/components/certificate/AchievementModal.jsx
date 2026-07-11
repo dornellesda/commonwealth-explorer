@@ -1,4 +1,9 @@
-import { BADGE_ICONS, BADGE_COLORS } from "./badges";
+import { BADGE_ICONS } from "./badges";
+
+// FamilySearch brand palette (familysearch.org/brand).
+const BRAND_BLUE = "#1F4E79";
+const BRAND_BLUE_LIGHT = "#2E7DB5";
+const BRAND_GLOW = "rgba(31, 78, 121, 0.42)";
 
 // Phase 1 — Achievement overlay.
 // Museum-quality, calm celebration. Badge is the visual focus; everything
@@ -8,7 +13,6 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
 
   const { badgeLevel, levelName } = unlocked;
   const icon = BADGE_ICONS[badgeLevel];
-  const colors = BADGE_COLORS[badgeLevel] || { primary: "#C9A24B", glow: "rgba(201, 162, 75, 0.35)" };
 
   return (
     <div
@@ -54,7 +58,7 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
           alignItems: "center",
           textAlign: "center",
           background: "linear-gradient(165deg, rgba(28, 26, 22, 0.92) 0%, rgba(16, 15, 13, 0.96) 100%)",
-          border: "1px solid rgba(201, 162, 75, 0.28)",
+          border: "1px solid rgba(31, 78, 121, 0.4)",
           borderRadius: "24px",
           padding: "3rem 2.25rem 2.25rem",
           boxShadow: "0 40px 100px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
@@ -106,7 +110,7 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
               position: "absolute",
               inset: "-18px",
               borderRadius: "50%",
-              background: `radial-gradient(circle, ${colors.glow} 0%, rgba(0,0,0,0) 70%)`,
+              background: `radial-gradient(circle, ${BRAND_GLOW} 0%, rgba(0,0,0,0) 70%)`,
               animation: "cert-glowPulse 3.6s ease-in-out infinite",
               pointerEvents: "none",
             }}
@@ -114,13 +118,13 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
           <div
             style={{
               position: "relative",
-              width: "132px",
-              height: "132px",
+              width: "140px",
+              height: "140px",
               borderRadius: "50%",
-              padding: "14px",
-              background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.06), rgba(0,0,0,0.2))",
-              border: `1px solid ${colors.primary}55`,
-              boxShadow: "0 18px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)",
+              padding: "9px",
+              background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.08), rgba(0,0,0,0.2))",
+              border: `1px solid ${BRAND_BLUE_LIGHT}`,
+              boxShadow: `0 18px 40px rgba(0,0,0,0.4), 0 0 0 4px rgba(31, 78, 121, 0.12), inset 0 1px 0 rgba(255,255,255,0.1)`,
               animation: "cert-badgeIn 620ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both",
             }}
           >
@@ -134,7 +138,7 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
             fontWeight: 600,
             letterSpacing: "0.16em",
             textTransform: "uppercase",
-            color: "rgba(201, 162, 75, 0.92)",
+            color: BRAND_BLUE_LIGHT,
             marginBottom: "0.6rem",
             animation: "cert-riseIn 460ms ease-out 220ms both",
           }}
@@ -182,15 +186,15 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
               width: "100%",
               padding: "0.9rem 1.5rem",
               borderRadius: "999px",
-              border: "1px solid rgba(201, 162, 75, 0.6)",
-              background: "linear-gradient(135deg, #C9A24B 0%, #A47C2C 100%)",
-              color: "#1b1712",
+              border: "1px solid rgba(31, 78, 121, 0.7)",
+              background: `linear-gradient(135deg, ${BRAND_BLUE_LIGHT} 0%, ${BRAND_BLUE} 100%)`,
+              color: "#FFFFFF",
               fontWeight: 600,
               fontSize: "0.98rem",
               letterSpacing: "0.01em",
               cursor: "pointer",
               transition: "transform 200ms ease, box-shadow 200ms ease",
-              boxShadow: "0 10px 24px rgba(201, 162, 75, 0.25)",
+              boxShadow: `0 10px 24px ${BRAND_GLOW}`,
             }}
             onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}

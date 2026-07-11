@@ -4590,7 +4590,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
             right: "1.5rem",
             zIndex: 820,
             width: isVoyagerExpanded ? "min(320px, calc(100vw - 3rem))" : "auto",
-            padding: isVoyagerExpanded ? "1rem 1.1rem 0.9rem" : "0.58rem 0.95rem",
+            padding: isVoyagerExpanded ? "1rem 1.1rem 0.9rem" : "0.58rem 1.35rem 0.58rem 0.95rem",
             borderRadius: isVoyagerExpanded ? "22px" : "999px",
             border: "1px solid rgba(255,255,255,0.52)",
             background: isVoyagerExpanded ? "linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%)" : "rgba(255, 255, 255, 0.6)",
