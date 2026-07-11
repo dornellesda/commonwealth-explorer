@@ -2106,6 +2106,12 @@ const dockCardsRevealTimeoutRef = useRef(null);
   }, []);
 
   const handleSelectCountry = (countryOrName, options = {}) => {
+    // Keep the active country card stable. Map clicks while it is open are
+    // handled as outside clicks and close the card instead of switching it.
+    if (selectedCountry) {
+      return;
+    }
+
     const countryObj = typeof countryOrName === "string"
       ? countries.find((c) => c.name === countryOrName)
       : countryOrName;
@@ -2248,31 +2254,6 @@ const dockCardsRevealTimeoutRef = useRef(null);
   const handleClosePanel = () => {
     handleReset();
   };
-
-  // Clicking anywhere outside the country popup card closes it and
-  // recentres the map back to the full Commonwealth view (same as the
-  // close "x" button / clicking bare map background), except while the
-  // achievement or certificate overlays are showing on top of it.
-  useEffect(() => {
-    if (!selectedCountry || achievementUnlocked || certificateStep) {
-      return undefined;
-    }
-
-    const handleOutsidePointer = (event) => {
-      if (storyCardWrapperRef.current && storyCardWrapperRef.current.contains(event.target)) {
-        return;
-      }
-      handleClosePanel();
-    };
-
-    document.addEventListener("mousedown", handleOutsidePointer);
-    document.addEventListener("touchstart", handleOutsidePointer, { passive: true });
-
-    return () => {
-      document.removeEventListener("mousedown", handleOutsidePointer);
-      document.removeEventListener("touchstart", handleOutsidePointer);
-    };
-  }, [selectedCountry, achievementUnlocked, certificateStep]);
 
   const handleViewEntireCommonwealth = () => {
     handleReset();
@@ -5148,6 +5129,29 @@ const dockCardsRevealTimeoutRef = useRef(null);
             display: isOverlayVisible ? undefined : "none",
           }}
         />
+
+        {/* Blocks all map interaction while a country card is open. Clicking
+            it closes the card; the same gesture can never reach a country. */}
+        {selectedCountry && !achievementUnlocked && !certificateStep ? (
+          <div
+            aria-hidden="true"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              handleClosePanel();
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 990,
+              cursor: "default",
+            }}
+          />
+        ) : null}
       </div>
 
       {/* FLOATING STORY CARD - Decoupled background to prevent scroll repaint flicker */}

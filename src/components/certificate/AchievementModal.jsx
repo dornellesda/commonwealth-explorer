@@ -1,9 +1,4 @@
-import { BADGE_ICONS } from "./badges";
-
-// FamilySearch brand palette (familysearch.org/brand).
-const BRAND_BLUE = "#1F4E79";
-const BRAND_BLUE_LIGHT = "#2E7DB5";
-const BRAND_GLOW = "rgba(31, 78, 121, 0.42)";
+import { BADGE_COLORS, BADGE_ICONS, FAMILYSEARCH_COLORS } from "./badges";
 
 // Phase 1 — Achievement overlay.
 // Museum-quality, calm celebration. Badge is the visual focus; everything
@@ -13,6 +8,7 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
 
   const { badgeLevel, levelName } = unlocked;
   const icon = BADGE_ICONS[badgeLevel];
+  const accent = BADGE_COLORS[badgeLevel] || { primary: FAMILYSEARCH_COLORS.primary, glow: "rgba(135, 185, 64, 0.42)" };
 
   return (
     <div
@@ -28,7 +24,7 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
         alignItems: "center",
         justifyContent: "center",
         padding: "2rem",
-        background: "rgba(10, 12, 18, 0.55)",
+        background: "rgba(51, 51, 49, 0.42)",
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         animation: "cert-fadeIn 420ms cubic-bezier(0.22, 1, 0.36, 1) both",
@@ -57,11 +53,11 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
           flexDirection: "column",
           alignItems: "center",
           textAlign: "center",
-          background: "linear-gradient(165deg, rgba(28, 26, 22, 0.92) 0%, rgba(16, 15, 13, 0.96) 100%)",
-          border: "1px solid rgba(31, 78, 121, 0.4)",
+          background: "linear-gradient(165deg, #FFFFFF 0%, #F7FAF3 100%)",
+          border: "1px solid rgba(135, 185, 64, 0.42)",
           borderRadius: "24px",
           padding: "3rem 2.25rem 2.25rem",
-          boxShadow: "0 40px 100px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
+          boxShadow: "0 40px 100px rgba(51, 51, 49, 0.28), inset 0 1px 0 rgba(255,255,255,0.9)",
           position: "relative",
           animation: "cert-riseIn 480ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both",
         }}
@@ -76,9 +72,9 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
             width: "36px",
             height: "36px",
             borderRadius: "50%",
-            border: "1px solid rgba(255,255,255,0.16)",
-            background: "rgba(255,255,255,0.04)",
-            color: "rgba(255,255,255,0.72)",
+            border: "1px solid rgba(51,51,49,0.16)",
+            background: "rgba(51,51,49,0.04)",
+            color: "rgba(51,51,49,0.72)",
             fontSize: "1.1rem",
             lineHeight: 1,
             cursor: "pointer",
@@ -87,8 +83,8 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
             justifyContent: "center",
             transition: "all 200ms ease",
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "#fff"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.72)"; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(135,185,64,0.14)"; e.currentTarget.style.color = FAMILYSEARCH_COLORS.ink; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(51,51,49,0.04)"; e.currentTarget.style.color = "rgba(51,51,49,0.72)"; }}
         >
           ×
         </button>
@@ -110,7 +106,7 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
               position: "absolute",
               inset: "-18px",
               borderRadius: "50%",
-              background: `radial-gradient(circle, ${BRAND_GLOW} 0%, rgba(0,0,0,0) 70%)`,
+              background: `radial-gradient(circle, ${accent.glow} 0%, rgba(0,0,0,0) 70%)`,
               animation: "cert-glowPulse 3.6s ease-in-out infinite",
               pointerEvents: "none",
             }}
@@ -120,15 +116,22 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
               position: "relative",
               width: "140px",
               height: "140px",
+              boxSizing: "border-box",
               borderRadius: "50%",
               padding: "9px",
-              background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.08), rgba(0,0,0,0.2))",
-              border: `1px solid ${BRAND_BLUE_LIGHT}`,
-              boxShadow: `0 18px 40px rgba(0,0,0,0.4), 0 0 0 4px rgba(31, 78, 121, 0.12), inset 0 1px 0 rgba(255,255,255,0.1)`,
+              background: "radial-gradient(circle at 35% 30%, #FFFFFF, #EDF4E6)",
+              border: `1px solid ${accent.primary}`,
+              boxShadow: `0 18px 40px rgba(51,51,49,0.22), 0 0 0 4px ${accent.glow}, inset 0 1px 0 rgba(255,255,255,0.9)`,
               animation: "cert-badgeIn 620ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
             }}
           >
-            {icon}
+            <div style={{ width: "100%", height: "100%", aspectRatio: "1 / 1", display: "flex", flex: "0 0 auto" }}>
+              {icon}
+            </div>
           </div>
         </div>
 
@@ -138,7 +141,7 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
             fontWeight: 600,
             letterSpacing: "0.16em",
             textTransform: "uppercase",
-            color: BRAND_BLUE_LIGHT,
+            color: FAMILYSEARCH_COLORS.primary,
             marginBottom: "0.6rem",
             animation: "cert-riseIn 460ms ease-out 220ms both",
           }}
@@ -149,7 +152,7 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
         <div
           style={{
             fontSize: "1rem",
-            color: "rgba(255,255,255,0.62)",
+            color: "rgba(51,51,49,0.7)",
             marginBottom: "0.35rem",
             animation: "cert-riseIn 460ms ease-out 280ms both",
           }}
@@ -161,7 +164,7 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
           style={{
             fontSize: "clamp(1.5rem, 4vw, 1.9rem)",
             fontWeight: 600,
-            color: "#F6F1E7",
+            color: FAMILYSEARCH_COLORS.ink,
             letterSpacing: "0.01em",
             fontFamily: "'Roboto Slab', Georgia, serif",
             marginBottom: "2.25rem",
@@ -186,15 +189,15 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
               width: "100%",
               padding: "0.9rem 1.5rem",
               borderRadius: "999px",
-              border: "1px solid rgba(31, 78, 121, 0.7)",
-              background: `linear-gradient(135deg, ${BRAND_BLUE_LIGHT} 0%, ${BRAND_BLUE} 100%)`,
-              color: "#FFFFFF",
+              border: `1px solid ${accent.primary}`,
+              background: `linear-gradient(135deg, ${accent.primary} 0%, ${FAMILYSEARCH_COLORS.primary} 100%)`,
+              color: FAMILYSEARCH_COLORS.ink,
               fontWeight: 600,
               fontSize: "0.98rem",
               letterSpacing: "0.01em",
               cursor: "pointer",
               transition: "transform 200ms ease, box-shadow 200ms ease",
-              boxShadow: `0 10px 24px ${BRAND_GLOW}`,
+              boxShadow: `0 10px 24px ${accent.glow}`,
             }}
             onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}

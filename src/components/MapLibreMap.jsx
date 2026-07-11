@@ -145,6 +145,13 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
   }, [onCountryHover]);
 
   const onClick = useCallback(event => {
+    // A selected country owns the map interaction until its card is closed.
+    // Any map click, including another country, is treated as an outside click.
+    if (selectedCountry) {
+      onMapClick?.();
+      return;
+    }
+
     const { features } = event;
     const clickedFeature = features && features[0];
     if (clickedFeature && clickedFeature.properties.cwName && onCountrySelect) {
@@ -152,7 +159,7 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
     } else if (onMapClick) {
       onMapClick();
     }
-  }, [onCountrySelect, onMapClick]);
+  }, [selectedCountry, onCountrySelect, onMapClick]);
 
   // Latitude/Longitude grid lines
   const gridFeatures = [];
@@ -347,6 +354,10 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
               anchor="center"
               onClick={e => {
                 e.originalEvent.stopPropagation();
+                if (selectedCountry) {
+                  onMapClick?.();
+                  return;
+                }
                 if (onCountrySelect) onCountrySelect(c.name);
               }}
             >

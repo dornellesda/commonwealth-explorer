@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FAMILYSEARCH_COLORS } from "./badges";
 
 // Phase 2 — Name entry.
 // No account, no login, no database — the name lives only in local state
@@ -28,7 +29,7 @@ export default function CertificateNameDialog({ onCancel, onSubmit }) {
         alignItems: "center",
         justifyContent: "center",
         padding: "2rem",
-        background: "rgba(10, 12, 18, 0.55)",
+        background: "rgba(51, 51, 49, 0.42)",
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         animation: "cert-fadeIn 380ms cubic-bezier(0.22, 1, 0.36, 1) both",
@@ -51,11 +52,11 @@ export default function CertificateNameDialog({ onCancel, onSubmit }) {
           flexDirection: "column",
           alignItems: "center",
           textAlign: "center",
-          background: "linear-gradient(165deg, rgba(28, 26, 22, 0.92) 0%, rgba(16, 15, 13, 0.96) 100%)",
-          border: "1px solid rgba(201, 162, 75, 0.28)",
+          background: "linear-gradient(165deg, #FFFFFF 0%, #F7FAF3 100%)",
+          border: "1px solid rgba(135, 185, 64, 0.42)",
           borderRadius: "24px",
           padding: "2.5rem 2rem",
-          boxShadow: "0 40px 100px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
+          boxShadow: "0 40px 100px rgba(51, 51, 49, 0.28), inset 0 1px 0 rgba(255,255,255,0.9)",
           animation: "cert-riseIn 460ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both",
         }}
       >
@@ -63,7 +64,7 @@ export default function CertificateNameDialog({ onCancel, onSubmit }) {
           style={{
             fontSize: "clamp(1.3rem, 3.4vw, 1.6rem)",
             fontWeight: 600,
-            color: "#F6F1E7",
+            color: FAMILYSEARCH_COLORS.ink,
             fontFamily: "'Roboto Slab', Georgia, serif",
             marginBottom: "0.6rem",
           }}
@@ -74,7 +75,7 @@ export default function CertificateNameDialog({ onCancel, onSubmit }) {
         <div
           style={{
             fontSize: "0.95rem",
-            color: "rgba(255,255,255,0.6)",
+            color: "rgba(51,51,49,0.68)",
             marginBottom: "1.75rem",
             lineHeight: 1.5,
           }}
@@ -94,16 +95,16 @@ export default function CertificateNameDialog({ onCancel, onSubmit }) {
             boxSizing: "border-box",
             padding: "0.85rem 1.1rem",
             borderRadius: "12px",
-            border: "1px solid rgba(255,255,255,0.16)",
-            background: "rgba(255,255,255,0.05)",
-            color: "#F6F1E7",
+            border: "1px solid rgba(51,51,49,0.2)",
+            background: "#FFFFFF",
+            color: FAMILYSEARCH_COLORS.ink,
             fontSize: "1rem",
             marginBottom: "1.5rem",
             outline: "none",
             transition: "border-color 200ms ease, background 200ms ease",
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(201, 162, 75, 0.6)"; e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.16)"; e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = FAMILYSEARCH_COLORS.primary; e.currentTarget.style.background = "#FFFFFF"; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(51,51,49,0.2)"; e.currentTarget.style.background = "#FFFFFF"; }}
         />
 
         <button
@@ -113,14 +114,14 @@ export default function CertificateNameDialog({ onCancel, onSubmit }) {
             width: "100%",
             padding: "0.9rem 1.5rem",
             borderRadius: "999px",
-            border: "1px solid rgba(201, 162, 75, 0.6)",
-            background: trimmed ? "linear-gradient(135deg, #C9A24B 0%, #A47C2C 100%)" : "rgba(255,255,255,0.08)",
-            color: trimmed ? "#1b1712" : "rgba(255,255,255,0.35)",
+            border: `1px solid ${FAMILYSEARCH_COLORS.primary}`,
+            background: trimmed ? FAMILYSEARCH_COLORS.primary : "rgba(51,51,49,0.08)",
+            color: trimmed ? FAMILYSEARCH_COLORS.ink : "rgba(51,51,49,0.35)",
             fontWeight: 600,
             fontSize: "0.98rem",
             cursor: trimmed ? "pointer" : "not-allowed",
             transition: "transform 200ms ease",
-            boxShadow: trimmed ? "0 10px 24px rgba(201, 162, 75, 0.25)" : "none",
+            boxShadow: trimmed ? "0 10px 24px rgba(135, 185, 64, 0.25)" : "none",
           }}
         >
           Generate Certificate

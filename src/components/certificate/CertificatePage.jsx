@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BADGE_ICONS, BADGE_COLORS, LEVEL_NAMES, FAMILYSEARCH_LOGO_URL } from "./badges";
+import { BADGE_ICONS, BADGE_COLORS, FAMILYSEARCH_COLORS, LEVEL_NAMES, FAMILYSEARCH_LOGO_URL } from "./badges";
 import { readCertificatePayloadFromLocation } from "./payload";
 
 function formatDate(isoDate) {
@@ -40,7 +40,7 @@ export default function CertificatePage() {
   const { name, badgeLevel, level, date } = payload;
   const levelName = level || LEVEL_NAMES[badgeLevel] || "Commonwealth Explorer";
   const icon = BADGE_ICONS[badgeLevel];
-  const colors = BADGE_COLORS[badgeLevel] || { primary: "#C9A24B", glow: "rgba(201, 162, 75, 0.35)" };
+  const colors = BADGE_COLORS[badgeLevel] || { primary: FAMILYSEARCH_COLORS.primary, glow: "rgba(135, 185, 64, 0.35)" };
   const displayDate = formatDate(date);
 
   const handleSaveImage = async () => {
@@ -129,8 +129,8 @@ export default function CertificatePage() {
         >
           <defs>
             <pattern id="cert-contours" width="120" height="120" patternUnits="userSpaceOnUse">
-              <circle cx="60" cy="60" r="50" fill="none" stroke="#C9A24B" strokeWidth="0.5" />
-              <circle cx="60" cy="60" r="30" fill="none" stroke="#C9A24B" strokeWidth="0.5" />
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#87B940" strokeWidth="0.5" />
+              <circle cx="60" cy="60" r="30" fill="none" stroke="#87B940" strokeWidth="0.5" />
             </pattern>
           </defs>
           <rect width="600" height="800" fill="url(#cert-contours)" />
@@ -213,7 +213,7 @@ const styles = {
   page: {
     minHeight: "100vh",
     width: "100%",
-    background: "#EFE9DA",
+    background: "#FFFFFF",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -224,7 +224,7 @@ const styles = {
   notFoundWrap: {
     minHeight: "100vh",
     width: "100%",
-    background: "#EFE9DA",
+    background: "#FFFFFF",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -233,16 +233,16 @@ const styles = {
     padding: "2rem",
     boxSizing: "border-box",
     fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
-    color: "#3a3529",
+    color: "#333331",
   },
   certificate: {
     position: "relative",
     width: "min(560px, 100%)",
-    background: "linear-gradient(165deg, #FBF7EE 0%, #F3ECDB 100%)",
+    background: "linear-gradient(165deg, #FFFFFF 0%, #F7FAF3 100%)",
     borderRadius: "18px",
     overflow: "hidden",
-    boxShadow: "0 30px 80px rgba(58, 48, 28, 0.18), 0 2px 0 rgba(255,255,255,0.6) inset",
-    border: "1px solid rgba(180, 150, 90, 0.25)",
+    boxShadow: "0 30px 80px rgba(51, 51, 49, 0.16), 0 2px 0 rgba(255,255,255,0.9) inset",
+    border: "1px solid rgba(135, 185, 64, 0.32)",
     animation: "cert-riseIn 520ms cubic-bezier(0.22, 1, 0.36, 1) both",
   },
   textureOverlay: {
@@ -271,34 +271,34 @@ const styles = {
     fontFamily: SERIF,
     fontSize: "clamp(1.3rem, 4.5vw, 1.7rem)",
     fontWeight: 600,
-    color: "#2E2A20",
+    color: "#333331",
     letterSpacing: "0.02em",
     marginBottom: "1.25rem",
   },
   rule: {
     width: "72px",
     height: "2px",
-    background: "linear-gradient(90deg, transparent, #C9A24B, transparent)",
+    background: "linear-gradient(90deg, transparent, #87B940, transparent)",
     margin: "0.25rem 0 1.5rem",
   },
   presentedTo: {
     fontSize: "0.85rem",
     letterSpacing: "0.14em",
     textTransform: "uppercase",
-    color: "#8a7d5a",
+    color: "#6A6A67",
     marginBottom: "0.5rem",
   },
   name: {
     fontFamily: SERIF,
     fontSize: "clamp(1.6rem, 6vw, 2.1rem)",
     fontWeight: 600,
-    color: "#2E2A20",
+    color: "#333331",
     marginBottom: "1.5rem",
     wordBreak: "break-word",
   },
   body: {
     fontSize: "1rem",
-    color: "#4a4535",
+    color: "#333331",
     lineHeight: 1.7,
     marginBottom: "1rem",
   },
@@ -306,11 +306,11 @@ const styles = {
     fontFamily: SERIF,
     fontSize: "1.15rem",
     fontWeight: 600,
-    color: "#8A6A1D",
+    color: "#87B940",
   },
   description: {
     fontSize: "0.9rem",
-    color: "#6b6450",
+    color: "#5D5D59",
     lineHeight: 1.7,
     maxWidth: "420px",
     marginBottom: "2rem",
@@ -321,20 +321,24 @@ const styles = {
   badgeMedallion: {
     width: "104px",
     height: "104px",
+    boxSizing: "border-box",
     borderRadius: "50%",
     padding: "12px",
-    background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.7), rgba(255,255,255,0.15))",
+    background: "radial-gradient(circle at 35% 30%, #FFFFFF, #EDF4E6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   date: {
     fontSize: "0.95rem",
-    color: "#4a4535",
+    color: "#333331",
     marginBottom: "1.5rem",
   },
   footer: {
     fontSize: "0.85rem",
     letterSpacing: "0.08em",
     textTransform: "uppercase",
-    color: "#8a7d5a",
+    color: "#6A6A67",
     marginTop: "0.25rem",
   },
   actions: {
@@ -355,18 +359,18 @@ const styles = {
     border: "1px solid transparent",
   },
   actionPrimary: {
-    background: "linear-gradient(135deg, #C9A24B 0%, #A47C2C 100%)",
-    color: "#1b1712",
-    border: "1px solid rgba(201, 162, 75, 0.6)",
+    background: "#87B940",
+    color: "#333331",
+    border: "1px solid #87B940",
   },
   actionSecondary: {
-    background: "rgba(46, 42, 32, 0.06)",
-    color: "#2E2A20",
-    border: "1px solid rgba(46, 42, 32, 0.18)",
+    background: "rgba(51, 51, 49, 0.06)",
+    color: "#333331",
+    border: "1px solid rgba(51, 51, 49, 0.18)",
   },
   exportError: {
     marginTop: "1rem",
     fontSize: "0.85rem",
-    color: "#8A6A1D",
+    color: "#333331",
   },
 };
