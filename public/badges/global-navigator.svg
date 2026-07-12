@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="silver" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fff"/><stop offset="30%" stop-color="#ccc"/><stop offset="70%" stop-color="#8E8E93"/><stop offset="100%" stop-color="#D1D1D6"/></linearGradient>
+    <linearGradient id="coral" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF7A6E"/><stop offset="100%" stop-color="#D0453A"/></linearGradient>
+    <linearGradient id="shield" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#E5E5EA"/><stop offset="100%" stop-color="#AEAEB2"/></linearGradient>
+  </defs>
+  <path d="M22 15H78Q82 15 82 20V72Q82 82 74 86L50 96 26 86Q18 82 18 72V20Q18 15 22 15Z" fill="url(#shield)" stroke="url(#silver)" stroke-width="3"/>
+  <path d="M24 17H76Q80 17 80 22V71Q80 80 72 84L50 93 28 84Q20 80 20 71V22Q20 17 24 17Z" fill="none" stroke="#fff" stroke-width=".5"/>
+  <g opacity=".9"><circle cx="41" cy="46" r="18" fill="url(#coral)" stroke="url(#silver)" stroke-width="1.5"/><circle cx="59" cy="46" r="18" fill="url(#coral)" stroke="url(#silver)" stroke-width="1.5"/></g>
+  <path d="m50 20 2 5h5l-4 3 2 5-5-3-5 3 2-5-4-3h5z" fill="#FFD700" stroke="#B8860B" stroke-width=".5"/>
+</svg>

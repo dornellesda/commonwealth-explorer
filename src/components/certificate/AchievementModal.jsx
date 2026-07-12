@@ -167,6 +167,7 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
             color: FAMILYSEARCH_COLORS.ink,
             letterSpacing: "0.01em",
             fontFamily: "'Roboto Slab', Georgia, serif",
+            lineHeight: 1.3,
             marginBottom: "2.25rem",
             animation: "cert-riseIn 460ms ease-out 340ms both",
           }}

@@ -2264,37 +2264,21 @@
       }
     ]
   },
-  "United Kingdom": {
+  "England": {
     "wiki": {
-      "description": "The United Kingdom of Great Britain and Northern Ireland, commonly known as the United Kingdom (UK) or Britain, is a country in northwestern Europe, off the coast of the continental mainland. It comprises England, Scotland, Wales and Northern Ireland, with a population of over 69 million in 2024. The UK includes the island of Great Britain, the north-eastern part of the island of Ireland, and most of the smaller islands within the British Isles, covering 94,354 square miles (244,376 km2). It...",
-      "capital": "]",
-      "population": "{{IncreaseNeutral}} {{UK subdivision population",
-      "language": "Unknown"
+      "description": "England is a country that is part of the United Kingdom. It shares land borders with Wales to its west and Scotland to its north. The Irish Sea lies northwest of England and the Celtic Sea to the southwest. England is separated from continental Europe by the North Sea to the east and the English Channel to the south. England comprises most of the central and southern part of the island of Great Britain, which lies in the North Atlantic.",
+      "capital": "London",
+      "population": "57,000,000",
+      "language": "English"
     },
     "images": [
       {
         "url": "https://upload.wikimedia.org/wikipedia/commons/e/e4/St_James%27s_Park_Lake_%E2%80%93_East_from_the_Blue_Bridge_-_2012-10-06.jpg",
-        "title": "St James's Park Lake – East from the Blue Bridge - 2012-10-06"
-      },
-      {
-        "url": "https://upload.wikimedia.org/wikipedia/commons/1/1b/L.A._Ring%2C_Road_in_the_Village_of_Baldersbr%C3%B8nde_%28Winter_Day%29%2C_1912%2C_NG6658%2C_National_Gallery.png",
-        "title": "L.A. Ring, Road in the Village of Baldersbrønde (Winter Day), 1912, NG6658, National Gallery"
+        "title": "St James's Park, London"
       },
       {
         "url": "https://upload.wikimedia.org/wikipedia/commons/8/87/Palace_of_Westminster_from_the_dome_on_Methodist_Central_Hall.jpg",
-        "title": "Palace of Westminster from the dome on Methodist Central Hall"
-      },
-      {
-        "url": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Valmy_Battle_painting.jpg",
-        "title": "Valmy Battle painting"
-      },
-      {
-        "url": "https://upload.wikimedia.org/wikipedia/commons/c/ca/John_Atkinson_Grimshaw_-_Shipping_on_the_Clyde_%281881%29.jpg",
-        "title": "John Atkinson Grimshaw - Shipping on the Clyde (1881)"
-      },
-      {
-        "url": "https://upload.wikimedia.org/wikipedia/commons/f/fb/D%C3%BClmen%2C_Wildpark_--_2019_--_3216-22.jpg",
-        "title": "Dülmen, Wildpark -- 2019 -- 3216-22"
+        "title": "Palace of Westminster, London"
       }
     ],
     "familySearch": [
@@ -2325,7 +2309,23 @@
         "category": "record",
         "updated": "2026-06-19",
         "updatedAt": "2026-05-04T20:10:18.790Z"
-      },
+      }
+    ]
+  },
+  "Scotland": {
+    "wiki": {
+      "description": "Scotland is a country that is part of the United Kingdom. Covering the northern third of the island of Great Britain, Scotland shares a border with England to the south, and is otherwise surrounded by the Atlantic Ocean, the North Sea, and the Irish Sea. The country consists of more than 790 islands, including the Northern Isles and the Hebrides. Scotland's capital is Edinburgh, and its largest city is Glasgow.",
+      "capital": "Edinburgh",
+      "population": "5,500,000",
+      "language": "English, Gaelic, Scots"
+    },
+    "images": [
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/c/ca/John_Atkinson_Grimshaw_-_Shipping_on_the_Clyde_%281881%29.jpg",
+        "title": "Shipping on the Clyde, Glasgow"
+      }
+    ],
+    "familySearch": [
       {
         "title": "Scotland, Birth Index, 1855-1980",
         "link": "https://www.familysearch.org/en/search/collection/scotland-birth",
@@ -2353,7 +2353,23 @@
         "category": "record",
         "updated": "2026-05-17",
         "updatedAt": "2026-06-18T06:18:08.033Z"
-      },
+      }
+    ]
+  },
+  "Wales": {
+    "wiki": {
+      "description": "Wales is a country that is part of the United Kingdom. It is bordered by England to its east, the Irish Sea to its north and west, and the Bristol Channel to its south. In 2021, Wales had a population of 3,107,500. Wales has a rugged coastline, mountainous national parks, and a distinctive Welsh language and Celtic culture.",
+      "capital": "Cardiff",
+      "population": "3,100,000",
+      "language": "Welsh, English"
+    },
+    "images": [
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/f/fb/D%C3%BClmen%2C_Wildpark_--_2019_--_3216-22.jpg",
+        "title": "Welsh Countryside View"
+      }
+    ],
+    "familySearch": [
       {
         "title": "Wales, Birth Index, 1837-1980",
         "link": "https://www.familysearch.org/en/search/collection/wales-birth",
@@ -2367,27 +2383,6 @@
         "category": "record",
         "updated": "2026-07-09",
         "updatedAt": "2026-04-13T23:47:53.785Z"
-      },
-      {
-        "title": "Northern Ireland, Birth Index, 1864-1980",
-        "link": "https://www.familysearch.org/en/search/collection/ni-birth",
-        "category": "record",
-        "updated": "2026-05-05",
-        "updatedAt": "2026-05-16T12:30:34.306Z"
-      },
-      {
-        "title": "UK Parish Records, 1538-1980",
-        "link": "https://www.familysearch.org/en/search/collection/uk-parish",
-        "category": "record",
-        "updated": "2026-06-23",
-        "updatedAt": "2026-05-20T23:39:40.134Z"
-      },
-      {
-        "title": "UK Genealogy Research Guide",
-        "link": "https://www.familysearch.org/en/search/collection/uk-guide",
-        "category": "genealogy",
-        "updated": "2026-05-23",
-        "updatedAt": "2026-05-21T02:58:34.614Z"
       }
     ]
   },

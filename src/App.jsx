@@ -7,6 +7,9 @@ import commonwealthMetadata from "./data/commonwealthMetadata.json";
 import countryDataBundle from "./data/country_data.json";
 import countryStats from "./data/countryStats.json";
 import "leaflet/dist/leaflet.css";
+import "./App.css";
+import familysearchLogo from './assets/familysearch-tree.svg';
+import ukBoundaries from './data/uk_boundaries.json';
 
 // Format population number (e.g., 5771000 → "5.8 million")
 function formatPopulation(pop) {
@@ -100,7 +103,7 @@ const GEOJSON_FALLBACK_URLS = [
   GEOJSON_URL,
   "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_admin_0_countries.geojson",
 ];
-const FAMILYSEARCH_LOGO_URL = "https://edge.fscdn.org/assets/static/media/familysearch-tree.dc22204d2135c739e39d0af7d519e182.svg";
+const FAMILYSEARCH_LOGO_URL = familysearchLogo;
 const MAP_BACKGROUND_ART_URL = "https://plus.unsplash.com/premium_photo-1779463020508-7cd254b1d37f?auto=format&fit=crop&w=2400&q=80";
 const FAMILYSEARCH_COLLECTIONS_BASE_URL = "https://www.familysearch.org/en/search/collection/list";
 const FAMILYSEARCH_FETCH_MIRROR_BASE_URL = "https://r.jina.ai/http://www.familysearch.org";
@@ -169,6 +172,9 @@ const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   tuvalu: "https://www.familysearch.org/en/search/location/pacific-islands/tuvalu",
   uganda: "https://www.familysearch.org/en/search/location/africa/uganda",
   "united kingdom": "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/england",
+  england: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/england",
+  scotland: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/scotland",
+  wales: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/wales",
   "united republic of tanzania": "https://www.familysearch.org/en/search/location/africa/tanzania",
   vanuatu: "https://www.familysearch.org/en/search/location/pacific-islands/vanuatu",
   zambia: "https://www.familysearch.org/en/search/location/africa/zambia",
@@ -227,6 +233,9 @@ const FAMILYSEARCH_COLLECTION_SETTINGS_BY_COUNTRY = {
   tuvalu: { region: "Tuvalu" },
   uganda: { region: "Uganda" },
   "united kingdom": { region: "England", placeId: "1986340", regionGroup: "United Kingdom and Ireland" },
+  england: { region: "England", placeId: "1986340", regionGroup: "United Kingdom and Ireland" },
+  scotland: { region: "Scotland", placeId: "1986341", regionGroup: "United Kingdom and Ireland" },
+  wales: { region: "Wales", placeId: "1986342", regionGroup: "United Kingdom and Ireland" },
   "united republic of tanzania": { region: "Tanzania" },
   vanuatu: { region: "Vanuatu" },
   zambia: { region: "Zambia" },
@@ -1195,8 +1204,8 @@ function SmallCountryMarkers({
     );
     const isExternallyHovered = Boolean(
       country &&
-        hoveredCountryNormalized &&
-        normalizeName(country.name) === hoveredCountryNormalized
+      hoveredCountryNormalized &&
+      normalizeName(country.name) === hoveredCountryNormalized
     );
     const isHovered = Boolean((options.isHovered || isExternallyHovered) && !isSelected);
 
@@ -1640,6 +1649,16 @@ function WorldGeoLayer({
     loadGeojsonWithFallback()
       .then((data) => {
         if (isActive) {
+          // Remove the single sovereign United Kingdom polygon
+          data.features = data.features.filter(feature => {
+            const props = feature.properties;
+            const isUK = props.name === "United Kingdom" || props.NAME === "United Kingdom" || props.ADMIN === "United Kingdom" || props.SOVEREIGN === "United Kingdom";
+            return !isUK;
+          });
+
+          // Add individual England, Scotland, and Wales polygons
+          data.features.push(...ukBoundaries.features);
+
           setGeojson(data);
           onGeojsonLoad(data);
           onGeojsonError?.("");
@@ -1845,14 +1864,15 @@ export default function App() {
   const [validatedHeroImage, setValidatedHeroImage] = useState(null);
   const [isIdleAttractMode, setIsIdleAttractMode] = useState(true);
   const [isButtonTransitioning, setIsButtonTransitioning] = useState(false);
+  const [mapOnlyStartTime, setMapOnlyStartTime] = useState(null);
   const [attractRouteSwooshes, setAttractRouteSwooshes] = useState([]);
   const [attractHeroRoute, setAttractHeroRoute] = useState(null);
-const [isDockSearchExpanded, setIsDockSearchExpanded] = useState(false);
-const [dockSearchActivityTick, setDockSearchActivityTick] = useState(0);
-const [isMenuOpening, setIsMenuOpening] = useState(false);
-const [isDockExpanding, setIsDockExpanding] = useState(false);
-const dockExpansionRef = useRef({ width: 0, height: 0 });
-const dockCardsRevealTimeoutRef = useRef(null);
+  const [isDockSearchExpanded, setIsDockSearchExpanded] = useState(false);
+  const [dockSearchActivityTick, setDockSearchActivityTick] = useState(0);
+  const [isMenuOpening, setIsMenuOpening] = useState(false);
+  const [isDockExpanding, setIsDockExpanding] = useState(false);
+  const dockExpansionRef = useRef({ width: 0, height: 0 });
+  const dockCardsRevealTimeoutRef = useRef(null);
   const [visitedVoyagerCountries, setVisitedVoyagerCountries] = useState([]);
   const [voyagerNotice, setVoyagerNotice] = useState(null);
   const [voyagerCompletionVisible, setVoyagerCompletionVisible] = useState(false);
@@ -2072,6 +2092,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
     setIsOverlayVisible(false);
     setIsContentVisible(false);
     setActivatedCountryName(null);
+    setIsDockExpanding(false);
 
     window.setTimeout(() => {
       if (reopenDock) {
@@ -2292,10 +2313,10 @@ const dockCardsRevealTimeoutRef = useRef(null);
     scheduleVoyagerAuraIdleTick();
   };
 
-  const openCountryDock = () => {
+  const openCountryDock = (shouldExpand = false) => {
     markUserActivity();
     setIsButtonTransitioning(true);
-    setIsDockExpanding(true);
+    setIsDockExpanding(shouldExpand);
 
     // Exit idle mode and bring dock in from the same visual anchor as the button.
     setIsIdleAttractMode(false);
@@ -2318,20 +2339,24 @@ const dockCardsRevealTimeoutRef = useRef(null);
     setIsMenuClosing(false);
     setIsMenuOpen(true);
 
-    // Card reveal staggers: start after expansion (200ms), then 20-40ms between cards
-    const startCardReveal = () => {
-      dockCardsRevealTimeoutRef.current = window.setTimeout(() => {
-        // Trigger card reveal by setting isDockExpanding to false
-        // Cards will use their own stagger delays based on index
-      }, 200);
-    };
+    if (shouldExpand) {
+      // Card reveal staggers: start after expansion (200ms), then 20-40ms between cards
+      const startCardReveal = () => {
+        dockCardsRevealTimeoutRef.current = window.setTimeout(() => {
+          // Trigger card reveal by setting isDockExpanding to false
+          // Cards will use their own stagger delays based on index
+        }, 200);
+      };
 
-    // Expansion timeline: 180ms for width expansion
-    const expansionDuration = 180;
-    window.setTimeout(() => {
-      // End of expansion - cards will now begin their staggered reveal
-      startCardReveal();
-    }, expansionDuration);
+      // Expansion timeline: 180ms for width expansion
+      const expansionDuration = 180;
+      window.setTimeout(() => {
+        // End of expansion - cards will now begin their staggered reveal
+        startCardReveal();
+      }, expansionDuration);
+    } else {
+      setIsDockExpanding(false);
+    }
 
     // Cleanup transition state after full animation
     window.setTimeout(() => {
@@ -2356,7 +2381,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
       return;
     }
 
-    openCountryDock();
+    openCountryDock(true);
   };
 
   const handleGeojsonLoad = (data) => {
@@ -2443,12 +2468,12 @@ const dockCardsRevealTimeoutRef = useRef(null);
       familySearchCollectionsCacheRef.current[cacheKey] = bundledData;
       return bundledData;
     }
-    
+
     // Fallback cache logic if bundled data isn't there for some reason
     if (Object.prototype.hasOwnProperty.call(familySearchCollectionsCacheRef.current, cacheKey)) {
       return familySearchCollectionsCacheRef.current[cacheKey];
     }
-    
+
     familySearchCollectionsCacheRef.current[cacheKey] = [];
     return [];
   };
@@ -2665,7 +2690,9 @@ const dockCardsRevealTimeoutRef = useRef(null);
       lastUserActivityAtRef.current = now;
 
       if (isIdleAttractMode && /pointerdown|touchstart|click|keydown/.test(type)) {
-        exitIdleAttractMode();
+        setTimeout(() => {
+          exitIdleAttractMode();
+        }, 0);
       }
 
       scheduleIdleTransition();
@@ -2707,6 +2734,17 @@ const dockCardsRevealTimeoutRef = useRef(null);
       setIsMenuClosing(false);
     }
   }, [selectedCountry?.name]);
+
+  useEffect(() => {
+    const isMapOnly = !isMenuOpen && !selectedCountry && !isIdleAttractMode;
+    if (isMapOnly) {
+      if (!mapOnlyStartTime) {
+        setMapOnlyStartTime(Date.now());
+      }
+    } else {
+      setMapOnlyStartTime(null);
+    }
+  }, [isMenuOpen, selectedCountry, isIdleAttractMode, mapOnlyStartTime]);
 
   useEffect(() => {
     setIsOverviewExpanded(false);
@@ -3385,53 +3423,54 @@ const dockCardsRevealTimeoutRef = useRef(null);
     if (p >= 100) {
       // Platinum — full green with holographic shimmer
       return `conic-gradient(from 0deg,
-        rgba(134,185,64,0) 0%,
+        rgba(134,185,64,0.3) 0%,
         rgba(175,207,104,0.9) 8%,
         rgba(134,185,64,0.75) 22%,
-        rgba(255,255,255,0.55) 30%,
+        rgba(255,255,255,0.75) 30%,
         rgba(134,185,64,0.6) 42%,
         rgba(175,207,104,0.85) 56%,
-        rgba(255,255,255,0.4) 64%,
+        rgba(255,255,255,0.6) 64%,
         rgba(134,185,64,0.5) 78%,
-        rgba(134,185,64,0) 100%)`;
+        rgba(134,185,64,0.3) 100%)`;
     }
 
     if (p >= 50) {
       // Mid–high: balanced greens and silvers
       const g = `rgba(134,185,64,${0.55 + (p - 50) * 0.006})`;
+      const minOpa = 0.25;
       return `conic-gradient(from 0deg,
-        rgba(187,183,177,0) 0%,
+        rgba(187,183,177,${minOpa}) 0%,
         ${g} 10%,
-        rgba(255,255,255,0.5) 20%,
-        rgba(156,148,122,0.3) 38%,
+        rgba(255,255,255,0.65) 20%,
+        rgba(156,148,122,0.4) 38%,
         ${g} 55%,
-        rgba(255,255,255,0.35) 65%,
-        rgba(187,183,177,0.2) 80%,
-        rgba(187,183,177,0) 100%)`;
+        rgba(255,255,255,0.5) 65%,
+        rgba(187,183,177,0.35) 80%,
+        rgba(187,183,177,${minOpa}) 100%)`;
     }
 
     if (p >= 15) {
       // Low–mid: mostly warm silver with a hint of sage
       return `conic-gradient(from 0deg,
-        rgba(187,183,177,0) 0%,
-        rgba(255,255,255,0.6) 8%,
-        rgba(187,183,177,0.45) 20%,
-        rgba(156,148,122,0.25) 36%,
-        rgba(175,207,104,0.35) 50%,
-        rgba(255,255,255,0.45) 62%,
-        rgba(187,183,177,0.3) 78%,
-        rgba(187,183,177,0) 100%)`;
+        rgba(187,183,177,0.25) 0%,
+        rgba(255,255,255,0.7) 8%,
+        rgba(187,183,177,0.55) 20%,
+        rgba(156,148,122,0.35) 36%,
+        rgba(175,207,104,0.45) 50%,
+        rgba(255,255,255,0.55) 62%,
+        rgba(187,183,177,0.4) 78%,
+        rgba(187,183,177,0.25) 100%)`;
     }
 
     // Very early: pure elegant silver/white
     return `conic-gradient(from 0deg,
-      rgba(187,183,177,0) 0%,
-      rgba(255,255,255,0.7) 8%,
-      rgba(187,183,177,0.5) 22%,
-      rgba(156,148,122,0.2) 45%,
-      rgba(255,255,255,0.55) 62%,
-      rgba(187,183,177,0.35) 80%,
-      rgba(187,183,177,0) 100%)`;
+      rgba(187,183,177,0.25) 0%,
+      rgba(255,255,255,0.75) 8%,
+      rgba(187,183,177,0.6) 22%,
+      rgba(156,148,122,0.3) 45%,
+      rgba(255,255,255,0.6) 62%,
+      rgba(187,183,177,0.45) 80%,
+      rgba(187,183,177,0.25) 100%)`;
   };
 
   // Schedules a randomised idle aura trigger (20–40 s) while exploring
@@ -4247,7 +4286,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
                   backgroundColor: "#87b940",
                   boxShadow: "0 0 10px #87b940",
                   display: "inline-block",
-                  animation: "attractDotBreathe 2.4s ease-in-out infinite",
+                  animation: "attractDotHueCycle 16s ease-in-out infinite",
                   position: "relative",
                   zIndex: 2,
                 }}
@@ -4372,6 +4411,9 @@ const dockCardsRevealTimeoutRef = useRef(null);
             },
           });
         };
+        if (!isExploreButtonVisible && !isMenuOpening && !isMenuClosing) {
+          return null;
+        }
 
         return (
           <div
@@ -4439,7 +4481,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
               zIndex: 910,
               display: "flex",
               alignItems: "center",
-              gap: "4px",
+              gap: (isAttractMode || isPanelOpen) ? "0px" : "4px",
               padding: "5px",
               borderRadius: "999px",
               border: "1px solid rgba(255,255,255,0.5)",
@@ -4452,11 +4494,12 @@ const dockCardsRevealTimeoutRef = useRef(null);
               opacity: isExploreButtonVisible ? 1 : 0,
               filter: isExploreButtonVisible ? "blur(0px)" : "blur(0.8px)",
               isolation: "isolate",
+              overflow: "hidden",
             }}
           >
             {/* Sheen effect across the whole pill */}
             <span className="explore-cta-sheen" aria-hidden="true" style={{ borderRadius: "999px", pointerEvents: "none" }} />
-            
+
             {/* Explore Option */}
             <button
               aria-label={isAttractMode ? undefined : "Explore by Country"}
@@ -4470,7 +4513,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
-                padding: "8px 16px 8px 12px",
+                padding: (isAttractMode || isPanelOpen) ? "8px 12px" : "8px 16px 8px 12px", // Symmetric when recentre is hidden
                 borderRadius: "999px",
                 border: "none",
                 background: "linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.2) 100%)",
@@ -4495,41 +4538,58 @@ const dockCardsRevealTimeoutRef = useRef(null);
               {isAttractMode && <span>{exploreButtonLabel}</span>}
             </button>
 
-            {/* Recentre Option */}
+            {/* Recentre Option — hidden elegantly when card is open */}
             {!isAttractMode && (
-              <button
-                aria-label="Recentre Map"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleReset();
-                }}
+              <div
                 style={{
-                  position: "relative",
-                  zIndex: 2,
+                  overflow: "hidden",
+                  width: isPanelOpen ? "0px" : "44px",
+                  minWidth: isPanelOpen ? "0px" : "44px",
+                  maxWidth: isPanelOpen ? "0px" : "44px",
+                  opacity: isPanelOpen ? 0 : 1,
+                  transition: "width 400ms cubic-bezier(0.22,1,0.36,1), min-width 400ms cubic-bezier(0.22,1,0.36,1), max-width 400ms cubic-bezier(0.22,1,0.36,1), opacity 280ms ease",
+                  pointerEvents: isPanelOpen ? "none" : "auto",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: "42px",
-                  height: "42px",
-                  borderRadius: "50%",
-                  border: "none",
-                  background: "transparent",
-                  color: "rgba(15,23,42,0.85)",
-                  cursor: "pointer",
-                  transition: "all 200ms ease"
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.3)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
+                  flexShrink: 0,
                 }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
-              </button>
+                <button
+                  aria-label="Recentre Map"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReset();
+                  }}
+                  style={{
+                    position: "relative",
+                    zIndex: 2,
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "42px",
+                    height: "42px",
+                    borderRadius: "50%",
+                    border: "none",
+                    background: "transparent",
+                    color: "rgba(15,23,42,0.85)",
+                    cursor: "pointer",
+                    transition: "background 200ms ease"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.3)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                  </svg>
+                </button>
+              </div>
             )}
           </div>
         );
@@ -4905,7 +4965,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
                 fontWeight: 400,
                 letterSpacing: "-0.01em",
                 transition: "background 200ms ease",
-               }}
+              }}
               onFocusCapture={(e) => {
                 e.target.style.background = "linear-gradient(180deg, rgba(255,255,255,0.31) 0%, rgba(255,255,255,0.16) 100%)";
               }}
@@ -5949,7 +6009,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
             }}
           >
             {/* Badge with glow animation */}
-            <div style={{ 
+            <div style={{
               animation: "badgeScale 620ms cubic-bezier(0.34, 1.56, 0.64, 1), badgeGlow 2s ease-in-out, celebrationPulse 1.2s ease-in-out 620ms 1",
               transform: "scale(2.5)",
               transformOrigin: "center"

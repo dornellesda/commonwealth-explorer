@@ -259,9 +259,19 @@
     "population": 47123531,
     "source": "Wikidata"
   },
-  "United Kingdom": {
+  "England": {
     "capital": "London",
-    "population": 67326569,
+    "population": 57000000,
+    "source": "Wikidata"
+  },
+  "Scotland": {
+    "capital": "Edinburgh",
+    "population": 5500000,
+    "source": "Wikidata"
+  },
+  "Wales": {
+    "capital": "Cardiff",
+    "population": 3100000,
     "source": "Wikidata"
   },
   "United Republic of Tanzania": {

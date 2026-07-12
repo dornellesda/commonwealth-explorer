@@ -49,7 +49,14 @@ export default function CertificatePage() {
     setIsExporting(true);
     try {
       const { toPng } = await import("html-to-image");
-      const dataUrl = await toPng(certificateRef.current, { pixelRatio: 2, cacheBust: true });
+      const dataUrl = await toPng(certificateRef.current, {
+        pixelRatio: 2,
+        cacheBust: true,
+        styleSheetFilter: (styleSheet) => {
+          if (!styleSheet.href) return true;
+          return styleSheet.href.startsWith(window.location.origin);
+        }
+      });
       const link = document.createElement("a");
       link.download = `Commonwealth-Explorer-Certificate-${name.replace(/\s+/g, "-")}.png`;
       link.href = dataUrl;
@@ -72,7 +79,14 @@ export default function CertificatePage() {
         import("jspdf"),
       ]);
       const node = certificateRef.current;
-      const dataUrl = await toPng(node, { pixelRatio: 2, cacheBust: true });
+      const dataUrl = await toPng(node, {
+        pixelRatio: 2,
+        cacheBust: true,
+        styleSheetFilter: (styleSheet) => {
+          if (!styleSheet.href) return true;
+          return styleSheet.href.startsWith(window.location.origin);
+        }
+      });
       const { width, height } = node.getBoundingClientRect();
       const orientation = width >= height ? "landscape" : "portrait";
       const pdf = new jsPDF({ orientation, unit: "px", format: [width, height] });
@@ -307,6 +321,7 @@ const styles = {
     fontSize: "1.15rem",
     fontWeight: 600,
     color: "#87B940",
+    lineHeight: 1.35,
   },
   description: {
     fontSize: "0.9rem",

@@ -3,6 +3,8 @@
 // screen, and the standalone /certificate page (loaded fresh on a
 // visitor's phone) all render an identical badge.
 
+import familysearchLogo from '../../assets/familysearch-tree.svg';
+
 export const BADGE_LEVELS = [5, 10, 25, 40, 56];
 
 // FamilySearch certificate palette. White is the dominant surface, charcoal
@@ -204,5 +206,4 @@ export function getBadgeLevelForCount(count) {
   return level;
 }
 
-export const FAMILYSEARCH_LOGO_URL =
-  "https://edge.fscdn.org/assets/static/media/familysearch-tree.dc22204d2135c739e39d0af7d519e182.svg";
+export const FAMILYSEARCH_LOGO_URL = familysearchLogo;

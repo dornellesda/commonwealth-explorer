@@ -2,6 +2,7 @@ import React, { useRef, useCallback, useState, useEffect, memo } from 'react';
 import MapGL, { Source, Layer, Marker } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import countries from '../data/countries.json';
+import ukBoundaries from '../data/uk_boundaries.json';
 
 const ATTRACT_MODE_VIEW = {
   center: [25, 22],
@@ -95,6 +96,16 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
           } catch (e) {}
         }
         if (!data) throw new Error("All geojson fetches failed");
+
+        // Remove the single sovereign United Kingdom polygon
+        data.features = data.features.filter(feature => {
+          const props = feature.properties;
+          const isUK = props.name === "United Kingdom" || props.NAME === "United Kingdom" || props.ADMIN === "United Kingdom" || props.SOVEREIGN === "United Kingdom";
+          return !isUK;
+        });
+
+        // Add individual England, Scotland, and Wales polygons
+        data.features.push(...ukBoundaries.features);
         
         const commonwealthNames = new Set(countries.map(c => normalizeName(c.name)));
         const nameMap = new Map(countries.map(c => [normalizeName(c.name), c.name]));

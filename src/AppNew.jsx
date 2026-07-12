@@ -15,6 +15,9 @@ import commonwealthMetadata from "./data/commonwealthMetadata.json";
 import countryDataBundle from "./data/country_data.json";
 import countryStats from "./data/countryStats.json";
 import "leaflet/dist/leaflet.css";
+import "./App.css";
+import familysearchLogo from './assets/familysearch-tree.svg';
+import ukBoundaries from './data/uk_boundaries.json';
 
 // Format population number (e.g., 5771000 → "5.8 million")
 function formatPopulation(pop) {
@@ -108,7 +111,7 @@ const GEOJSON_FALLBACK_URLS = [
   GEOJSON_URL,
   "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_admin_0_countries.geojson",
 ];
-const FAMILYSEARCH_LOGO_URL = "https://edge.fscdn.org/assets/static/media/familysearch-tree.dc22204d2135c739e39d0af7d519e182.svg";
+const FAMILYSEARCH_LOGO_URL = familysearchLogo;
 const MAP_BACKGROUND_ART_URL = "https://plus.unsplash.com/premium_photo-1779463020508-7cd254b1d37f?auto=format&fit=crop&w=2400&q=80";
 const FAMILYSEARCH_COLLECTIONS_BASE_URL = "https://www.familysearch.org/en/search/collection/list";
 const FAMILYSEARCH_FETCH_MIRROR_BASE_URL = "https://r.jina.ai/http://www.familysearch.org";
@@ -177,6 +180,9 @@ const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   tuvalu: "https://www.familysearch.org/en/search/location/pacific-islands/tuvalu",
   uganda: "https://www.familysearch.org/en/search/location/africa/uganda",
   "united kingdom": "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/england",
+  england: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/england",
+  scotland: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/scotland",
+  wales: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/wales",
   "united republic of tanzania": "https://www.familysearch.org/en/search/location/africa/tanzania",
   vanuatu: "https://www.familysearch.org/en/search/location/pacific-islands/vanuatu",
   zambia: "https://www.familysearch.org/en/search/location/africa/zambia",
@@ -235,6 +241,9 @@ const FAMILYSEARCH_COLLECTION_SETTINGS_BY_COUNTRY = {
   tuvalu: { region: "Tuvalu" },
   uganda: { region: "Uganda" },
   "united kingdom": { region: "England", placeId: "1986340", regionGroup: "United Kingdom and Ireland" },
+  england: { region: "England", placeId: "1986340", regionGroup: "United Kingdom and Ireland" },
+  scotland: { region: "Scotland", placeId: "1986341", regionGroup: "United Kingdom and Ireland" },
+  wales: { region: "Wales", placeId: "1986342", regionGroup: "United Kingdom and Ireland" },
   "united republic of tanzania": { region: "Tanzania" },
   vanuatu: { region: "Vanuatu" },
   zambia: { region: "Zambia" },
@@ -1203,8 +1212,8 @@ function SmallCountryMarkers({
     );
     const isExternallyHovered = Boolean(
       country &&
-        hoveredCountryNormalized &&
-        normalizeName(country.name) === hoveredCountryNormalized
+      hoveredCountryNormalized &&
+      normalizeName(country.name) === hoveredCountryNormalized
     );
     const isHovered = Boolean((options.isHovered || isExternallyHovered) && !isSelected);
 
@@ -1648,6 +1657,16 @@ function WorldGeoLayer({
     loadGeojsonWithFallback()
       .then((data) => {
         if (isActive) {
+          // Remove the single sovereign United Kingdom polygon
+          data.features = data.features.filter(feature => {
+            const props = feature.properties;
+            const isUK = props.name === "United Kingdom" || props.NAME === "United Kingdom" || props.ADMIN === "United Kingdom" || props.SOVEREIGN === "United Kingdom";
+            return !isUK;
+          });
+
+          // Add individual England, Scotland, and Wales polygons
+          data.features.push(...ukBoundaries.features);
+
           setGeojson(data);
           onGeojsonLoad(data);
           onGeojsonError?.("");
@@ -1857,14 +1876,15 @@ export default function App() {
   const isPanelScrolledRef = useRef(false);
   const [isIdleAttractMode, setIsIdleAttractMode] = useState(true);
   const [isButtonTransitioning, setIsButtonTransitioning] = useState(false);
+  const [mapOnlyStartTime, setMapOnlyStartTime] = useState(null);
   const [attractRouteSwooshes, setAttractRouteSwooshes] = useState([]);
   const [attractHeroRoute, setAttractHeroRoute] = useState(null);
-const [isDockSearchExpanded, setIsDockSearchExpanded] = useState(false);
-const [dockSearchActivityTick, setDockSearchActivityTick] = useState(0);
-const [isMenuOpening, setIsMenuOpening] = useState(false);
-const [isDockExpanding, setIsDockExpanding] = useState(false);
-const dockExpansionRef = useRef({ width: 0, height: 0 });
-const dockCardsRevealTimeoutRef = useRef(null);
+  const [isDockSearchExpanded, setIsDockSearchExpanded] = useState(false);
+  const [dockSearchActivityTick, setDockSearchActivityTick] = useState(0);
+  const [isMenuOpening, setIsMenuOpening] = useState(false);
+  const [isDockExpanding, setIsDockExpanding] = useState(false);
+  const dockExpansionRef = useRef({ width: 0, height: 0 });
+  const dockCardsRevealTimeoutRef = useRef(null);
   const [visitedVoyagerCountries, setVisitedVoyagerCountries] = useState([]);
   const [voyagerNotice, setVoyagerNotice] = useState(null);
   const [voyagerCompletionVisible, setVoyagerCompletionVisible] = useState(false);
@@ -2061,6 +2081,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
     setIsOverlayVisible(false);
     setIsContentVisible(false);
     setActivatedCountryName(null);
+    setIsDockExpanding(false);
 
     window.setTimeout(() => {
       if (reopenDock) {
@@ -2279,10 +2300,10 @@ const dockCardsRevealTimeoutRef = useRef(null);
     scheduleVoyagerAuraIdleTick();
   };
 
-  const openCountryDock = () => {
+  const openCountryDock = (shouldExpand = false) => {
     markUserActivity();
     setIsButtonTransitioning(true);
-    setIsDockExpanding(true);
+    setIsDockExpanding(shouldExpand);
 
     // Exit idle mode and bring dock in from the same visual anchor as the button.
     setIsIdleAttractMode(false);
@@ -2305,21 +2326,25 @@ const dockCardsRevealTimeoutRef = useRef(null);
     setIsMenuClosing(false);
     setIsMenuOpen(true);
 
-    // Card reveal staggers: start after expansion (200ms), then 20-40ms between cards
-    const startCardReveal = () => {
-      dockCardsRevealTimeoutRef.current = window.setTimeout(() => {
-        // Trigger card reveal by setting isDockExpanding to false
-        // Cards will use their own stagger delays based on index
-        setIsDockExpanding(false);
-      }, 500);
-    };
+    if (shouldExpand) {
+      // Card reveal staggers: start after expansion (200ms), then 20-40ms between cards
+      const startCardReveal = () => {
+        dockCardsRevealTimeoutRef.current = window.setTimeout(() => {
+          // Trigger card reveal by setting isDockExpanding to false
+          // Cards will use their own stagger delays based on index
+          setIsDockExpanding(false);
+        }, 500);
+      };
 
-    // Expansion timeline: 180ms for width expansion
-    const expansionDuration = 180;
-    window.setTimeout(() => {
-      // End of expansion - cards will now begin their staggered reveal
-      startCardReveal();
-    }, expansionDuration);
+      // Expansion timeline: 180ms for width expansion
+      const expansionDuration = 180;
+      window.setTimeout(() => {
+        // End of expansion - cards will now begin their staggered reveal
+        startCardReveal();
+      }, expansionDuration);
+    } else {
+      setIsDockExpanding(false);
+    }
 
     // Cleanup transition state after full animation
     window.setTimeout(() => {
@@ -2342,11 +2367,11 @@ const dockCardsRevealTimeoutRef = useRef(null);
 
     // First interaction leaves attract mode and directly opens the country dock.
     if (isIdleAttractMode) {
-      openCountryDock();
+      openCountryDock(false);
       return;
     }
 
-    openCountryDock();
+    openCountryDock(true);
   };
 
   const handleGeojsonLoad = (data) => {
@@ -2434,12 +2459,12 @@ const dockCardsRevealTimeoutRef = useRef(null);
       familySearchCollectionsCacheRef.current[cacheKey] = bundledData;
       return bundledData;
     }
-    
+
     // Fallback cache logic if bundled data isn't there for some reason
     if (Object.prototype.hasOwnProperty.call(familySearchCollectionsCacheRef.current, cacheKey)) {
       return familySearchCollectionsCacheRef.current[cacheKey];
     }
-    
+
     familySearchCollectionsCacheRef.current[cacheKey] = [];
     return [];
   };
@@ -2678,7 +2703,9 @@ const dockCardsRevealTimeoutRef = useRef(null);
       lastUserActivityAtRef.current = now;
 
       if (isIdleAttractMode && /pointerdown|touchstart|click|keydown/.test(type)) {
-        exitIdleAttractMode();
+        setTimeout(() => {
+          exitIdleAttractMode();
+        }, 0);
       }
 
       scheduleIdleTransition();
@@ -2720,6 +2747,17 @@ const dockCardsRevealTimeoutRef = useRef(null);
       setIsMenuClosing(false);
     }
   }, [selectedCountry?.name]);
+
+  useEffect(() => {
+    const isMapOnly = !isMenuOpen && !selectedCountry && !isIdleAttractMode;
+    if (isMapOnly) {
+      if (!mapOnlyStartTime) {
+        setMapOnlyStartTime(Date.now());
+      }
+    } else {
+      setMapOnlyStartTime(null);
+    }
+  }, [isMenuOpen, selectedCountry, isIdleAttractMode, mapOnlyStartTime]);
 
   useEffect(() => {
     setIsOverviewExpanded(false);
@@ -3311,7 +3349,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
           {/* Shield Body */}
           <path d="M 22 15 L 78 15 Q 82 15 82 20 L 82 72 Q 82 82 74 86 L 50 96 L 26 86 Q 18 82 18 72 L 18 20 Q 18 15 22 15 Z" fill="url(#shieldBg)" stroke="url(#silverMetal25)" strokeWidth="3" />
           <path d="M 24 17 L 76 17 Q 80 17 80 22 L 80 71 Q 80 80 72 84 L 50 93 L 28 84 Q 20 80 20 71 L 20 22 Q 20 17 24 17 Z" fill="none" stroke="#FFFFFF" strokeWidth="0.5" />
-          
+
           {/* Intersecting Coral Rings */}
           <g opacity="0.9">
             <circle cx="41" cy="46" r="18" fill="url(#coralGrad)" stroke="url(#silverMetal25)" strokeWidth="1.5" />
@@ -3343,7 +3381,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
           {/* Outer Hexagon with Silver Bevel */}
           <polygon points="50,6 88.1,28 88.1,72 50,94 11.9,72 11.9,28" fill="url(#silverMetal40)" />
           <polygon points="50,9 85.5,29.5 85.5,70.5 50,91 14.5,70.5 14.5,29.5" fill="#3A3A3C" />
-          
+
           {/* Left Half (Teal) */}
           <path d="M 50 9 L 14.5 29.5 L 14.5 70.5 L 50 91 Z" fill="url(#tealGrad)" />
           {/* Right Half (White/Silver) */}
@@ -3385,7 +3423,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
           <path d="M 50 9 L 85.5 29.5 L 50 50 Z" fill="url(#goldGrad56)" opacity="0.25" />
           <path d="M 85.5 70.5 L 50 91 L 50 50 Z" fill="url(#goldGrad56)" opacity="0.2" />
           <path d="M 14.5 70.5 L 50 91 L 50 50 Z" fill="url(#goldGrad56)" opacity="0.35" />
-          
+
           {/* Compass rose in center */}
           <g transform="translate(15, 15) scale(0.7)">
             <path d="M50,5 L54,46 L50,50 L46,46 Z" fill="url(#metallicAccent)" />
@@ -3485,53 +3523,54 @@ const dockCardsRevealTimeoutRef = useRef(null);
     if (p >= 100) {
       // Platinum — full green with holographic shimmer
       return `conic-gradient(from 0deg,
-        rgba(134,185,64,0) 0%,
+        rgba(134,185,64,0.3) 0%,
         rgba(175,207,104,0.9) 8%,
         rgba(134,185,64,0.75) 22%,
-        rgba(255,255,255,0.55) 30%,
+        rgba(255,255,255,0.75) 30%,
         rgba(134,185,64,0.6) 42%,
         rgba(175,207,104,0.85) 56%,
-        rgba(255,255,255,0.4) 64%,
+        rgba(255,255,255,0.6) 64%,
         rgba(134,185,64,0.5) 78%,
-        rgba(134,185,64,0) 100%)`;
+        rgba(134,185,64,0.3) 100%)`;
     }
 
     if (p >= 50) {
       // Mid–high: balanced greens and silvers
       const g = `rgba(134,185,64,${0.55 + (p - 50) * 0.006})`;
+      const minOpa = 0.25;
       return `conic-gradient(from 0deg,
-        rgba(187,183,177,0) 0%,
+        rgba(187,183,177,${minOpa}) 0%,
         ${g} 10%,
-        rgba(255,255,255,0.5) 20%,
-        rgba(156,148,122,0.3) 38%,
+        rgba(255,255,255,0.65) 20%,
+        rgba(156,148,122,0.4) 38%,
         ${g} 55%,
-        rgba(255,255,255,0.35) 65%,
-        rgba(187,183,177,0.2) 80%,
-        rgba(187,183,177,0) 100%)`;
+        rgba(255,255,255,0.5) 65%,
+        rgba(187,183,177,0.35) 80%,
+        rgba(187,183,177,${minOpa}) 100%)`;
     }
 
     if (p >= 15) {
       // Low–mid: mostly warm silver with a hint of sage
       return `conic-gradient(from 0deg,
-        rgba(187,183,177,0) 0%,
-        rgba(255,255,255,0.6) 8%,
-        rgba(187,183,177,0.45) 20%,
-        rgba(156,148,122,0.25) 36%,
-        rgba(175,207,104,0.35) 50%,
-        rgba(255,255,255,0.45) 62%,
-        rgba(187,183,177,0.3) 78%,
-        rgba(187,183,177,0) 100%)`;
+        rgba(187,183,177,0.25) 0%,
+        rgba(255,255,255,0.7) 8%,
+        rgba(187,183,177,0.55) 20%,
+        rgba(156,148,122,0.35) 36%,
+        rgba(175,207,104,0.45) 50%,
+        rgba(255,255,255,0.55) 62%,
+        rgba(187,183,177,0.4) 78%,
+        rgba(187,183,177,0.25) 100%)`;
     }
 
     // Very early: pure elegant silver/white
     return `conic-gradient(from 0deg,
-      rgba(187,183,177,0) 0%,
-      rgba(255,255,255,0.7) 8%,
-      rgba(187,183,177,0.5) 22%,
-      rgba(156,148,122,0.2) 45%,
-      rgba(255,255,255,0.55) 62%,
-      rgba(187,183,177,0.35) 80%,
-      rgba(187,183,177,0) 100%)`;
+      rgba(187,183,177,0.25) 0%,
+      rgba(255,255,255,0.75) 8%,
+      rgba(187,183,177,0.6) 22%,
+      rgba(156,148,122,0.3) 45%,
+      rgba(255,255,255,0.6) 62%,
+      rgba(187,183,177,0.45) 80%,
+      rgba(187,183,177,0.25) 100%)`;
   };
 
   // Schedules a randomised idle aura trigger (20–40 s) while exploring
@@ -4086,7 +4125,7 @@ const dockCardsRevealTimeoutRef = useRef(null);
     }
   }, [selectedCountry, isPanelOpen, isPanelVisible]);
 
-  
+
   const contextValue = {
     selectedCountry,
     handleClosePanel,
@@ -4097,1792 +4136,1799 @@ const dockCardsRevealTimeoutRef = useRef(null);
   return (
     <AppContext.Provider value={contextValue}>
       <div
-      style={{
-        position: "relative",
-        width: "100vw",
-        height: "100vh",
-        overflow: "hidden",
-        background: "#1a1f2e",
-        fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
-      }}
-    >
-      {/* ATTRACT MODE OVERLAY - Shows when idle */}
-      <div
-        onPointerDown={() => {
-          if (isAttractMode) {
-            openCountryDock();
-          }
-        }}
         style={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 800,
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "stretch",
-          justifyContent: "flex-start",
-          pointerEvents: isAttractMode ? "auto" : "none",
-          opacity: isAttractMode ? 1 : 0,
-          transition: isAttractMode
-            ? "opacity 800ms cubic-bezier(0.22, 1, 0.36, 1)"
-            : "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1) 150ms",
+          position: "relative",
+          width: "100vw",
+          height: "100vh",
+          overflow: "hidden",
+          background: "#1a1f2e",
+          fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
         }}
       >
-        {/* Subtle left-aligned mask and general light vignette */}
+        {/* ATTRACT MODE OVERLAY - Shows when idle */}
         <div
+          onPointerDown={() => {
+            if (isAttractMode) {
+              openCountryDock(true);
+            }
+          }}
           style={{
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(90deg, rgba(8, 11, 20, 0.85) 0%, rgba(8, 11, 20, 0.5) 30%, rgba(8, 11, 20, 0) 65%)",
-            pointerEvents: "none",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "radial-gradient(120% 100% at 50% 50%, rgba(8, 11, 20, 0) 40%, rgba(8, 11, 20, 0.35) 100%)",
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* Glowing Slow-Spinning Orbit Backdrop */}
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "800px",
-            height: "800px",
-            pointerEvents: "none",
-            opacity: isAttractMode ? 0.22 : 0,
+            zIndex: 800,
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "stretch",
+            justifyContent: "flex-start",
+            pointerEvents: isAttractMode ? "auto" : "none",
+            opacity: isAttractMode ? 1 : 0,
             transition: isAttractMode
-              ? "opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1)"
-              : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1)",
-            zIndex: 0,
+              ? "opacity 800ms cubic-bezier(0.22, 1, 0.36, 1)"
+              : "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1) 150ms",
           }}
         >
+          {/* Subtle left-aligned mask and general light vignette */}
           <div
-            className="celestial-orbit"
             style={{
-              width: "100%",
-              height: "100%",
-              transformOrigin: "center center",
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(90deg, rgba(8, 11, 20, 0.85) 0%, rgba(8, 11, 20, 0.5) 30%, rgba(8, 11, 20, 0) 65%)",
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "radial-gradient(120% 100% at 50% 50%, rgba(8, 11, 20, 0) 40%, rgba(8, 11, 20, 0.35) 100%)",
+              pointerEvents: "none",
+            }}
+          />
+
+          {/* Glowing Slow-Spinning Orbit Backdrop */}
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "800px",
+              height: "800px",
+              pointerEvents: "none",
+              opacity: isAttractMode ? 0.22 : 0,
+              transition: isAttractMode
+                ? "opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1)"
+                : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1)",
+              zIndex: 0,
             }}
           >
-            <svg viewBox="0 0 800 800" width="100%" height="100%" style={{ stroke: "rgba(255,255,255,0.12)", strokeWidth: 0.75, fill: "none" }}>
-              <circle cx="400" cy="400" r="160" strokeDasharray="3,12" />
-              <circle cx="400" cy="400" r="280" strokeDasharray="6,18" />
-              <circle cx="400" cy="400" r="380" strokeDasharray="1,24" />
+            <div
+              className="celestial-orbit"
+              style={{
+                width: "100%",
+                height: "100%",
+                transformOrigin: "center center",
+              }}
+            >
+              <svg viewBox="0 0 800 800" width="100%" height="100%" style={{ stroke: "rgba(255,255,255,0.12)", strokeWidth: 0.75, fill: "none" }}>
+                <circle cx="400" cy="400" r="160" strokeDasharray="3,12" />
+                <circle cx="400" cy="400" r="280" strokeDasharray="6,18" />
+                <circle cx="400" cy="400" r="380" strokeDasharray="1,24" />
 
-              <line x1="400" y1="120" x2="400" y2="680" strokeDasharray="4,8" />
-              <line x1="120" y1="400" x2="680" y2="400" strokeDasharray="4,8" />
+                <line x1="400" y1="120" x2="400" y2="680" strokeDasharray="4,8" />
+                <line x1="120" y1="400" x2="680" y2="400" strokeDasharray="4,8" />
 
-              <circle cx="400" cy="120" r="5" fill="#ffd080" style={{ filter: "drop-shadow(0 0 6px #ffd080)" }} />
-              <circle cx="400" cy="680" r="4" fill="#87b940" style={{ filter: "drop-shadow(0 0 6px #87b940)" }} />
-              <circle cx="120" cy="400" r="4" fill="#87b940" style={{ filter: "drop-shadow(0 0 6px #87b940)" }} />
-              <circle cx="680" cy="400" r="5" fill="#ffd080" style={{ filter: "drop-shadow(0 0 6px #ffd080)" }} />
+                <circle cx="400" cy="120" r="5" fill="#ffd080" style={{ filter: "drop-shadow(0 0 6px #ffd080)" }} />
+                <circle cx="400" cy="680" r="4" fill="#87b940" style={{ filter: "drop-shadow(0 0 6px #87b940)" }} />
+                <circle cx="120" cy="400" r="4" fill="#87b940" style={{ filter: "drop-shadow(0 0 6px #87b940)" }} />
+                <circle cx="680" cy="400" r="5" fill="#ffd080" style={{ filter: "drop-shadow(0 0 6px #ffd080)" }} />
 
-              <circle cx="302" cy="230" r="3" fill="rgba(255,255,255,0.4)" />
-              <circle cx="498" cy="570" r="3.5" fill="rgba(255,255,255,0.3)" />
-              <circle cx="498" cy="230" r="4" fill="#ffd080" style={{ filter: "drop-shadow(0 0 4px #ffd080)" }} />
-              <circle cx="302" cy="570" r="3" fill="#87b940" style={{ filter: "drop-shadow(0 0 4px #87b940)" }} />
-            </svg>
+                <circle cx="302" cy="230" r="3" fill="rgba(255,255,255,0.4)" />
+                <circle cx="498" cy="570" r="3.5" fill="rgba(255,255,255,0.3)" />
+                <circle cx="498" cy="230" r="4" fill="#ffd080" style={{ filter: "drop-shadow(0 0 4px #ffd080)" }} />
+                <circle cx="302" cy="570" r="3" fill="#87b940" style={{ filter: "drop-shadow(0 0 4px #87b940)" }} />
+              </svg>
+            </div>
+          </div>
+
+          {/* Editorial Content Column */}
+          <div
+            style={{
+              position: "relative",
+              zIndex: 10,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "flex-start",
+              width: "100%",
+              maxWidth: "600px",
+              height: "100%",
+              paddingLeft: "10%",
+              paddingRight: "2rem",
+              boxSizing: "border-box",
+              pointerEvents: "none",
+            }}
+          >
+            {/* Refined Brand Logo */}
+            <div
+              style={{
+                opacity: isAttractMode ? 0.95 : 0,
+                transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
+                transition: isAttractMode
+                  ? "opacity 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms, transform 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms"
+                  : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
+                marginBottom: "2rem",
+                pointerEvents: isAttractMode ? "auto" : "none",
+              }}
+            >
+              <img
+                src={FAMILYSEARCH_LOGO_URL}
+                alt="FamilySearch"
+                style={{
+                  width: "148px",
+                  height: "auto",
+                  filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15))",
+                }}
+              />
+            </div>
+
+            {/* Heading */}
+            <h1
+              style={{
+                margin: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.4rem",
+                pointerEvents: isAttractMode ? "auto" : "none",
+              }}
+            >
+              <span
+                ref={attractEyebrowRef}
+                style={{
+                  fontFamily: "var(--heading)",
+                  fontSize: "clamp(2.4rem, 4.6vw, 3.8rem)",
+                  fontWeight: 500,
+                  color: "rgba(255, 255, 255, 0.95)",
+                  lineHeight: 1.1,
+                  letterSpacing: "-0.015em",
+                  opacity: isAttractMode ? 1 : 0,
+                  transform: isAttractMode ? undefined : "translateY(16px)",
+                  transition: isAttractMode
+                    ? "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 100ms"
+                    : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
+                }}
+              >
+                One Commonwealth.
+              </span>
+              <span
+                ref={attractTitleRef}
+                style={{
+                  fontFamily: "var(--heading)",
+                  fontSize: "clamp(2.4rem, 4.6vw, 3.8rem)",
+                  fontWeight: 500,
+                  color: "rgba(255, 255, 255, 0.72)",
+                  lineHeight: 1.1,
+                  letterSpacing: "-0.015em",
+                  opacity: isAttractMode ? 1 : 0,
+                  transform: isAttractMode ? undefined : "translateY(16px)",
+                  transition: isAttractMode
+                    ? "opacity 1500ms cubic-bezier(0.22, 1, 0.36, 1) 240ms"
+                    : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
+                }}
+              >
+                Millions of Stories.
+              </span>
+            </h1>
+
+            {/* Body Copy */}
+            <p
+              ref={attractSubRef}
+              style={{
+                fontFamily: "var(--sans)",
+                fontSize: "clamp(1.05rem, 1.8vw, 1.25rem)",
+                fontWeight: 300,
+                color: "rgba(255, 255, 255, 0.60)",
+                lineHeight: 1.5,
+                maxWidth: "460px",
+                margin: "1.8rem 0 2.5rem 0",
+                opacity: isAttractMode ? 1 : 0,
+                transform: isAttractMode ? undefined : "translateY(16px)",
+                transition: isAttractMode
+                  ? "opacity 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms"
+                  : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
+                pointerEvents: isAttractMode ? "auto" : "none",
+              }}
+            >
+              Explore 56 nations and discover the people, connections and records that unite them.
+            </p>
+
+            {/* Premium Glass-Pill CTA */}
+            <div
+              style={{
+                opacity: isAttractMode ? 1 : 0,
+                transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
+                transition: isAttractMode
+                  ? "opacity 1800ms cubic-bezier(0.22, 1, 0.36, 1) 600ms, transform 1800ms cubic-bezier(0.22, 1, 0.36, 1) 600ms"
+                  : "opacity 350ms cubic-bezier(0.25, 1, 0.5, 1), transform 350ms cubic-bezier(0.25, 1, 0.5, 1)",
+                pointerEvents: isAttractMode ? "auto" : "none",
+              }}
+            >
+              <button
+                className="premium-attract-cta"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openCountryDock(true);
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "1rem 2.2rem",
+                  borderRadius: "100px",
+                  border: "none",
+                  background: "linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)",
+                  backdropFilter: "blur(24px)",
+                  WebkitBackdropFilter: "blur(24px)",
+                  color: "rgba(255, 255, 255, 0.95)",
+                  fontFamily: "var(--sans)",
+                  fontSize: "1.05rem",
+                  fontWeight: 500,
+                  letterSpacing: "0.04em",
+                  cursor: "pointer",
+                  boxShadow: "0 12px 32px rgba(0, 0, 0, 0.2)",
+                  whiteSpace: "nowrap",
+                  transition: "all 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+                  position: "relative",
+                }}
+              >
+                {/* Glowing animated gradient border */}
+                <span className="glowing-border-container">
+                  <span className="glowing-border-rotating-part" />
+                </span>
+
+                {/* Animated indicator dot transitioning softly through brand colors */}
+                <span
+                  style={{
+                    width: "9px",
+                    height: "9px",
+                    borderRadius: "50%",
+                    display: "inline-block",
+                    animation: "attractDotHueCycle 16s ease-in-out infinite",
+                    position: "relative",
+                    zIndex: 2,
+                  }}
+                />
+                <span style={{ position: "relative", zIndex: 2 }}>Start Exploring</span>
+                <span style={{ fontSize: "1.2rem", lineHeight: 1, marginLeft: "2px", transition: "transform 300ms ease", position: "relative", zIndex: 2 }} className="cta-arrow">→</span>
+              </button>
+            </div>
+
+            {/* Quiet Information Layer */}
+            <div
+              style={{
+                display: "flex",
+                gap: "2.5rem",
+                marginTop: "3rem",
+                marginBottom: "1rem",
+                opacity: isAttractMode ? 1 : 0,
+                transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
+                transition: isAttractMode
+                  ? "opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1) 720ms, transform 2000ms cubic-bezier(0.22, 1, 0.36, 1) 720ms"
+                  : "opacity 300ms cubic-bezier(0.25, 1, 0.5, 1), transform 300ms cubic-bezier(0.25, 1, 0.5, 1)",
+                pointerEvents: isAttractMode ? "auto" : "none",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "var(--sans)" }}>56</div>
+                <div style={{ textTransform: "uppercase", fontSize: "0.7rem", color: "rgba(255,255,255,0.42)", letterSpacing: "0.15em", marginTop: "2px" }}>Nations</div>
+              </div>
+              <div style={{ width: "1px", height: "2.5rem", background: "rgba(255,255,255,0.12)", alignSelf: "center" }} />
+              <div>
+                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "var(--sans)" }}>2.7B</div>
+                <div style={{ textTransform: "uppercase", fontSize: "0.7rem", color: "rgba(255,255,255,0.42)", letterSpacing: "0.15em", marginTop: "2px" }}>People</div>
+              </div>
+              <div style={{ width: "1px", height: "2.5rem", background: "rgba(255,255,255,0.12)", alignSelf: "center" }} />
+              <div>
+                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "var(--sans)" }}>Countless</div>
+                <div style={{ textTransform: "uppercase", fontSize: "0.7rem", color: "rgba(255,255,255,0.42)", letterSpacing: "0.15em", marginTop: "2px" }}>Stories</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Storytelling Active Connection Overlay */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: "4.5rem",
+              right: "8%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: "6px",
+              opacity: isAttractMode && attractActiveJourney ? 0.85 : 0,
+              transform: isAttractMode && attractActiveJourney ? "translateY(0)" : "translateY(16px)",
+              transition: isAttractMode
+                ? "opacity 1000ms cubic-bezier(0.22, 1, 0.36, 1), transform 1000ms cubic-bezier(0.22, 1, 0.36, 1)"
+                : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
+              pointerEvents: "none",
+              zIndex: 10,
+            }}
+          >
+            <span style={{
+              fontSize: "0.7rem",
+              textTransform: "uppercase",
+              letterSpacing: "0.2em",
+              color: "rgba(255, 255, 255, 0.4)",
+              fontWeight: 600,
+            }}>
+              Family Journeys
+            </span>
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              fontFamily: "var(--heading)",
+              fontSize: "1.3rem",
+              color: "#111",
+              background: "rgba(255, 255, 255, 0.6)",
+              padding: "0.5rem 1.2rem",
+              borderRadius: "50px",
+              border: "1px solid rgba(255, 255, 255, 0.6)",
+              backdropFilter: "blur(36px) saturate(200%)",
+              WebkitBackdropFilter: "blur(36px) saturate(200%)",
+            }}>
+              <span>{attractActiveJourney?.from}</span>
+              <span style={{ color: "#87b940", fontWeight: "bold", fontSize: "1.1rem" }}>→</span>
+              <span>{attractActiveJourney?.to}</span>
+            </div>
           </div>
         </div>
 
-        {/* Editorial Content Column */}
+        {(() => {
+          const shouldShowExploreButton = !isMenuOpen && !isMenuOpening && !isMenuClosing;
+          const isExploreButtonVisible = shouldShowExploreButton && !isButtonTransitioning && !isAttractMode;
+          const hiddenExploreTransform = isAttractMode
+            ? "translateY(16px) scale(0.97)"
+            : "translateY(14px) scale(0.97)";
+          const baseExploreTransform = isExploreButtonVisible
+            ? "translateY(0) scale(1)"
+            : hiddenExploreTransform;
+          const exploreButtonLabel = isAttractMode ? "Touch to Begin" : "Explore by Country";
+
+          const applyCtaTransform = (node) => {
+            if (!node) return;
+            const lift = ctaLiftRef.current;
+            const press = ctaPressAmountRef.current;
+            const ty = -3 * lift;
+            const scale = (1 + 0.04 * lift) * (1 - 0.06 * press);
+            node.style.transform = `translateX(-50%) ${baseExploreTransform} translateY(${ty.toFixed(2)}px) scale(${scale.toFixed(4)})`;
+          };
+
+          const releaseCtaPress = (node) => {
+            if (!node) return;
+            ctaPressStopRef.current?.();
+            ctaPressStopRef.current = animateSpring({
+              from: ctaPressAmountRef.current,
+              to: 0,
+              stiffness: 300,
+              damping: 14,
+              onUpdate: (value) => {
+                ctaPressAmountRef.current = value;
+                applyCtaTransform(node);
+              },
+            });
+          };
+          if (!isExploreButtonVisible && !isMenuOpening && !isMenuClosing) {
+            return null;
+          }
+
+          return (
+            <div
+              className={`explore-cta-button ${isExploreButtonVisible ? "explore-cta-visible" : "explore-cta-hidden"}${isAttractMode ? " explore-cta-button-attract" : ""}${isDockExpanding ? " explore-cta-expanding" : ""}`}
+              onPointerEnter={(event) => {
+                if (!isExploreButtonVisible || event.pointerType !== "mouse") return;
+                const node = event.currentTarget;
+                ctaLiftStopRef.current?.();
+                ctaLiftStopRef.current = animateSpring({
+                  from: ctaLiftRef.current,
+                  to: 1,
+                  stiffness: 260,
+                  damping: 20,
+                  onUpdate: (value) => {
+                    ctaLiftRef.current = value;
+                    applyCtaTransform(node);
+                  },
+                });
+                // Subtle dark shadow lift
+                node.style.boxShadow = "0 22px 44px rgba(0,0,0,0.4)";
+              }}
+              onPointerLeave={(event) => {
+                const node = event.currentTarget;
+                if (isExploreButtonVisible && event.pointerType === "mouse") {
+                  ctaLiftStopRef.current?.();
+                  ctaLiftStopRef.current = animateSpring({
+                    from: ctaLiftRef.current,
+                    to: 0,
+                    stiffness: 260,
+                    damping: 22,
+                    onUpdate: (value) => {
+                      ctaLiftRef.current = value;
+                      applyCtaTransform(node);
+                    },
+                  });
+                  node.style.boxShadow = "0 18px 40px rgba(0,0,0,0.36)";
+                }
+                releaseCtaPress(node);
+              }}
+              onPointerDown={(event) => {
+                if (!isExploreButtonVisible) return;
+                const node = event.currentTarget;
+                const rect = node.getBoundingClientRect();
+                spawnGlassRipple(node, event.clientX - rect.left, event.clientY - rect.top);
+
+                ctaPressStopRef.current?.();
+                ctaPressStopRef.current = animateSpring({
+                  from: ctaPressAmountRef.current,
+                  to: 1,
+                  stiffness: 340,
+                  damping: 26,
+                  onUpdate: (value) => {
+                    ctaPressAmountRef.current = value;
+                    applyCtaTransform(node);
+                  },
+                });
+              }}
+              onPointerUp={(event) => releaseCtaPress(event.currentTarget)}
+              onPointerCancel={(event) => releaseCtaPress(event.currentTarget)}
+              style={{
+                position: "fixed",
+                left: "50%",
+                top: isAttractMode ? "72%" : "auto",
+                bottom: isAttractMode ? "auto" : "2.2rem",
+                transform: `translateX(-50%) ${baseExploreTransform}`,
+                zIndex: 910,
+                display: "flex",
+                alignItems: "center",
+                gap: (isAttractMode || isPanelOpen) ? "0px" : "4px",
+                padding: "6px", // Larger outer padding
+                borderRadius: "999px",
+                border: "1px solid rgba(255,255,255,0.5)",
+                background: "rgba(255, 255, 255, 0.4)",
+                backdropFilter: "blur(32px) saturate(200%)",
+                WebkitBackdropFilter: "blur(32px) saturate(200%)",
+                boxShadow: "0 18px 40px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.35)",
+                pointerEvents: isExploreButtonVisible ? "auto" : "none",
+                transition: `opacity ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}, filter ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}`,
+                opacity: isExploreButtonVisible ? 1 : 0,
+                filter: isExploreButtonVisible ? "blur(0px)" : "blur(0.8px)",
+                isolation: "isolate",
+                overflow: "hidden",
+              }}
+            >
+              {/* Sheen effect across the whole pill */}
+              <span className="explore-cta-sheen" aria-hidden="true" style={{ borderRadius: "999px", pointerEvents: "none" }} />
+
+              {/* Explore Option */}
+              <button
+                aria-label={isAttractMode ? undefined : "Explore by Country"}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleExploreCommonwealthPress();
+                }}
+                style={{
+                  position: "relative",
+                  zIndex: 2,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: (isAttractMode || isPanelOpen) ? "10px 20px" : "10px 22px 10px 18px", // Symmetric when recentre is hidden
+                  borderRadius: "999px",
+                  border: "none",
+                  background: "linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.2) 100%)",
+                  color: "rgba(15,23,42,0.95)",
+                  fontSize: "1.12rem", // Larger font size
+                  fontWeight: 700, // Stronger weight
+                  cursor: "pointer",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.4)",
+                  transition: "all 200ms ease"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.35) 100%)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.2) 100%)";
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {renderGlobeIcon(isAttractMode ? 20 : 22)}
+                </div>
+                {!isAttractMode && <span>Explore</span>}
+                {isAttractMode && <span>{exploreButtonLabel}</span>}
+              </button>
+
+              {/* Recentre — hidden elegantly when card is open */}
+              {!isAttractMode && (
+                <div
+                  style={{
+                    overflow: "hidden",
+                    width: isPanelOpen ? "0px" : "48px", // Larger width
+                    minWidth: isPanelOpen ? "0px" : "48px",
+                    maxWidth: isPanelOpen ? "0px" : "48px",
+                    opacity: isPanelOpen ? 0 : 1,
+                    transition: "width 400ms cubic-bezier(0.22,1,0.36,1), min-width 400ms cubic-bezier(0.22,1,0.36,1), max-width 400ms cubic-bezier(0.22,1,0.36,1), opacity 280ms ease",
+                    pointerEvents: isPanelOpen ? "none" : "auto",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <button
+                    aria-label="Recentre Map"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReset();
+                    }}
+                    style={{
+                      position: "relative",
+                      zIndex: 2,
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "44px", // Larger size
+                      height: "44px", // Larger size
+                      borderRadius: "50%",
+                      border: "none",
+                      background: "transparent",
+                      color: "rgba(15,23,42,0.85)",
+                      cursor: "pointer",
+                      transition: "background 200ms ease"
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.3)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="2" y1="12" x2="6" y2="12"></line>
+                      <line x1="18" y1="12" x2="22" y2="12"></line>
+                      <line x1="12" y1="2" x2="12" y2="6"></line>
+                      <line x1="12" y1="18" x2="12" y2="22"></line>
+                      <circle cx="12" cy="12" r="6"></circle>
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* TOP BAR - Always visible */}
         <div
           style={{
-            position: "relative",
-            zIndex: 10,
+            position: "fixed",
+            top: "2.2rem",
+            left: "2.2rem",
+            zIndex: 920,
             display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "flex-start",
-            width: "100%",
-            maxWidth: "600px",
-            height: "100%",
-            paddingLeft: "10%",
-            paddingRight: "2rem",
-            boxSizing: "border-box",
+            alignItems: "center",
+            padding: 0,
             pointerEvents: "none",
+            opacity: isAttractMode ? 0 : 1,
+            transition: "opacity 800ms cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         >
-          {/* Refined Brand Logo */}
+          {/* FamilySearch logo - simple plaque */}
           <div
             style={{
-              opacity: isAttractMode ? 0.95 : 0,
-              transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
-              transition: isAttractMode
-                ? "opacity 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms, transform 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms"
-                : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
-              marginBottom: "2rem",
-              pointerEvents: isAttractMode ? "auto" : "none",
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 0,
+              borderRadius: 0,
+              border: "none",
+              background: "transparent",
+              boxShadow: "none",
             }}
           >
             <img
               src={FAMILYSEARCH_LOGO_URL}
               alt="FamilySearch"
               style={{
-                width: "148px",
+                position: "relative",
+                zIndex: 1,
+                width: "192px",
                 height: "auto",
-                filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15))",
+                filter: "brightness(0) invert(1) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35))",
+                opacity: 0.96,
+                transition: `opacity 520ms ${DOCK_GENTLE_EASE}`,
               }}
             />
           </div>
-
-          {/* Heading */}
-          <h1
-            style={{
-              margin: 0,
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.4rem",
-              pointerEvents: isAttractMode ? "auto" : "none",
-            }}
-          >
-            <span
-              ref={attractEyebrowRef}
-              style={{
-                fontFamily: "var(--heading)",
-                fontSize: "clamp(2.4rem, 4.6vw, 3.8rem)",
-                fontWeight: 500,
-                color: "rgba(255, 255, 255, 0.95)",
-                lineHeight: 1.1,
-                letterSpacing: "-0.015em",
-                opacity: isAttractMode ? 1 : 0,
-                transform: isAttractMode ? undefined : "translateY(16px)",
-                transition: isAttractMode
-                  ? "opacity 1400ms cubic-bezier(0.22, 1, 0.36, 1) 100ms"
-                  : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
-              }}
-            >
-              One Commonwealth.
-            </span>
-            <span
-              ref={attractTitleRef}
-              style={{
-                fontFamily: "var(--heading)",
-                fontSize: "clamp(2.4rem, 4.6vw, 3.8rem)",
-                fontWeight: 500,
-                color: "rgba(255, 255, 255, 0.72)",
-                lineHeight: 1.1,
-                letterSpacing: "-0.015em",
-                opacity: isAttractMode ? 1 : 0,
-                transform: isAttractMode ? undefined : "translateY(16px)",
-                transition: isAttractMode
-                  ? "opacity 1500ms cubic-bezier(0.22, 1, 0.36, 1) 240ms"
-                  : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
-              }}
-            >
-              Millions of Stories.
-            </span>
-          </h1>
-
-          {/* Body Copy */}
-          <p
-            ref={attractSubRef}
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: "clamp(1.05rem, 1.8vw, 1.25rem)",
-              fontWeight: 300,
-              color: "rgba(255, 255, 255, 0.60)",
-              lineHeight: 1.5,
-              maxWidth: "460px",
-              margin: "1.8rem 0 2.5rem 0",
-              opacity: isAttractMode ? 1 : 0,
-              transform: isAttractMode ? undefined : "translateY(16px)",
-              transition: isAttractMode
-                ? "opacity 1700ms cubic-bezier(0.22, 1, 0.36, 1) 560ms"
-                : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
-              pointerEvents: isAttractMode ? "auto" : "none",
-            }}
-          >
-            Explore 56 nations and discover the people, connections and records that unite them.
-          </p>
-
-          {/* Premium Glass-Pill CTA */}
-          <div
-            style={{
-              opacity: isAttractMode ? 1 : 0,
-              transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
-              transition: isAttractMode
-                ? "opacity 1800ms cubic-bezier(0.22, 1, 0.36, 1) 600ms, transform 1800ms cubic-bezier(0.22, 1, 0.36, 1) 600ms"
-                : "opacity 350ms cubic-bezier(0.25, 1, 0.5, 1), transform 350ms cubic-bezier(0.25, 1, 0.5, 1)",
-              pointerEvents: isAttractMode ? "auto" : "none",
-            }}
-          >
-            <button
-              className="premium-attract-cta"
-              onClick={(e) => {
-                e.stopPropagation();
-                openCountryDock();
-              }}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "1rem 2.2rem",
-                borderRadius: "100px",
-                border: "none",
-                background: "linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)",
-                backdropFilter: "blur(24px)",
-                WebkitBackdropFilter: "blur(24px)",
-                color: "rgba(255, 255, 255, 0.95)",
-                fontFamily: "var(--sans)",
-                fontSize: "1.05rem",
-                fontWeight: 500,
-                letterSpacing: "0.04em",
-                cursor: "pointer",
-                boxShadow: "0 12px 32px rgba(0, 0, 0, 0.2)",
-                whiteSpace: "nowrap",
-                transition: "all 400ms cubic-bezier(0.22, 1, 0.36, 1)",
-                position: "relative",
-              }}
-            >
-              {/* Glowing animated gradient border */}
-              <span className="glowing-border-container">
-                <span className="glowing-border-rotating-part" />
-              </span>
-
-              {/* Animated indicator dot transitioning softly through brand colors */}
-              <span
-                style={{
-                  width: "9px",
-                  height: "9px",
-                  borderRadius: "50%",
-                  display: "inline-block",
-                  animation: "attractDotHueCycle 8s ease-in-out infinite",
-                  position: "relative",
-                  zIndex: 2,
-                }}
-              />
-              <span style={{ position: "relative", zIndex: 2 }}>Start Exploring</span>
-              <span style={{ fontSize: "1.2rem", lineHeight: 1, marginLeft: "2px", transition: "transform 300ms ease", position: "relative", zIndex: 2 }} className="cta-arrow">→</span>
-            </button>
-          </div>
-
-          {/* Quiet Information Layer */}
-          <div
-            style={{
-              display: "flex",
-              gap: "2.5rem",
-              marginTop: "3rem",
-              marginBottom: "1rem",
-              opacity: isAttractMode ? 1 : 0,
-              transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
-              transition: isAttractMode
-                ? "opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1) 720ms, transform 2000ms cubic-bezier(0.22, 1, 0.36, 1) 720ms"
-                : "opacity 300ms cubic-bezier(0.25, 1, 0.5, 1), transform 300ms cubic-bezier(0.25, 1, 0.5, 1)",
-              pointerEvents: isAttractMode ? "auto" : "none",
-            }}
-          >
-            <div>
-              <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "var(--sans)" }}>56</div>
-              <div style={{ textTransform: "uppercase", fontSize: "0.7rem", color: "rgba(255,255,255,0.42)", letterSpacing: "0.15em", marginTop: "2px" }}>Nations</div>
-            </div>
-            <div style={{ width: "1px", height: "2.5rem", background: "rgba(255,255,255,0.12)", alignSelf: "center" }} />
-            <div>
-              <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "var(--sans)" }}>2.7B</div>
-              <div style={{ textTransform: "uppercase", fontSize: "0.7rem", color: "rgba(255,255,255,0.42)", letterSpacing: "0.15em", marginTop: "2px" }}>People</div>
-            </div>
-            <div style={{ width: "1px", height: "2.5rem", background: "rgba(255,255,255,0.12)", alignSelf: "center" }} />
-            <div>
-              <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "var(--sans)" }}>Countless</div>
-              <div style={{ textTransform: "uppercase", fontSize: "0.7rem", color: "rgba(255,255,255,0.42)", letterSpacing: "0.15em", marginTop: "2px" }}>Stories</div>
-            </div>
-          </div>
         </div>
 
-        {/* Storytelling Active Connection Overlay */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: "4.5rem",
-            right: "8%",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-end",
-            gap: "6px",
-            opacity: isAttractMode && attractActiveJourney ? 0.85 : 0,
-            transform: isAttractMode && attractActiveJourney ? "translateY(0)" : "translateY(16px)",
-            transition: isAttractMode
-              ? "opacity 1000ms cubic-bezier(0.22, 1, 0.36, 1), transform 1000ms cubic-bezier(0.22, 1, 0.36, 1)"
-              : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
-            pointerEvents: "none",
-            zIndex: 10,
-          }}
-        >
-          <span style={{
-            fontSize: "0.7rem",
-            textTransform: "uppercase",
-            letterSpacing: "0.2em",
-            color: "rgba(255, 255, 255, 0.4)",
-            fontWeight: 600,
-          }}>
-            Family Journeys
-          </span>
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            fontFamily: "var(--heading)",
-            fontSize: "1.3rem",
-            color: "#111",
-            background: "rgba(255, 255, 255, 0.6)",
-            padding: "0.5rem 1.2rem",
-            borderRadius: "50px",
-            border: "1px solid rgba(255, 255, 255, 0.6)",
-            backdropFilter: "blur(36px) saturate(200%)",
-            WebkitBackdropFilter: "blur(36px) saturate(200%)",
-          }}>
-            <span>{attractActiveJourney?.from}</span>
-            <span style={{ color: "#87b940", fontWeight: "bold", fontSize: "1.1rem" }}>→</span>
-            <span>{attractActiveJourney?.to}</span>
-          </div>
-        </div>
-      </div>
-
-      {(() => {
-        const shouldShowExploreButton = !isMenuOpen && !isMenuOpening && !isMenuClosing;
-        const isExploreButtonVisible = shouldShowExploreButton && !isButtonTransitioning && !isAttractMode;
-        const hiddenExploreTransform = isAttractMode
-          ? "translateY(16px) scale(0.97)"
-          : "translateY(14px) scale(0.97)";
-        const baseExploreTransform = isExploreButtonVisible
-          ? "translateY(0) scale(1)"
-          : hiddenExploreTransform;
-        const exploreButtonLabel = isAttractMode ? "Touch to Begin" : "Explore by Country";
-
-        const applyCtaTransform = (node) => {
-          if (!node) return;
-          const lift = ctaLiftRef.current;
-          const press = ctaPressAmountRef.current;
-          const ty = -3 * lift;
-          const scale = (1 + 0.04 * lift) * (1 - 0.06 * press);
-          node.style.transform = `translateX(-50%) ${baseExploreTransform} translateY(${ty.toFixed(2)}px) scale(${scale.toFixed(4)})`;
-        };
-
-        const releaseCtaPress = (node) => {
-          if (!node) return;
-          ctaPressStopRef.current?.();
-          ctaPressStopRef.current = animateSpring({
-            from: ctaPressAmountRef.current,
-            to: 0,
-            stiffness: 300,
-            damping: 14,
-            onUpdate: (value) => {
-              ctaPressAmountRef.current = value;
-              applyCtaTransform(node);
-            },
-          });
-        };
-
-        return (
+        {/* HOVERED COUNTRY HUD OVERLAY (Floating cursor tooltip) */}
+        {hoveredCountryPos && (
           <div
-            className={`explore-cta-button ${isExploreButtonVisible ? "explore-cta-visible" : "explore-cta-hidden"}${isAttractMode ? " explore-cta-button-attract" : ""}${isDockExpanding ? " explore-cta-expanding" : ""}`}
-            onPointerEnter={(event) => {
-              if (!isExploreButtonVisible || event.pointerType !== "mouse") return;
-              const node = event.currentTarget;
-              ctaLiftStopRef.current?.();
-              ctaLiftStopRef.current = animateSpring({
-                from: ctaLiftRef.current,
-                to: 1,
-                stiffness: 260,
-                damping: 20,
-                onUpdate: (value) => {
-                  ctaLiftRef.current = value;
-                  applyCtaTransform(node);
-                },
-              });
-              // Subtle dark shadow lift
-              node.style.boxShadow = "0 22px 44px rgba(0,0,0,0.4)";
-            }}
-            onPointerLeave={(event) => {
-              const node = event.currentTarget;
-              if (isExploreButtonVisible && event.pointerType === "mouse") {
-                ctaLiftStopRef.current?.();
-                ctaLiftStopRef.current = animateSpring({
-                  from: ctaLiftRef.current,
-                  to: 0,
-                  stiffness: 260,
-                  damping: 22,
-                  onUpdate: (value) => {
-                    ctaLiftRef.current = value;
-                    applyCtaTransform(node);
-                  },
-                });
-                node.style.boxShadow = "0 18px 40px rgba(0,0,0,0.36)";
-              }
-              releaseCtaPress(node);
-            }}
-            onPointerDown={(event) => {
-              if (!isExploreButtonVisible) return;
-              const node = event.currentTarget;
-              const rect = node.getBoundingClientRect();
-              spawnGlassRipple(node, event.clientX - rect.left, event.clientY - rect.top);
-
-              ctaPressStopRef.current?.();
-              ctaPressStopRef.current = animateSpring({
-                from: ctaPressAmountRef.current,
-                to: 1,
-                stiffness: 340,
-                damping: 26,
-                onUpdate: (value) => {
-                  ctaPressAmountRef.current = value;
-                  applyCtaTransform(node);
-                },
-              });
-            }}
-            onPointerUp={(event) => releaseCtaPress(event.currentTarget)}
-            onPointerCancel={(event) => releaseCtaPress(event.currentTarget)}
             style={{
               position: "fixed",
-              left: "50%",
-              top: isAttractMode ? "72%" : "auto",
-              bottom: isAttractMode ? "auto" : "2.2rem",
-              transform: `translateX(-50%) ${baseExploreTransform}`,
-              zIndex: 910,
+              left: `${hoveredCountryPos.x}px`,
+              top: `${hoveredCountryPos.y - 28}px`,
+              transform: hoveredCountry && !isAttractMode
+                ? "translateX(-50%) translateY(-50%) scale(1)"
+                : "translateX(-50%) translateY(-50%) scale(0.85)",
+              opacity: hoveredCountry && !isAttractMode ? 1 : 0,
+              pointerEvents: "none",
+              zIndex: 920,
               display: "flex",
               alignItems: "center",
-              gap: "4px",
-              padding: "6px", // Larger outer padding
+              justifyContent: "center",
+              padding: "5px 14px",
               borderRadius: "999px",
               border: "1px solid rgba(255,255,255,0.5)",
-              background: "rgba(255, 255, 255, 0.4)",
+              background: "rgba(255, 255, 255, 0.45)",
               backdropFilter: "blur(32px) saturate(200%)",
               WebkitBackdropFilter: "blur(32px) saturate(200%)",
-              boxShadow: "0 18px 40px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.35)",
-              pointerEvents: isExploreButtonVisible ? "auto" : "none",
-              transition: `opacity ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}, filter ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}`,
-              opacity: isExploreButtonVisible ? 1 : 0,
-              filter: isExploreButtonVisible ? "blur(0px)" : "blur(0.8px)",
-              isolation: "isolate",
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.35)",
+              transition: "left 120ms cubic-bezier(0.22, 1, 0.36, 1), top 120ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
-            {/* Sheen effect across the whole pill */}
-            <span className="explore-cta-sheen" aria-hidden="true" style={{ borderRadius: "999px", pointerEvents: "none" }} />
-            
-            {/* Explore Option */}
-            <button
-              aria-label={isAttractMode ? undefined : "Explore by Country"}
-              onClick={(event) => {
-                event.stopPropagation();
-                handleExploreCommonwealthPress();
-              }}
+            <span
               style={{
-                position: "relative",
-                zIndex: 2,
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "10px 22px 10px 18px", // Larger button padding
-                borderRadius: "999px",
-                border: "none",
-                background: "linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.2) 100%)",
-                color: "rgba(15,23,42,0.95)",
-                fontSize: "1.12rem", // Larger font size
-                fontWeight: 700, // Stronger weight
-                cursor: "pointer",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.4)",
-                transition: "all 200ms ease"
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.35) 100%)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.2) 100%)";
+                fontFamily: "'Roboto Slab', Georgia, serif",
+                fontSize: "0.85rem",
+                fontWeight: 600,
+                letterSpacing: "0.02em",
+                color: "#0f172a", // High contrast slate
+                textAlign: "center",
+                whiteSpace: "nowrap",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {renderGlobeIcon(isAttractMode ? 20 : 22)}
-              </div>
-              {!isAttractMode && <span>Explore</span>}
-              {isAttractMode && <span>{exploreButtonLabel}</span>}
-            </button>
-
-            {/* Recentre — hidden elegantly when card is open */}
-            {!isAttractMode && (
-              <div
-                style={{
-                  overflow: "hidden",
-                  width: isPanelOpen ? "0px" : "48px", // Larger width
-                  opacity: isPanelOpen ? 0 : 1,
-                  transition: "width 400ms cubic-bezier(0.22,1,0.36,1), opacity 280ms ease",
-                  pointerEvents: isPanelOpen ? "none" : "auto",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <button
-                  aria-label="Recentre Map"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleReset();
-                  }}
-                  style={{
-                    position: "relative",
-                    zIndex: 2,
-                    flexShrink: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: "44px", // Larger size
-                    height: "44px", // Larger size
-                    borderRadius: "50%",
-                    border: "none",
-                    background: "transparent",
-                    color: "rgba(15,23,42,0.85)",
-                    cursor: "pointer",
-                    transition: "background 200ms ease"
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.3)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="2" y1="12" x2="6" y2="12"></line>
-                    <line x1="18" y1="12" x2="22" y2="12"></line>
-                    <line x1="12" y1="2" x2="12" y2="6"></line>
-                    <line x1="12" y1="18" x2="12" y2="22"></line>
-                    <circle cx="12" cy="12" r="6"></circle>
-                  </svg>
-                </button>
-              </div>
-            )}
+              {hoveredCountry}
+            </span>
           </div>
-        );
-      })()}
+        )}
 
-      {/* TOP BAR - Always visible */}
-      <div
-        style={{
-          position: "fixed",
-          top: "2.2rem",
-          left: "2.2rem",
-          zIndex: 920,
-          display: "flex",
-          alignItems: "center",
-          padding: 0,
-          pointerEvents: "none",
-          opacity: isAttractMode ? 0 : 1,
-          transition: "opacity 800ms cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
-      >
-        {/* FamilySearch logo - simple plaque */}
-        <div
-          style={{
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 0,
-            borderRadius: 0,
-            border: "none",
-            background: "transparent",
-            boxShadow: "none",
-          }}
-        >
-          <img
-            src={FAMILYSEARCH_LOGO_URL}
-            alt="FamilySearch"
+        {/* VOYAGER PROGRESS - Top right corner */}
+        {!isAttractMode ? (
+          <div
+            onClick={() => setIsVoyagerExpanded((value) => !value)}
             style={{
-              position: "relative",
-              zIndex: 1,
-              width: "192px",
-              height: "auto",
-              filter: "brightness(0) invert(1) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35))",
-              opacity: 0.96,
-              transition: `opacity 520ms ${DOCK_GENTLE_EASE}`,
-            }}
-          />
-        </div>
-      </div>
-
-      {/* HOVERED COUNTRY HUD OVERLAY (Floating cursor tooltip) */}
-      {hoveredCountryPos && (
-        <div
-          style={{
-            position: "fixed",
-            left: `${hoveredCountryPos.x}px`,
-            top: `${hoveredCountryPos.y - 28}px`,
-            transform: hoveredCountry && !isAttractMode
-              ? "translateX(-50%) translateY(-50%) scale(1)"
-              : "translateX(-50%) translateY(-50%) scale(0.85)",
-            opacity: hoveredCountry && !isAttractMode ? 1 : 0,
-            pointerEvents: "none",
-            zIndex: 920,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "5px 14px",
-            borderRadius: "999px",
-            border: "1px solid rgba(255,255,255,0.5)",
-            background: "rgba(255, 255, 255, 0.45)",
-            backdropFilter: "blur(32px) saturate(200%)",
-            WebkitBackdropFilter: "blur(32px) saturate(200%)",
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.35)",
-            transition: "left 120ms cubic-bezier(0.22, 1, 0.36, 1), top 120ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "'Roboto Slab', Georgia, serif",
-              fontSize: "0.85rem",
-              fontWeight: 600,
-              letterSpacing: "0.02em",
-              color: "#0f172a", // High contrast slate
-              textAlign: "center",
-              whiteSpace: "nowrap",
+              position: "fixed",
+              top: "clamp(0.75rem, 3vw, 1.5rem)",
+              right: "clamp(0.75rem, 3vw, 1.5rem)",
+              zIndex: 820,
+              // Smooth morphing dimensions — larger dark-glass card layout
+              width: isVoyagerExpanded
+                ? "min(340px, calc(100vw - 1.5rem))"
+                : `min(${voyagerCollapsedWidth}px, calc(100vw - 1.5rem))`,
+              height: isVoyagerExpanded ? (voyagerProgressCount >= 5 ? "236px" : "170px") : "44px",
+              borderRadius: isVoyagerExpanded ? "22px" : "999px",
+              padding: "1.5px", // Thickness of the glowing border
+              background: "rgba(15, 23, 42, 0.22)", // Subtle backdrop boundary
+              pointerEvents: "auto",
+              overflow: "hidden",
+              isolation: "isolate",
+              cursor: "pointer",
+              transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1), height 400ms cubic-bezier(0.22, 1, 0.36, 1), border-radius 400ms ease, background 400ms ease",
+              boxSizing: "border-box",
+              willChange: "width, height, border-radius", // Promote layout changes to GPU
+              transform: "translateZ(0)", // Create a stacking context to isolate child repaints
+              contain: "layout", // Prevent internal layout changes from affecting the page
             }}
           >
-            {hoveredCountry}
-          </span>
-        </div>
-      )}
-
-      {/* VOYAGER PROGRESS - Top right corner */}
-      {!isAttractMode ? (
-        <div
-          onClick={() => setIsVoyagerExpanded((value) => !value)}
-          style={{
-            position: "fixed",
-            top: "clamp(0.75rem, 3vw, 1.5rem)",
-            right: "clamp(0.75rem, 3vw, 1.5rem)",
-            zIndex: 820,
-            // Smooth morphing dimensions — larger dark-glass card layout
-            width: isVoyagerExpanded
-              ? "min(340px, calc(100vw - 1.5rem))"
-              : `min(${voyagerCollapsedWidth}px, calc(100vw - 1.5rem))`,
-            height: isVoyagerExpanded ? (voyagerProgressCount >= 5 ? "236px" : "170px") : "44px",
-            borderRadius: isVoyagerExpanded ? "22px" : "999px",
-            padding: "1.5px", // Thickness of the glowing border
-            background: "rgba(15, 23, 42, 0.22)", // Subtle backdrop boundary
-            pointerEvents: "auto",
-            overflow: "hidden",
-            isolation: "isolate",
-            cursor: "pointer",
-            transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1), height 400ms cubic-bezier(0.22, 1, 0.36, 1), border-radius 400ms ease, background 400ms ease",
-            boxSizing: "border-box",
-            willChange: "width, height, border-radius", // Promote layout changes to GPU
-            transform: "translateZ(0)", // Create a stacking context to isolate child repaints
-            contain: "layout", // Prevent internal layout changes from affecting the page
-          }}
-        >
-          {/* Conic-gradient rotating border beam (FamilySearch brand colors) that fades in/out occasionally */}
-          <div style={{
-            position: "absolute",
-            top: "-200%",
-            left: "-200%",
-            width: "500%",
-            height: "500%",
-            background: "conic-gradient(from 0deg, transparent 35%, #87b940 48%, #1ba9e6 58%, #87b940 70%, transparent 85%)",
-            animation: "spin 4.5s linear infinite, beamPulse 12s ease-in-out infinite",
-            transformOrigin: "center center",
-            pointerEvents: "none",
-            zIndex: 1,
-            willChange: "transform, opacity", // Promote to its own GPU layer – avoids repainting parent on every frame
-          }} />
-
-          {/* Inner Dark Glass Container */}
-          <div style={{
-            position: "relative",
-            zIndex: 2,
-            borderRadius: isVoyagerExpanded ? "21px" : "999px",
-            background: "rgba(15, 23, 42, 0.78)", // Dark slate glass
-            backdropFilter: "blur(36px) saturate(180%)",
-            WebkitBackdropFilter: "blur(36px) saturate(180%)",
-            boxShadow: "0 18px 40px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.12)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            width: "100%",
-            height: "100%",
-            padding: isVoyagerExpanded ? "1.1rem 1.2rem" : "6px 16px 6px 12px",
-            boxSizing: "border-box",
-            justifyContent: "space-between",
-            color: "#ffffff",
-          }}>
-
-            {/* Subtle internal overlay for depth */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "radial-gradient(circle at 40% 30%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 58%, transparent 100%)",
-                borderRadius: isVoyagerExpanded ? "21px" : "999px",
-                pointerEvents: "none",
-                zIndex: 1,
-              }}
-            />
-
-            {/* Progress aura ring */}
-            <div
-              key={`voyager-aura-${voyagerAuraToken}`}
-              className={`voyager-aura-ring${voyagerAuraToken > 0 ? (voyagerProgressPercent >= 100 ? " aura-platinum" : " aura-active") : ""}`}
-              style={{
-                "--aura-gradient": getVoyagerAuraGradient(voyagerProgressPercent),
-                borderRadius: isVoyagerExpanded ? "21px" : "999px",
-                zIndex: 2,
-              }}
-            />
-
-            {/* Classy Cross-fade container for Expanded View */}
+            {/* Conic-gradient rotating border beam (FamilySearch brand colors) that fades in/out occasionally */}
             <div style={{
-              opacity: isVoyagerExpanded ? 1 : 0,
-              visibility: isVoyagerExpanded ? "visible" : "hidden",
-              pointerEvents: isVoyagerExpanded ? "auto" : "none",
-              transition: "opacity 300ms ease, transform 350ms cubic-bezier(0.22, 1, 0.36, 1)",
-              transform: isVoyagerExpanded ? "translateY(0)" : "translateY(10px)",
+              position: "absolute",
+              top: "-200%",
+              left: "-200%",
+              width: "500%",
+              height: "500%",
+              background: "conic-gradient(from 0deg, #87b940 0%, #bfd730 25%, #1ba9e6 50%, #bfd730 75%, #87b940 100%)",
+              animation: "spin 4.5s linear infinite, beamPulse 12s ease-in-out infinite",
+              transformOrigin: "center center",
+              pointerEvents: "none",
+              zIndex: 1,
+              willChange: "transform, opacity", // Promote to its own GPU layer – avoids repainting parent on every frame
+            }} />
+
+            {/* Inner Dark Glass Container */}
+            <div style={{
+              position: "relative",
+              zIndex: 2,
+              borderRadius: isVoyagerExpanded ? "21px" : "999px",
+              background: "rgba(15, 23, 42, 0.78)", // Dark slate glass
+              backdropFilter: "blur(36px) saturate(180%)",
+              WebkitBackdropFilter: "blur(36px) saturate(180%)",
+              boxShadow: "0 18px 40px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.12)",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               width: "100%",
-              height: isVoyagerExpanded ? "100%" : "0px",
+              height: "100%",
+              padding: isVoyagerExpanded ? "1.1rem 1.2rem" : "6px 16px 6px 12px",
+              boxSizing: "border-box",
               justifyContent: "space-between",
-              zIndex: 3,
+              color: "#ffffff",
             }}>
-              {/* Badge Icon — only rendered if unlocked (count >= 5) */}
-              {voyagerProgressCount >= 5 ? (
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: "64px",
-                }}>
-                  {renderVoyagerBadge(voyagerProgressCount, "full", true)}
-                </div>
-              ) : null}
 
-              {/* Title */}
+              {/* Subtle internal overlay for depth */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "radial-gradient(circle at 40% 30%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 58%, transparent 100%)",
+                  borderRadius: isVoyagerExpanded ? "21px" : "999px",
+                  pointerEvents: "none",
+                  zIndex: 1,
+                }}
+              />
+
+              {/* Progress aura ring */}
+              <div
+                key={`voyager-aura-${voyagerAuraToken}`}
+                className={`voyager-aura-ring${voyagerAuraToken > 0 ? (voyagerProgressPercent >= 100 ? " aura-platinum" : " aura-active") : ""}`}
+                style={{
+                  "--aura-gradient": getVoyagerAuraGradient(voyagerProgressPercent),
+                  borderRadius: isVoyagerExpanded ? "21px" : "999px",
+                  zIndex: 2,
+                }}
+              />
+
+              {/* Classy Cross-fade container for Expanded View */}
               <div style={{
-                fontSize: "0.7rem",
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: hoveredMilestone ? "#97d749" : "rgba(255, 255, 255, 0.85)", // Highlight FamilySearch Green on hover
-                fontWeight: 800,
-                textAlign: "center",
-                transition: "color 150ms ease",
-                lineHeight: 1.3,
-                padding: "0.25rem 0",
+                opacity: isVoyagerExpanded ? 1 : 0,
+                visibility: isVoyagerExpanded ? "visible" : "hidden",
+                pointerEvents: isVoyagerExpanded ? "auto" : "none",
+                transition: "opacity 300ms ease, transform 350ms cubic-bezier(0.22, 1, 0.36, 1)",
+                transform: isVoyagerExpanded ? "translateY(0)" : "translateY(10px)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                width: "100%",
+                height: isVoyagerExpanded ? "100%" : "0px",
+                justifyContent: "space-between",
+                zIndex: 3,
               }}>
-                {hoveredMilestone 
-                  ? {
+                {/* Badge Icon — only rendered if unlocked (count >= 5) */}
+                {voyagerProgressCount >= 5 ? (
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "64px",
+                  }}>
+                    {renderVoyagerBadge(voyagerProgressCount, "full", true)}
+                  </div>
+                ) : null}
+
+                {/* Title */}
+                <div style={{
+                  fontSize: "0.7rem",
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: hoveredMilestone ? "#97d749" : "rgba(255, 255, 255, 0.85)", // Highlight FamilySearch Green on hover
+                  fontWeight: 800,
+                  textAlign: "center",
+                  transition: "color 150ms ease",
+                  lineHeight: 1.3,
+                  padding: "0.25rem 0",
+                }}>
+                  {hoveredMilestone
+                    ? {
                       5: "Curious Explorer",
                       10: "Commonwealth Traveller",
                       25: "Global Navigator",
                       40: "World Voyager",
                       56: "Golden Commonwealth Explorer"
                     }[hoveredMilestone]
-                  : (voyagerProgressCount >= 5 ? voyagerProgressTitle : "Commonwealth Explorer")}
-              </div>
+                    : (voyagerProgressCount >= 5 ? voyagerProgressTitle : "Commonwealth Explorer")}
+                </div>
 
-              {/* Progress Count */}
-              <div style={{
-                fontSize: "1.2rem",
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
-                color: "#ffffff",
-              }}>
-                {voyagerProgressCount} / {VOYAGER_TOTAL_COUNTRIES}
-              </div>
-
-              {/* Milestone Progress Bar */}
-              <div style={{ width: "100%" }}>
-                {/* Progress track */}
+                {/* Progress Count */}
                 <div style={{
-                  height: "3px",
-                  background: "rgba(255,255,255,0.15)",
-                  borderRadius: "2px",
-                  position: "relative",
-                  overflow: "hidden"
+                  fontSize: "1.2rem",
+                  fontWeight: 700,
+                  letterSpacing: "-0.02em",
+                  color: "#ffffff",
                 }}>
-                  {/* Progress fill */}
+                  {voyagerProgressCount} / {VOYAGER_TOTAL_COUNTRIES}
+                </div>
+
+                {/* Milestone Progress Bar */}
+                <div style={{ width: "100%" }}>
+                  {/* Progress track */}
                   <div style={{
-                    height: "100%",
-                    width: `${voyagerProgressPercent}%`,
-                    background: `linear-gradient(90deg, ${getVoyagerBrandColor(voyagerProgressCount)} 0%, ${getVoyagerBrandColor(voyagerProgressCount)} 100%)`,
+                    height: "3px",
+                    background: "rgba(255,255,255,0.15)",
                     borderRadius: "2px",
-                    transition: "width 600ms cubic-bezier(0.22, 1, 0.36, 1)",
-                  }} />
-                </div>
+                    position: "relative",
+                    overflow: "hidden"
+                  }}>
+                    {/* Progress fill */}
+                    <div style={{
+                      height: "100%",
+                      width: `${voyagerProgressPercent}%`,
+                      background: `linear-gradient(90deg, ${getVoyagerBrandColor(voyagerProgressCount)} 0%, ${getVoyagerBrandColor(voyagerProgressCount)} 100%)`,
+                      borderRadius: "2px",
+                      transition: "width 600ms cubic-bezier(0.22, 1, 0.36, 1)",
+                    }} />
+                  </div>
 
-                {/* Milestone markers */}
-                <div style={{
-                  position: "relative",
-                  marginTop: "0.45rem",
-                  height: "22px",
-                }}>
-                  {[
-                    { count: 5, label: "5" },
-                    { count: 10, label: "10" },
-                    { count: 25, label: "25" },
-                    { count: 40, label: "40" },
-                    { count: 56, label: "56" }
-                  ].map((milestone) => {
-                    const isReached = voyagerProgressCount >= milestone.count;
-                    const isMh = hoveredMilestone === milestone.count;
-                    return (
-                      <div
-                        key={milestone.count}
-                        onMouseEnter={() => setHoveredMilestone(milestone.count)}
-                        onMouseLeave={() => setHoveredMilestone(null)}
-                        style={{
-                          position: "absolute",
-                          left: `calc(${(milestone.count / VOYAGER_TOTAL_COUNTRIES) * 100}% - 3px)`,
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          gap: "0.22rem",
-                          opacity: isReached || isMh ? 1 : 0.45,
-                          cursor: "pointer",
-                          transform: isMh ? "scale(1.18)" : "scale(1)",
-                          transition: "all 150ms ease",
-                        }}
-                      >
-                        <div style={{
-                          width: "6px",
-                          height: "6px",
-                          borderRadius: "50%",
-                          background: isMh 
-                            ? "#97d749" 
-                            : isReached 
-                              ? getVoyagerBrandColor(milestone.count) 
-                              : "rgba(255,255,255,0.3)",
-                          boxShadow: isMh || isReached ? `0 0 8px ${getVoyagerBrandColor(milestone.count)}` : "none",
-                          transition: "all 150ms ease",
-                        }} />
-                        <div style={{
-                          fontSize: "0.72rem",
-                          color: isMh ? "#97d749" : isReached ? "#ffffff" : "rgba(255,255,255,0.45)",
-                          fontWeight: isReached || isMh ? 800 : 600,
-                          letterSpacing: "0.02em",
-                          transition: "all 150ms ease",
-                        }}>
-                          {milestone.label}
+                  {/* Milestone markers */}
+                  <div style={{
+                    position: "relative",
+                    marginTop: "0.45rem",
+                    height: "22px",
+                  }}>
+                    {[
+                      { count: 5, label: "5" },
+                      { count: 10, label: "10" },
+                      { count: 25, label: "25" },
+                      { count: 40, label: "40" },
+                      { count: 56, label: "56" }
+                    ].map((milestone) => {
+                      const isReached = voyagerProgressCount >= milestone.count;
+                      const isMh = hoveredMilestone === milestone.count;
+                      return (
+                        <div
+                          key={milestone.count}
+                          onMouseEnter={() => setHoveredMilestone(milestone.count)}
+                          onMouseLeave={() => setHoveredMilestone(null)}
+                          style={{
+                            position: "absolute",
+                            left: `calc(${(milestone.count / VOYAGER_TOTAL_COUNTRIES) * 100}% - 3px)`,
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: "0.22rem",
+                            opacity: isReached || isMh ? 1 : 0.45,
+                            cursor: "pointer",
+                            transform: isMh ? "scale(1.18)" : "scale(1)",
+                            transition: "all 150ms ease",
+                          }}
+                        >
+                          <div style={{
+                            width: "6px",
+                            height: "6px",
+                            borderRadius: "50%",
+                            background: isMh
+                              ? "#97d749"
+                              : isReached
+                                ? getVoyagerBrandColor(milestone.count)
+                                : "rgba(255,255,255,0.3)",
+                            boxShadow: isMh || isReached ? `0 0 8px ${getVoyagerBrandColor(milestone.count)}` : "none",
+                            transition: "all 150ms ease",
+                          }} />
+                          <div style={{
+                            fontSize: "0.72rem",
+                            color: isMh ? "#97d749" : isReached ? "#ffffff" : "rgba(255,255,255,0.45)",
+                            fontWeight: isReached || isMh ? 800 : 600,
+                            letterSpacing: "0.02em",
+                            transition: "all 150ms ease",
+                          }}>
+                            {milestone.label}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Classy Cross-fade container for Minimal View */}
-            <div style={{
-              position: "absolute",
-              inset: "0 16px",
-              opacity: isVoyagerExpanded ? 0 : 1,
-              visibility: isVoyagerExpanded ? "hidden" : "visible",
-              pointerEvents: isVoyagerExpanded ? "none" : "auto",
-              transition: "opacity 280ms ease, transform 350ms cubic-bezier(0.22, 1, 0.36, 1)",
-              transform: isVoyagerExpanded ? "translateY(-10px)" : "translateY(0)",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.45rem",
-              whiteSpace: "nowrap",
-              height: "100%",
-              zIndex: 3,
-            }}>
-              {voyagerProgressCount >= 5 ? (
-                <>
-                  <div
-                    key={`voyager-badge-minimal-${voyagerBadgeAnimToken}`}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, width: "24px", height: "24px" }}
-                  >
-                    {renderVoyagerBadge(voyagerProgressCount, "small", true)}
-                  </div>
+              {/* Classy Cross-fade container for Minimal View */}
+              <div style={{
+                position: "absolute",
+                inset: "0 16px",
+                opacity: isVoyagerExpanded ? 0 : 1,
+                visibility: isVoyagerExpanded ? "hidden" : "visible",
+                pointerEvents: isVoyagerExpanded ? "none" : "auto",
+                transition: "opacity 280ms ease, transform 350ms cubic-bezier(0.22, 1, 0.36, 1)",
+                transform: isVoyagerExpanded ? "translateY(-10px)" : "translateY(0)",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                whiteSpace: "nowrap",
+                height: "100%",
+                zIndex: 3,
+              }}>
+                {voyagerProgressCount >= 5 ? (
+                  <>
+                    <div
+                      key={`voyager-badge-minimal-${voyagerBadgeAnimToken}`}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, width: "24px", height: "24px" }}
+                    >
+                      {renderVoyagerBadge(voyagerProgressCount, "small", true)}
+                    </div>
+                    <div style={{
+                      fontSize: "0.74rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.02em",
+                      color: "#ffffff",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                    }}>
+                      {voyagerProgressTitle}
+                    </div>
+                    <div style={{
+                      fontSize: "0.74rem",
+                      fontWeight: 800,
+                      letterSpacing: "0.01em",
+                      color: "#97d749", // FamilySearch Green
+                      marginLeft: "auto",
+                      flexShrink: 0,
+                    }}>
+                      {voyagerProgressCount}/{VOYAGER_TOTAL_COUNTRIES}
+                    </div>
+                  </>
+                ) : (
                   <div style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.45rem",
                     fontSize: "0.74rem",
                     fontWeight: 700,
                     letterSpacing: "0.02em",
                     color: "#ffffff",
-                    whiteSpace: "nowrap",
-                    flexShrink: 0,
+                    width: "100%",
                   }}>
-                    {voyagerProgressTitle}
+                    <span style={{ display: "inline-flex", alignItems: "center", color: "#97d749" }}>{renderGiftIcon(14)}</span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {voyagerCountriesUntilSurprise} {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} to go!
+                    </span>
                   </div>
-                  <div style={{
-                    fontSize: "0.74rem",
-                    fontWeight: 800,
-                    letterSpacing: "0.01em",
-                    color: "#97d749", // FamilySearch Green
-                    marginLeft: "auto",
-                    flexShrink: 0,
-                  }}>
-                    {voyagerProgressCount}/{VOYAGER_TOTAL_COUNTRIES}
-                  </div>
-                </>
-              ) : (
-                <div style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.45rem",
-                  fontSize: "0.74rem",
-                  fontWeight: 700,
-                  letterSpacing: "0.02em",
-                  color: "#ffffff",
-                  width: "100%",
-                }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", color: "#97d749" }}>{renderGiftIcon(14)}</span>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {voyagerCountriesUntilSurprise} {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} to go!
-                  </span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
 
-      
-      <UniversalDock
-        isMenuOpen={isMenuOpen}
-        isDockTransitioning={isDockTransitioning}
-        markDockInteraction={markDockInteraction}
-        searchResults={filteredCountries}
-        selectedCountryIndex={filteredCountries.findIndex(c => c.name === selectedCountry?.name)}
-        isDockExpanding={isDockExpanding}
-        handleSelectCountry={handleSelectCountry}
-        handleCountryHover={handleCountryHover}
-        handleReset={handleReset}
-      />
 
-      <div
-        ref={mapAtmosphereRef}
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          boxSizing: "border-box",
-          overflow: "hidden",
-          transformOrigin: "50% 50%",
-          willChange: "transform",
-        }}
-      >
+        <UniversalDock
+          isMenuOpen={isMenuOpen}
+          isDockTransitioning={isDockTransitioning}
+          markDockInteraction={markDockInteraction}
+          searchResults={filteredCountries}
+          selectedCountryIndex={filteredCountries.findIndex(c => c.name === selectedCountry?.name)}
+          isDockExpanding={isDockExpanding}
+          handleSelectCountry={handleSelectCountry}
+          handleCountryHover={handleCountryHover}
+          handleReset={handleReset}
+        />
+
         <div
+          ref={mapAtmosphereRef}
           style={{
             position: "absolute",
             inset: 0,
             width: "100%",
             height: "100%",
-            backgroundColor: "#202738",
-            pointerEvents: "none",
-            zIndex: 0,
+            boxSizing: "border-box",
+            overflow: "hidden",
+            transformOrigin: "50% 50%",
+            willChange: "transform",
           }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            background: "rgba(156, 148, 122, 0.12)",
-            mixBlendMode: "overlay",
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        />
-        <MapLibreMap 
-          ref={mapRef}
-          onCountrySelect={handleSelectCountry}
-          onMapClick={() => {
-            if (selectedCountry) {
-              handleReset();
-            } else if (isMenuOpen) {
-              setIsMenuClosing(true);
-              window.setTimeout(() => {
-                setIsMenuOpen(false);
-                setIsMenuClosing(false);
-              }, 480);
-            }
-          }}
-          onCountryHover={handleCountryHover}
-          selectedCountry={selectedCountry}
-          activatedCountryName={activatedCountryName}
-          isPanelOpen={isPanelOpen}
-          isAttractMode={isAttractMode}
-          hoveredCountry={hoveredCountry}
-        />
-
-        
-
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.12)",
-            backdropFilter: isOverlayVisible ? "blur(4px)" : "none",
-            WebkitBackdropFilter: isOverlayVisible ? "blur(4px)" : "none",
-            pointerEvents: "none",
-            zIndex: 3,
-            opacity: isOverlayVisible ? 1 : 0,
-            transition: "opacity 300ms cubic-bezier(0.22, 1, 0.36, 1)",
-            // GPU layer isolation — prevents the full-screen blur from being re-evaluated
-            // during every child scroll / animation frame
-            willChange: "opacity",
-            transform: "translateZ(0)",
-            display: isOverlayVisible ? undefined : "none",
-          }}
-        />
-
-        {/* Blocks all map interaction while a country card is open. Clicking
-            it closes the card; the same gesture can never reach a country. */}
-        {selectedCountry && !achievementUnlocked && !certificateStep ? (
+        >
           <div
-            aria-hidden="true"
-            onPointerDown={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              handleClosePanel();
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              backgroundColor: "#202738",
+              pointerEvents: "none",
+              zIndex: 0,
             }}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              background: "rgba(156, 148, 122, 0.12)",
+              mixBlendMode: "overlay",
+              pointerEvents: "none",
+              zIndex: 1,
+            }}
+          />
+          <MapLibreMap
+            ref={mapRef}
+            onCountrySelect={handleSelectCountry}
+            onMapClick={() => {
+              if (selectedCountry) {
+                handleReset();
+              } else if (isMenuOpen) {
+                setIsMenuClosing(true);
+                window.setTimeout(() => {
+                  setIsMenuOpen(false);
+                  setIsMenuClosing(false);
+                }, 480);
+              }
+            }}
+            onCountryHover={handleCountryHover}
+            selectedCountry={selectedCountry}
+            activatedCountryName={activatedCountryName}
+            isPanelOpen={isPanelOpen}
+            isAttractMode={isAttractMode}
+            hoveredCountry={hoveredCountry}
+          />
+
+
+
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.12)",
+              backdropFilter: isOverlayVisible ? "blur(4px)" : "none",
+              WebkitBackdropFilter: isOverlayVisible ? "blur(4px)" : "none",
+              pointerEvents: "none",
+              zIndex: 3,
+              opacity: isOverlayVisible ? 1 : 0,
+              transition: "opacity 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+              // GPU layer isolation — prevents the full-screen blur from being re-evaluated
+              // during every child scroll / animation frame
+              willChange: "opacity",
+              transform: "translateZ(0)",
+              display: isOverlayVisible ? undefined : "none",
+            }}
+          />
+
+          {/* Blocks all map interaction while a country card is open. Clicking
+            it closes the card; the same gesture can never reach a country. */}
+          {selectedCountry && !achievementUnlocked && !certificateStep ? (
+            <div
+              aria-hidden="true"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                handleClosePanel();
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 990,
+                cursor: "default",
+              }}
+            />
+          ) : null}
+        </div>
+
+        {/* FLOATING STORY CARD - Decoupled background to prevent scroll repaint flicker */}
+        <div
+          ref={storyCardWrapperRef}
+          className="floating-story-card-wrapper"
+          onClick={(event) => event.stopPropagation()}
+          onWheel={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerMove={(event) => event.stopPropagation()}
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: isPanelVisible
+              ? "translate(-50%, -50%) translateZ(0)"
+              : "translate(-50%, calc(-50% + 90px)) translateZ(0)",
+            width: "min(900px, 92vw)",
+            maxHeight: "75vh",
+            background: "linear-gradient(155deg, rgba(15, 23, 42, 0.86) 0%, rgba(2, 6, 23, 0.8) 52%, rgba(15, 23, 42, 0.74) 100%)",
+            boxShadow: "0 42px 120px rgba(0, 0, 0, 0.54), 0 16px 34px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
+            backdropFilter: "blur(20px) saturate(140%)",
+            WebkitBackdropFilter: "blur(20px) saturate(140%)",
+            borderRadius: "32px",
+            opacity: isPanelVisible ? 1 : 0,
+            transition: "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1)",
+            pointerEvents: isPanelVisible ? "auto" : "none",
+            overflow: "hidden",
+            zIndex: 1000,
+            border: "1px solid rgba(203, 213, 225, 0.44)",
+            display: "flex",
+            flexDirection: "column",
+            willChange: "transform, opacity", // Own GPU layer — scrolling inside never triggers outer repaint
+            isolation: "isolate", // Stacking context so children can't bleed into page compositor
+          }}
+        >
+          {/* Fixed Close button at the top-right of the card */}
+          {selectedCountry ? (
+            <button
+              onClick={handleClosePanel}
+              style={{
+                position: "absolute",
+                top: "1.2rem",
+                right: "1.2rem",
+                width: "44px",
+                height: "44px",
+                borderRadius: "50%",
+                border: "1px solid rgba(148, 163, 184, 0.42)",
+                background: "rgba(15, 23, 42, 0.92)",
+                color: "#fff",
+                fontSize: "1.4rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 200ms ease",
+                zIndex: 1010, // Sit on top of the scrolling viewport and fixed hero
+                boxShadow: "0 6px 14px rgba(2,6,23,0.45)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(30, 41, 59, 0.98)";
+                e.currentTarget.style.transform = "scale(1.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(15, 23, 42, 0.92)";
+                e.currentTarget.style.transform = "scale(1)";
+              }}
+              aria-label="Close"
+            >
+              ×
+            </button>
+          ) : null}
+
+          {/* --- DYNAMIC STICKY HERO HEADER --- */}
+          {selectedCountry ? (
+            <div
+              key={`hero-${selectedCountry.name}-${heroMotionSeed}`}
+              style={{
+                borderRadius: "32px 32px 0 0",
+                overflow: "hidden",
+                height: "220px", // Fixed height so it stays still at the top
+                flexShrink: 0,
+                backgroundImage: `linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.65) 100%), url(${validatedHeroImage || selectedCountryHeroImage})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center 30%",
+                display: "flex",
+                flexDirection: "row", // Side-by-side flex flow to eliminate overlaps
+                justifyContent: "space-between",
+                alignItems: "flex-end",
+                padding: `1.4rem ${STORY_CARD_SIDE_PADDING}`,
+                position: "relative",
+                gap: "1.5rem",
+                zIndex: 5,
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.1)", // Casts a soft shadow over the scrolling content
+                ...getRevealStyle(0),
+              }}
+            >
+              {/* Left-side: Flag, Title, and Member since text */}
+              <div style={{ position: "relative", zIndex: 2, flex: 1, minWidth: 0 }}>
+                <img
+                  src={`https://flagcdn.com/w40/${selectedCountry.countryCode || "xx"}.png`}
+                  alt=""
+                  style={{
+                    width: "26px",
+                    height: "17px",
+                    borderRadius: "4px",
+                    objectFit: "cover",
+                    border: "1px solid rgba(255,255,255,0.4)",
+                    boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+                    opacity: 0.92,
+                  }}
+                />
+                <h2
+                  style={{
+                    margin: "0.4rem 0 0",
+                    fontSize: "2.8rem",
+                    lineHeight: 1.02,
+                    fontWeight: 700,
+                    color: "#fff",
+                    textShadow: "0 2px 8px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.25)",
+                    letterSpacing: "-0.02em",
+                    opacity: isContentVisible ? 1 : 0,
+                    transform: isContentVisible ? "translateY(0)" : "translateY(24px)",
+                    transition: `opacity 550ms ${springEase}, transform 550ms ${springEase}`,
+                    transitionDelay: isContentVisible ? "100ms" : "0ms",
+                  }}
+                >
+                  {selectedCountry.name}
+                </h2>
+                {selectedCountryMetadata?.memberSince ? (
+                  <div
+                    style={{
+                      fontSize: "0.65rem",
+                      fontWeight: 600,
+                      color: "#97d749",
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      textShadow: "0 1px 4px rgba(0,0,0,0.5)",
+                      pointerEvents: "none",
+                      marginTop: "0.35rem",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    Member since {selectedCountryMetadata.memberSince}
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Right-side: Image source credit text */}
+              <div style={{ position: "relative", zIndex: 4, display: "flex", flexDirection: "column", alignItems: "flex-end", height: "100%", justifyContent: "flex-end", paddingBottom: "4px" }}>
+                {selectedCountry.imageSource && selectedCountry.imageSource !== "none" && (
+                  <div
+                    style={{
+                      opacity: isContentVisible ? 0.75 : 0,
+                      transition: `opacity 400ms ${springEase}`,
+                      transitionDelay: isContentVisible ? "200ms" : "0ms",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "0.6rem",
+                        color: "rgba(255, 255, 255, 0.75)",
+                        letterSpacing: "0.04em",
+                        textTransform: "uppercase",
+                        fontWeight: 500,
+                        textShadow: "0 1px 3px rgba(0,0,0,0.4)",
+                      }}
+                    >
+                      Image by {selectedCountry.imageSource === "wikipedia" ? "Wikipedia" :
+                        selectedCountry.imageSource === "wikimedia-commons" ? "Wikimedia" :
+                          selectedCountry.imageSource === "unsplash" ? "Unsplash" :
+                            selectedCountry.imageSource === "pexels" ? "Pexels" :
+                              selectedCountry.imageSource === "pixabay" ? "Pixabay" :
+                                selectedCountry.imageSource}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          <div
+            className="floating-story-card-scroll"
+            onScroll={(e) => {
+              const scrollTop = e.currentTarget.scrollTop;
+              const scrolled = scrollTop > 20;
+              if (scrolled !== isPanelScrolledRef.current) {
+                isPanelScrolledRef.current = scrolled;
+              }
             }}
             style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 990,
-              cursor: "default",
+              width: "100%",
+              flex: 1, // Fills remaining space below fixed hero header
+              overflowY: "auto",
+              overflowX: "hidden",
+              color: "#fff",
+              boxSizing: "border-box",
+            }}
+          >
+            {selectedCountry ? (
+              <div
+                style={{
+                  padding: "0",
+                  position: "relative",
+                  display: "flex",
+                  flexDirection: "column",
+                  minHeight: 0,
+                  width: "100%",
+                }}
+              >
+
+                {/* FamilySearch Collections and Research Helps */}
+                <div style={{ padding: `1.5rem ${STORY_CARD_SIDE_PADDING} 1.4rem` }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 0.8fr)",
+                      gap: "1.5rem",
+                      alignItems: "start",
+                    }}
+                  >
+                    <div style={{ minWidth: 0, ...getRevealStyle(1) }}>
+                      <div style={{ display: "grid", gap: "0.38rem" }}>
+                        {displayedFamilySearchPreferredCollections.length ? (
+                          <>
+                            <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginTop: "0.12rem" }}>
+                              {isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}
+                            </div>
+                            {displayedFamilySearchPreferredCollections.map((collection, index) => (
+                              <a
+                                key={`${isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}-${collection.title}-${collection.link}`}
+                                href={collection.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={familySearchRecordLinkStyle}
+                                onMouseEnter={handleFamilySearchRecordMouseEnter}
+                                onMouseLeave={handleFamilySearchRecordMouseLeave}
+                              >
+                                <span
+                                  ref={(element) => {
+                                    recordTitleRefs.current[index] = element;
+                                  }}
+                                  style={
+                                    isGenealogyCollectionsView
+                                      ? {
+                                        minWidth: 0,
+                                        display: "-webkit-box",
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: "vertical",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        wordBreak: "break-word",
+                                        overflowWrap: "anywhere",
+                                      }
+                                      : { minWidth: 0, whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere", display: "block" }
+                                  }
+                                >
+                                  {collection.title}
+                                </span>
+                              </a>
+                            ))}
+                          </>
+                        ) : null}
+
+                        {!hasFamilySearchRecordCollections && !hasFamilySearchGenealogyCollections ? (
+                          <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No FamilySearch collections available.</div>
+                        ) : null}
+                      </div>
+                      {familySearchLocationUrl ? (
+                        <a
+                          href={familySearchLocationUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            marginTop: "0.72rem",
+                            ...seeMoreLikeLinkStyle,
+                          }}
+                          onMouseEnter={handleSeeMoreLikeLinkMouseEnter}
+                          onMouseLeave={handleSeeMoreLikeLinkMouseLeave}
+                        >
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}>
+                            {renderLinkArrowIcon()}
+                            <span>See more</span>
+                          </span>
+                        </a>
+                      ) : (
+                        <div style={{ marginTop: "0.72rem", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.9rem", textAlign: "left" }}>
+                          Country research page not available.
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ minWidth: 0, ...getRevealStyle(2) }}>
+                      <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontWeight: 700 }}>
+                        Research Help
+                      </h3>
+                      <div style={{ display: "grid", gap: "0.38rem" }}>
+                        {researchHelpEntries.length ? (
+                          researchHelpEntries.map((entry) => (
+                            <a
+                              key={`${entry.key}-${entry.value.url}`}
+                              href={entry.value.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={researchHelpLinkStyle}
+                              onMouseEnter={handleResearchHelpMouseEnter}
+                              onMouseLeave={handleResearchHelpMouseLeave}
+                              title={entry.value.title || entry.label}
+                            >
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", minWidth: 0, maxWidth: "100%" }}>
+                                {renderLinkArrowIcon()}
+                                <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{entry.label}</span>
+                              </span>
+                            </a>
+                          ))
+                        ) : (
+                          <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No research help links available.</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gallery before reading content */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "visible",
+                    padding: `0 ${STORY_CARD_SIDE_PADDING} 1.4rem`,
+                    ...getRevealStyle(3),
+                  }}
+                >
+                  <div style={{ position: "relative" }}>
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        top: 0,
+                        bottom: "8px",
+                        width: "32px",
+                        background: "linear-gradient(90deg, rgba(2,6,23,0.56) 0%, rgba(2,6,23,0) 100%)",
+                        pointerEvents: "none",
+                        zIndex: 2,
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: 0,
+                        bottom: "8px",
+                        width: "32px",
+                        background: "linear-gradient(270deg, rgba(2,6,23,0.56) 0%, rgba(2,6,23,0) 100%)",
+                        pointerEvents: "none",
+                        zIndex: 2,
+                      }}
+                    />
+                    <div
+                      ref={galleryTrackRef}
+                      style={{
+                        display: "flex",
+                        gap: "0.75rem",
+                        overflowX: "auto",
+                        overflowY: "hidden",
+                        paddingTop: "2px",
+                        paddingBottom: "10px",
+                        flex: 1,
+                        minHeight: 0,
+                        alignItems: "stretch",
+                        scrollBehavior: "smooth",
+                        WebkitOverflowScrolling: "touch",
+                        touchAction: "pan-x",
+                        scrollSnapType: "x mandatory",
+                        scrollbarWidth: "none",
+                        msOverflowStyle: "none",
+                      }}
+                    >
+                      {galleryItems.map((item, index) => (
+                        <button
+                          key={item.id}
+                          onClick={() => setLightboxItem(item)}
+                          style={{
+                            border: "none",
+                            background: "transparent",
+                            padding: 0,
+                            borderRadius: "14px",
+                            overflow: "hidden",
+                            cursor: "pointer",
+                            position: "relative",
+                            flex: "0 0 76%",
+                            minWidth: "0",
+                            height: "182px",
+                            transform: "translateY(0)",
+                            transition: "transform 240ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, filter 240ms ease",
+                            boxShadow: index === galleryActiveIndex
+                              ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
+                              : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)",
+                            scrollSnapAlign: "center",
+                            opacity: index === galleryActiveIndex ? 1 : 0.72,
+                            filter: index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)",
+                          }}
+                          onMouseEnter={(event) => {
+                            event.currentTarget.style.transform = "translateY(-2px)";
+                            event.currentTarget.style.boxShadow = "0 20px 38px rgba(15,23,42,0.42), inset 0 0 0 1px rgba(255,255,255,0.26)";
+                            event.currentTarget.style.opacity = "1";
+                            event.currentTarget.style.filter = "saturate(1.12)";
+                          }}
+                          onMouseLeave={(event) => {
+                            event.currentTarget.style.transform = "translateY(0)";
+                            event.currentTarget.style.boxShadow = index === galleryActiveIndex
+                              ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
+                              : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)";
+                            event.currentTarget.style.opacity = index === galleryActiveIndex ? "1" : "0.72";
+                            event.currentTarget.style.filter = index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)";
+                          }}
+                        >
+                          <img
+                            src={item.thumbnailUrl}
+                            alt={item.title}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", background: "#1a1a1a", display: "block" }}
+                          />
+                          {item.type === "video" ? (
+                            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(255,255,255,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="#c4302b">
+                                  <path d="M8 5v14l11-7z" />
+                                </svg>
+                              </div>
+                            </div>
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {galleryItems.length > 1 ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", marginTop: "0.45rem" }}>
+                      <div style={{ flex: 1, display: "flex", justifyContent: showGalleryNavigation ? "flex-start" : "center", gap: "0.34rem" }}>
+                        {galleryItems.map((item, index) => (
+                          <div
+                            key={`gallery-dot-${item.id}`}
+                            style={{
+                              width: index === galleryActiveIndex ? "20px" : "7px",
+                              height: "7px",
+                              borderRadius: "999px",
+                              background: index === galleryActiveIndex
+                                ? "linear-gradient(90deg, rgba(255,255,255,0.95), rgba(226,232,240,0.82))"
+                                : "rgba(148, 163, 184, 0.46)",
+                              boxShadow: index === galleryActiveIndex ? "0 0 10px rgba(255,255,255,0.32)" : "none",
+                              transition: "all 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+                            }}
+                          />
+                        ))}
+                      </div>
+
+                      {showGalleryNavigation ? (
+                        <div style={{ display: "flex", gap: "0.4rem", flexShrink: 0 }}>
+                          <button
+                            onClick={() => scrollGallery("left")}
+                            style={{
+                              border: "1px solid rgba(226,232,240,0.28)",
+                              background: "linear-gradient(160deg, rgba(255,255,255,0.18), rgba(148,163,184,0.12))",
+                              color: "#e2e8f0",
+                              borderRadius: "999px",
+                              width: "30px",
+                              height: "30px",
+                              cursor: "pointer",
+                              lineHeight: 1,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+                              opacity: 0.9,
+                              boxShadow: "0 6px 16px rgba(15,23,42,0.28)",
+                              flexShrink: 0,
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = "#ffffff";
+                              e.currentTarget.style.transform = "translateY(-1px)";
+                              e.currentTarget.style.background = "linear-gradient(160deg, rgba(255,255,255,0.25), rgba(148,163,184,0.18))";
+                              e.currentTarget.style.opacity = "1";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = "#e2e8f0";
+                              e.currentTarget.style.transform = "translateY(0)";
+                              e.currentTarget.style.background = "linear-gradient(160deg, rgba(255,255,255,0.18), rgba(148,163,184,0.12))";
+                              e.currentTarget.style.opacity = "0.9";
+                            }}
+                            aria-label="Previous"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="m15 18-6-6 6-6" />
+                            </svg>
+                          </button>
+
+                          <button
+                            onClick={() => scrollGallery("right")}
+                            style={{
+                              border: "1px solid rgba(226,232,240,0.28)",
+                              background: "linear-gradient(160deg, rgba(255,255,255,0.18), rgba(148,163,184,0.12))",
+                              color: "#e2e8f0",
+                              borderRadius: "999px",
+                              width: "30px",
+                              height: "30px",
+                              cursor: "pointer",
+                              lineHeight: 1,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+                              opacity: 0.9,
+                              boxShadow: "0 6px 16px rgba(15,23,42,0.28)",
+                              flexShrink: 0,
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = "#ffffff";
+                              e.currentTarget.style.transform = "translateY(-1px)";
+                              e.currentTarget.style.background = "linear-gradient(160deg, rgba(255,255,255,0.25), rgba(148,163,184,0.18))";
+                              e.currentTarget.style.opacity = "1";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = "#e2e8f0";
+                              e.currentTarget.style.transform = "translateY(0)";
+                              e.currentTarget.style.background = "linear-gradient(160deg, rgba(255,255,255,0.18), rgba(148,163,184,0.12))";
+                              e.currentTarget.style.opacity = "0.9";
+                            }}
+                            aria-label="Next"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="m9 18 6-6-6-6" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Overview + Statistics in editorial two-column */}
+                <div style={{ padding: `0 ${STORY_CARD_SIDE_PADDING} 2rem`, ...getRevealStyle(4) }}>
+                  <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.1)", margin: "0 0 1.3rem" }} />
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 0.7fr)",
+                      gap: "1.4rem",
+                      alignItems: "start",
+                    }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                      <p
+                        ref={overviewTextRef}
+                        style={{
+                          margin: 0,
+                          lineHeight: 1.8,
+                          fontSize: "1.02rem",
+                          color: "rgba(255,255,255,0.88)",
+                          overflow: "hidden",
+                          display: isOverviewExpanded ? "block" : "-webkit-box",
+                          WebkitBoxOrient: "vertical",
+                          WebkitLineClamp: isOverviewExpanded ? "unset" : 7,
+                        }}
+                      >
+                        {selectedCountry.overview}
+                      </p>
+                      {hasOverviewOverflow ? (
+                        <button
+                          onClick={() => setIsOverviewExpanded((value) => !value)}
+                          style={{
+                            marginTop: "0.8rem",
+                            border: "none",
+                            background: "transparent",
+                            color: "#87b940",
+                            fontSize: "0.9rem",
+                            fontWeight: 600,
+                            textAlign: "left",
+                            cursor: "pointer",
+                            padding: 0,
+                            alignSelf: "flex-start",
+                          }}
+                        >
+                          {isOverviewExpanded ? "Read Less" : "Read More →"}
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <div style={{ display: "grid", gap: "0.78rem", minWidth: 0 }}>
+                      {detailStatItems.map((item) => (
+                        <div
+                          key={item.label}
+                          style={{
+                            borderRadius: "16px",
+                            background: "linear-gradient(180deg, rgba(17, 24, 39, 0.9) 0%, rgba(15, 23, 42, 0.82) 100%)",
+                            border: "1px solid rgba(148, 163, 184, 0.34)",
+                            boxShadow: "inset 0 1px 0 rgba(226,232,240,0.12), 0 10px 22px rgba(2,6,23,0.34)",
+                            padding: "1rem 1.05rem",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <div style={{ marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                            {renderStatIcon(item.label)}
+                            <span style={{ fontSize: "0.69rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(226,232,240,0.76)", fontWeight: 700 }}>
+                              {item.label}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#f8fafc", textShadow: "0 1px 0 rgba(2,6,23,0.55)" }}>{item.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* ACHIEVEMENT + CERTIFICATE FLOW (Phases 1-3) */}
+        {achievementUnlocked && !certificateStep ? (
+          <AchievementModal
+            unlocked={achievementUnlocked}
+            onClose={() => setAchievementUnlocked(null)}
+            onViewCertificate={() => setCertificateStep('name')}
+          />
+        ) : null}
+
+        {certificateStep === 'name' ? (
+          <CertificateNameDialog
+            onCancel={() => setCertificateStep(null)}
+            onSubmit={(name) => {
+              setCertificateName(name);
+              setCertificateStep('qr');
             }}
           />
         ) : null}
-      </div>
 
-      {/* FLOATING STORY CARD - Decoupled background to prevent scroll repaint flicker */}
-      <div
-        ref={storyCardWrapperRef}
-        className="floating-story-card-wrapper"
-        onClick={(event) => event.stopPropagation()}
-        onWheel={(event) => event.stopPropagation()}
-        onPointerDown={(event) => event.stopPropagation()}
-        onPointerMove={(event) => event.stopPropagation()}
-        style={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: isPanelVisible
-            ? "translate(-50%, -50%) translateZ(0)"
-            : "translate(-50%, calc(-50% + 90px)) translateZ(0)",
-          width: "min(900px, 92vw)",
-          maxHeight: "75vh",
-          background: "linear-gradient(155deg, rgba(15, 23, 42, 0.86) 0%, rgba(2, 6, 23, 0.8) 52%, rgba(15, 23, 42, 0.74) 100%)",
-          boxShadow: "0 42px 120px rgba(0, 0, 0, 0.54), 0 16px 34px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
-          backdropFilter: "blur(20px) saturate(140%)",
-          WebkitBackdropFilter: "blur(20px) saturate(140%)",
-          borderRadius: "32px",
-          opacity: isPanelVisible ? 1 : 0,
-          transition: "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1)",
-          pointerEvents: isPanelVisible ? "auto" : "none",
-          overflow: "hidden",
-          zIndex: 1000,
-          border: "1px solid rgba(203, 213, 225, 0.44)",
-          display: "flex",
-          flexDirection: "column",
-          willChange: "transform, opacity", // Own GPU layer — scrolling inside never triggers outer repaint
-          isolation: "isolate", // Stacking context so children can't bleed into page compositor
-        }}
-      >
-        {/* Fixed Close button at the top-right of the card */}
-        {selectedCountry ? (
-          <button
-            onClick={handleClosePanel}
+        {certificateStep === 'qr' && achievementUnlocked ? (
+          <CertificateQRCode
+            name={certificateName}
+            badgeLevel={achievementUnlocked.badgeLevel}
+            levelName={achievementUnlocked.levelName}
+            certificateUrl={buildCertificateUrl({
+              name: certificateName,
+              level: achievementUnlocked.levelName,
+              badgeLevel: achievementUnlocked.badgeLevel,
+              date: new Date().toISOString(),
+            })}
+            onClose={() => {
+              setAchievementUnlocked(null);
+              setCertificateStep(null);
+              setCertificateName('');
+            }}
+          />
+        ) : null}
+
+        {lightboxItem ? (
+          <div
+            onClick={() => setLightboxItem(null)}
             style={{
-              position: "absolute",
-              top: "1.2rem",
-              right: "1.2rem",
-              width: "44px",
-              height: "44px",
-              borderRadius: "50%",
-              border: "1px solid rgba(148, 163, 184, 0.42)",
-              background: "rgba(15, 23, 42, 0.92)",
-              color: "#fff",
-              fontSize: "1.4rem",
-              cursor: "pointer",
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.82)",
+              zIndex: 9999,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              transition: "all 200ms ease",
-              zIndex: 1010, // Sit on top of the scrolling viewport and fixed hero
-              boxShadow: "0 6px 14px rgba(2,6,23,0.45)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(30, 41, 59, 0.98)";
-              e.currentTarget.style.transform = "scale(1.1)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(15, 23, 42, 0.92)";
-              e.currentTarget.style.transform = "scale(1)";
-            }}
-            aria-label="Close"
-          >
-            ×
-          </button>
-        ) : null}
-
-        {/* --- DYNAMIC STICKY HERO HEADER --- */}
-        {selectedCountry ? (
-          <div
-            key={`hero-${selectedCountry.name}-${heroMotionSeed}`}
-            style={{
-              borderRadius: "32px 32px 0 0",
-              overflow: "hidden",
-              height: "220px", // Fixed height so it stays still at the top
-              flexShrink: 0,
-              backgroundImage: `linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.65) 100%), url(${validatedHeroImage || selectedCountryHeroImage})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center 30%",
-              display: "flex",
-              flexDirection: "row", // Side-by-side flex flow to eliminate overlaps
-              justifyContent: "space-between",
-              alignItems: "flex-end",
-              padding: `1.4rem ${STORY_CARD_SIDE_PADDING}`,
-              position: "relative",
-              gap: "1.5rem",
-              zIndex: 5,
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.1)", // Casts a soft shadow over the scrolling content
-              ...getRevealStyle(0),
+              padding: "1.25rem",
             }}
           >
-            {/* Left-side: Flag, Title, and Member since text */}
-            <div style={{ position: "relative", zIndex: 2, flex: 1, minWidth: 0 }}>
-              <img
-                src={`https://flagcdn.com/w40/${selectedCountry.countryCode || "xx"}.png`}
-                alt=""
-                style={{
-                  width: "26px",
-                  height: "17px",
-                  borderRadius: "4px",
-                  objectFit: "cover",
-                  border: "1px solid rgba(255,255,255,0.4)",
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-                  opacity: 0.92,
-                }}
-              />
-              <h2
-                style={{
-                  margin: "0.4rem 0 0",
-                  fontSize: "2.8rem",
-                  lineHeight: 1.02,
-                  fontWeight: 700,
-                  color: "#fff",
-                  textShadow: "0 2px 8px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.25)",
-                  letterSpacing: "-0.02em",
-                  opacity: isContentVisible ? 1 : 0,
-                  transform: isContentVisible ? "translateY(0)" : "translateY(24px)",
-                  transition: `opacity 550ms ${springEase}, transform 550ms ${springEase}`,
-                  transitionDelay: isContentVisible ? "100ms" : "0ms",
-                }}
-              >
-                {selectedCountry.name}
-              </h2>
-              {selectedCountryMetadata?.memberSince ? (
-                <div
-                  style={{
-                    fontSize: "0.65rem",
-                    fontWeight: 600,
-                    color: "#97d749",
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    textShadow: "0 1px 4px rgba(0,0,0,0.5)",
-                    pointerEvents: "none",
-                    marginTop: "0.35rem",
-                    lineHeight: 1.4,
-                  }}
-                >
-                  Member since {selectedCountryMetadata.memberSince}
-                </div>
-              ) : null}
-            </div>
-
-            {/* Right-side: Image source credit text */}
-            <div style={{ position: "relative", zIndex: 4, display: "flex", flexDirection: "column", alignItems: "flex-end", height: "100%", justifyContent: "flex-end", paddingBottom: "4px" }}>
-              {selectedCountry.imageSource && selectedCountry.imageSource !== "none" && (
-                <div
-                  style={{
-                    opacity: isContentVisible ? 0.75 : 0,
-                    transition: `opacity 400ms ${springEase}`,
-                    transitionDelay: isContentVisible ? "200ms" : "0ms",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "0.6rem",
-                      color: "rgba(255, 255, 255, 0.75)",
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
-                      fontWeight: 500,
-                      textShadow: "0 1px 3px rgba(0,0,0,0.4)",
-                    }}
-                  >
-                    Image by {selectedCountry.imageSource === "wikipedia" ? "Wikipedia" :
-                      selectedCountry.imageSource === "wikimedia-commons" ? "Wikimedia" :
-                        selectedCountry.imageSource === "unsplash" ? "Unsplash" :
-                          selectedCountry.imageSource === "pexels" ? "Pexels" :
-                            selectedCountry.imageSource === "pixabay" ? "Pixabay" :
-                              selectedCountry.imageSource}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-
-        <div
-          className="floating-story-card-scroll"
-          onScroll={(e) => {
-            const scrollTop = e.currentTarget.scrollTop;
-            const scrolled = scrollTop > 20;
-            if (scrolled !== isPanelScrolledRef.current) {
-              isPanelScrolledRef.current = scrolled;
-            }
-          }}
-          style={{
-            width: "100%",
-            flex: 1, // Fills remaining space below fixed hero header
-            overflowY: "auto",
-            overflowX: "hidden",
-            color: "#fff",
-            boxSizing: "border-box",
-          }}
-        >
-          {selectedCountry ? (
             <div
+              onClick={(event) => event.stopPropagation()}
               style={{
-                padding: "0",
+                width: "min(1000px, 96vw)",
+                maxHeight: "92vh",
+                background: "#111",
+                borderRadius: "14px",
+                overflow: "hidden",
+                boxShadow: "0 18px 45px rgba(0,0,0,0.4)",
                 position: "relative",
-                display: "flex",
-                flexDirection: "column",
-                minHeight: 0,
-                width: "100%",
               }}
             >
-
-            {/* FamilySearch Collections and Research Helps */}
-            <div style={{ padding: `1.5rem ${STORY_CARD_SIDE_PADDING} 1.4rem` }}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 0.8fr)",
-                  gap: "1.5rem",
-                  alignItems: "start",
-                }}
-              >
-                <div style={{ minWidth: 0, ...getRevealStyle(1) }}>
-                  <div style={{ display: "grid", gap: "0.38rem" }}>
-                    {displayedFamilySearchPreferredCollections.length ? (
-                      <>
-                        <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginTop: "0.12rem" }}>
-                          {isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}
-                        </div>
-                        {displayedFamilySearchPreferredCollections.map((collection, index) => (
-                          <a
-                            key={`${isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}-${collection.title}-${collection.link}`}
-                            href={collection.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={familySearchRecordLinkStyle}
-                            onMouseEnter={handleFamilySearchRecordMouseEnter}
-                            onMouseLeave={handleFamilySearchRecordMouseLeave}
-                          >
-                            <span
-                              ref={(element) => {
-                                recordTitleRefs.current[index] = element;
-                              }}
-                              style={
-                                isGenealogyCollectionsView
-                                  ? {
-                                    minWidth: 0,
-                                    display: "-webkit-box",
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: "vertical",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    wordBreak: "break-word",
-                                    overflowWrap: "anywhere",
-                                  }
-                                  : { minWidth: 0, whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere", display: "block" }
-                              }
-                            >
-                              {collection.title}
-                            </span>
-                          </a>
-                        ))}
-                      </>
-                    ) : null}
-
-                    {!hasFamilySearchRecordCollections && !hasFamilySearchGenealogyCollections ? (
-                      <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No FamilySearch collections available.</div>
-                    ) : null}
-                  </div>
-                  {familySearchLocationUrl ? (
-                    <a
-                      href={familySearchLocationUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        marginTop: "0.72rem",
-                        ...seeMoreLikeLinkStyle,
-                      }}
-                      onMouseEnter={handleSeeMoreLikeLinkMouseEnter}
-                      onMouseLeave={handleSeeMoreLikeLinkMouseLeave}
-                    >
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}>
-                        {renderLinkArrowIcon()}
-                        <span>See more</span>
-                      </span>
-                    </a>
-                  ) : (
-                    <div style={{ marginTop: "0.72rem", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.9rem", textAlign: "left" }}>
-                      Country research page not available.
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ minWidth: 0, ...getRevealStyle(2) }}>
-                  <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontWeight: 700 }}>
-                    Research Help
-                  </h3>
-                  <div style={{ display: "grid", gap: "0.38rem" }}>
-                    {researchHelpEntries.length ? (
-                      researchHelpEntries.map((entry) => (
-                        <a
-                          key={`${entry.key}-${entry.value.url}`}
-                          href={entry.value.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={researchHelpLinkStyle}
-                          onMouseEnter={handleResearchHelpMouseEnter}
-                          onMouseLeave={handleResearchHelpMouseLeave}
-                          title={entry.value.title || entry.label}
-                        >
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", minWidth: 0, maxWidth: "100%" }}>
-                            {renderLinkArrowIcon()}
-                            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{entry.label}</span>
-                          </span>
-                        </a>
-                      ))
-                    ) : (
-                      <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No research help links available.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Gallery before reading content */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                overflow: "visible",
-                padding: `0 ${STORY_CARD_SIDE_PADDING} 1.4rem`,
-                ...getRevealStyle(3),
-              }}
-            >
-              <div style={{ position: "relative" }}>
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    bottom: "8px",
-                    width: "32px",
-                    background: "linear-gradient(90deg, rgba(2,6,23,0.56) 0%, rgba(2,6,23,0) 100%)",
-                    pointerEvents: "none",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    right: 0,
-                    top: 0,
-                    bottom: "8px",
-                    width: "32px",
-                    background: "linear-gradient(270deg, rgba(2,6,23,0.56) 0%, rgba(2,6,23,0) 100%)",
-                    pointerEvents: "none",
-                    zIndex: 2,
-                  }}
-                />
-                <div
-                  ref={galleryTrackRef}
-                  style={{
-                    display: "flex",
-                    gap: "0.75rem",
-                    overflowX: "auto",
-                    overflowY: "hidden",
-                    paddingTop: "2px",
-                    paddingBottom: "10px",
-                    flex: 1,
-                    minHeight: 0,
-                    alignItems: "stretch",
-                    scrollBehavior: "smooth",
-                    WebkitOverflowScrolling: "touch",
-                    touchAction: "pan-x",
-                    scrollSnapType: "x mandatory",
-                    scrollbarWidth: "none",
-                    msOverflowStyle: "none",
-                  }}
-                >
-                  {galleryItems.map((item, index) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setLightboxItem(item)}
-                      style={{
-                        border: "none",
-                        background: "transparent",
-                        padding: 0,
-                        borderRadius: "14px",
-                        overflow: "hidden",
-                        cursor: "pointer",
-                        position: "relative",
-                        flex: "0 0 76%",
-                        minWidth: "0",
-                        height: "182px",
-                        transform: "translateY(0)",
-                        transition: "transform 240ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, filter 240ms ease",
-                        boxShadow: index === galleryActiveIndex
-                          ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
-                          : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)",
-                        scrollSnapAlign: "center",
-                        opacity: index === galleryActiveIndex ? 1 : 0.72,
-                        filter: index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)",
-                      }}
-                      onMouseEnter={(event) => {
-                        event.currentTarget.style.transform = "translateY(-2px)";
-                        event.currentTarget.style.boxShadow = "0 20px 38px rgba(15,23,42,0.42), inset 0 0 0 1px rgba(255,255,255,0.26)";
-                        event.currentTarget.style.opacity = "1";
-                        event.currentTarget.style.filter = "saturate(1.12)";
-                      }}
-                      onMouseLeave={(event) => {
-                        event.currentTarget.style.transform = "translateY(0)";
-                        event.currentTarget.style.boxShadow = index === galleryActiveIndex
-                          ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
-                          : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)";
-                        event.currentTarget.style.opacity = index === galleryActiveIndex ? "1" : "0.72";
-                        event.currentTarget.style.filter = index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)";
-                      }}
-                    >
-                      <img
-                        src={item.thumbnailUrl}
-                        alt={item.title}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", background: "#1a1a1a", display: "block" }}
-                      />
-                      {item.type === "video" ? (
-                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(255,255,255,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="#c4302b">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          </div>
-                        </div>
-                      ) : null}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {galleryItems.length > 1 ? (
-                <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", marginTop: "0.45rem" }}>
-                  <div style={{ flex: 1, display: "flex", justifyContent: showGalleryNavigation ? "flex-start" : "center", gap: "0.34rem" }}>
-                    {galleryItems.map((item, index) => (
-                      <div
-                        key={`gallery-dot-${item.id}`}
-                        style={{
-                          width: index === galleryActiveIndex ? "20px" : "7px",
-                          height: "7px",
-                          borderRadius: "999px",
-                          background: index === galleryActiveIndex
-                            ? "linear-gradient(90deg, rgba(255,255,255,0.95), rgba(226,232,240,0.82))"
-                            : "rgba(148, 163, 184, 0.46)",
-                          boxShadow: index === galleryActiveIndex ? "0 0 10px rgba(255,255,255,0.32)" : "none",
-                          transition: "all 220ms cubic-bezier(0.22, 1, 0.36, 1)",
-                        }}
-                      />
-                    ))}
-                  </div>
-
-                  {showGalleryNavigation ? (
-                    <div style={{ display: "flex", gap: "0.4rem", flexShrink: 0 }}>
-                      <button
-                        onClick={() => scrollGallery("left")}
-                        style={{
-                          border: "1px solid rgba(226,232,240,0.28)",
-                          background: "linear-gradient(160deg, rgba(255,255,255,0.18), rgba(148,163,184,0.12))",
-                          color: "#e2e8f0",
-                          borderRadius: "999px",
-                          width: "30px",
-                          height: "30px",
-                          cursor: "pointer",
-                          lineHeight: 1,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-                          opacity: 0.9,
-                          boxShadow: "0 6px 16px rgba(15,23,42,0.28)",
-                          flexShrink: 0,
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.color = "#ffffff";
-                          e.currentTarget.style.transform = "translateY(-1px)";
-                          e.currentTarget.style.background = "linear-gradient(160deg, rgba(255,255,255,0.25), rgba(148,163,184,0.18))";
-                          e.currentTarget.style.opacity = "1";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.color = "#e2e8f0";
-                          e.currentTarget.style.transform = "translateY(0)";
-                          e.currentTarget.style.background = "linear-gradient(160deg, rgba(255,255,255,0.18), rgba(148,163,184,0.12))";
-                          e.currentTarget.style.opacity = "0.9";
-                        }}
-                        aria-label="Previous"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="m15 18-6-6 6-6" />
-                        </svg>
-                      </button>
-
-                      <button
-                        onClick={() => scrollGallery("right")}
-                        style={{
-                          border: "1px solid rgba(226,232,240,0.28)",
-                          background: "linear-gradient(160deg, rgba(255,255,255,0.18), rgba(148,163,184,0.12))",
-                          color: "#e2e8f0",
-                          borderRadius: "999px",
-                          width: "30px",
-                          height: "30px",
-                          cursor: "pointer",
-                          lineHeight: 1,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-                          opacity: 0.9,
-                          boxShadow: "0 6px 16px rgba(15,23,42,0.28)",
-                          flexShrink: 0,
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.color = "#ffffff";
-                          e.currentTarget.style.transform = "translateY(-1px)";
-                          e.currentTarget.style.background = "linear-gradient(160deg, rgba(255,255,255,0.25), rgba(148,163,184,0.18))";
-                          e.currentTarget.style.opacity = "1";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.color = "#e2e8f0";
-                          e.currentTarget.style.transform = "translateY(0)";
-                          e.currentTarget.style.background = "linear-gradient(160deg, rgba(255,255,255,0.18), rgba(148,163,184,0.12))";
-                          e.currentTarget.style.opacity = "0.9";
-                        }}
-                        aria-label="Next"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="m9 18 6-6-6-6" />
-                        </svg>
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-
-            {/* Overview + Statistics in editorial two-column */}
-            <div style={{ padding: `0 ${STORY_CARD_SIDE_PADDING} 2rem`, ...getRevealStyle(4) }}>
-              <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.1)", margin: "0 0 1.3rem" }} />
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 0.7fr)",
-                  gap: "1.4rem",
-                  alignItems: "start",
-                }}
-              >
-                <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                  <p
-                    ref={overviewTextRef}
-                    style={{
-                      margin: 0,
-                      lineHeight: 1.8,
-                      fontSize: "1.02rem",
-                      color: "rgba(255,255,255,0.88)",
-                      overflow: "hidden",
-                      display: isOverviewExpanded ? "block" : "-webkit-box",
-                      WebkitBoxOrient: "vertical",
-                      WebkitLineClamp: isOverviewExpanded ? "unset" : 7,
-                    }}
+              {hasGalleryNavigation ? (
+                <>
+                  <button
+                    onClick={showPreviousLightboxItem}
+                    style={{ position: "absolute", left: "0.55rem", top: "50%", transform: "translateY(-50%)", width: "38px", height: "38px", borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: "1.3rem", cursor: "pointer", zIndex: 2 }}
+                    aria-label="Previous media"
                   >
-                    {selectedCountry.overview}
-                  </p>
-                  {hasOverviewOverflow ? (
-                    <button
-                      onClick={() => setIsOverviewExpanded((value) => !value)}
-                      style={{
-                        marginTop: "0.8rem",
-                        border: "none",
-                        background: "transparent",
-                        color: "#87b940",
-                        fontSize: "0.9rem",
-                        fontWeight: 600,
-                        textAlign: "left",
-                        cursor: "pointer",
-                        padding: 0,
-                        alignSelf: "flex-start",
-                      }}
-                    >
-                      {isOverviewExpanded ? "Read Less" : "Read More →"}
-                    </button>
-                  ) : null}
-                </div>
-
-                <div style={{ display: "grid", gap: "0.78rem", minWidth: 0 }}>
-                  {detailStatItems.map((item) => (
-                    <div
-                      key={item.label}
-                      style={{
-                        borderRadius: "16px",
-                        background: "linear-gradient(180deg, rgba(17, 24, 39, 0.9) 0%, rgba(15, 23, 42, 0.82) 100%)",
-                        border: "1px solid rgba(148, 163, 184, 0.34)",
-                        boxShadow: "inset 0 1px 0 rgba(226,232,240,0.12), 0 10px 22px rgba(2,6,23,0.34)",
-                        padding: "1rem 1.05rem",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <div style={{ marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                        {renderStatIcon(item.label)}
-                        <span style={{ fontSize: "0.69rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(226,232,240,0.76)", fontWeight: 700 }}>
-                          {item.label}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#f8fafc", textShadow: "0 1px 0 rgba(2,6,23,0.55)" }}>{item.value}</div>
-                    </div>
-                  ))}
-                </div>
+                    ‹
+                  </button>
+                  <button
+                    onClick={showNextLightboxItem}
+                    style={{ position: "absolute", right: "0.55rem", top: "50%", transform: "translateY(-50%)", width: "38px", height: "38px", borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: "1.3rem", cursor: "pointer", zIndex: 2 }}
+                    aria-label="Next media"
+                  >
+                    ›
+                  </button>
+                </>
+              ) : null}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 0.9rem", color: "#e8ece8", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
+                <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>{lightboxItem.title}</div>
+                <button
+                  onClick={() => setLightboxItem(null)}
+                  style={{ border: "none", background: "transparent", color: "#e8ece8", fontSize: "1.25rem", cursor: "pointer", lineHeight: 1 }}
+                  aria-label="Close media"
+                >
+                  ×
+                </button>
+              </div>
+              <div style={{ background: "#000" }}>
+                {lightboxItem.type === "video" ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${lightboxItem.videoId}?autoplay=1&rel=0`}
+                    title={lightboxItem.title}
+                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                    allowFullScreen
+                    style={{ width: "100%", aspectRatio: "16 / 9", border: "none", display: "block" }}
+                  />
+                ) : (
+                  <img
+                    src={lightboxItem.sourceUrl}
+                    alt={lightboxItem.title}
+                    style={{ width: "100%", maxHeight: "80vh", objectFit: "contain", display: "block" }}
+                  />
+                )}
               </div>
             </div>
           </div>
-          ) : null}
-        </div>
-      </div>
-
-      {/* ACHIEVEMENT + CERTIFICATE FLOW (Phases 1-3) */}
-      {achievementUnlocked && !certificateStep ? (
-        <AchievementModal
-          unlocked={achievementUnlocked}
-          onClose={() => setAchievementUnlocked(null)}
-          onViewCertificate={() => setCertificateStep('name')}
-        />
-      ) : null}
-
-      {certificateStep === 'name' ? (
-        <CertificateNameDialog
-          onCancel={() => setCertificateStep(null)}
-          onSubmit={(name) => {
-            setCertificateName(name);
-            setCertificateStep('qr');
-          }}
-        />
-      ) : null}
-
-      {certificateStep === 'qr' && achievementUnlocked ? (
-        <CertificateQRCode
-          name={certificateName}
-          badgeLevel={achievementUnlocked.badgeLevel}
-          levelName={achievementUnlocked.levelName}
-          certificateUrl={buildCertificateUrl({
-            name: certificateName,
-            level: achievementUnlocked.levelName,
-            badgeLevel: achievementUnlocked.badgeLevel,
-            date: new Date().toISOString(),
-          })}
-          onClose={() => {
-            setAchievementUnlocked(null);
-            setCertificateStep(null);
-            setCertificateName('');
-          }}
-        />
-      ) : null}
-
-      {lightboxItem ? (
-        <div
-          onClick={() => setLightboxItem(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.82)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "1.25rem",
-          }}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "min(1000px, 96vw)",
-              maxHeight: "92vh",
-              background: "#111",
-              borderRadius: "14px",
-              overflow: "hidden",
-              boxShadow: "0 18px 45px rgba(0,0,0,0.4)",
-              position: "relative",
-            }}
-          >
-            {hasGalleryNavigation ? (
-              <>
-                <button
-                  onClick={showPreviousLightboxItem}
-                  style={{ position: "absolute", left: "0.55rem", top: "50%", transform: "translateY(-50%)", width: "38px", height: "38px", borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: "1.3rem", cursor: "pointer", zIndex: 2 }}
-                  aria-label="Previous media"
-                >
-                  ‹
-                </button>
-                <button
-                  onClick={showNextLightboxItem}
-                  style={{ position: "absolute", right: "0.55rem", top: "50%", transform: "translateY(-50%)", width: "38px", height: "38px", borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: "1.3rem", cursor: "pointer", zIndex: 2 }}
-                  aria-label="Next media"
-                >
-                  ›
-                </button>
-              </>
-            ) : null}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 0.9rem", color: "#e8ece8", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
-              <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>{lightboxItem.title}</div>
-              <button
-                onClick={() => setLightboxItem(null)}
-                style={{ border: "none", background: "transparent", color: "#e8ece8", fontSize: "1.25rem", cursor: "pointer", lineHeight: 1 }}
-                aria-label="Close media"
-              >
-                ×
-              </button>
-            </div>
-            <div style={{ background: "#000" }}>
-              {lightboxItem.type === "video" ? (
-                <iframe
-                  src={`https://www.youtube.com/embed/${lightboxItem.videoId}?autoplay=1&rel=0`}
-                  title={lightboxItem.title}
-                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                  allowFullScreen
-                  style={{ width: "100%", aspectRatio: "16 / 9", border: "none", display: "block" }}
-                />
-              ) : (
-                <img
-                  src={lightboxItem.sourceUrl}
-                  alt={lightboxItem.title}
-                  style={{ width: "100%", maxHeight: "80vh", objectFit: "contain", display: "block" }}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
+        ) : null}
       </div>
     </AppContext.Provider>
   );

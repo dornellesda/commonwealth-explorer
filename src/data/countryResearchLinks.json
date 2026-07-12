@@ -779,15 +779,49 @@
       "url": "https://www.familysearch.org/en/wiki/Uganda_Online_Genealogy_Records"
     }
   },
-  "United Kingdom": {
-    "wikiUrl": "https://www.familysearch.org/en/wiki/United_Kingdom_Genealogy",
+  "England": {
+    "wikiUrl": "https://www.familysearch.org/en/wiki/England_Genealogy",
     "gettingStarted": {
-      "title": "United Kingdom Getting Started",
-      "url": "https://www.familysearch.org/en/wiki/United_Kingdom"
+      "title": "England Getting Started",
+      "url": "https://www.familysearch.org/en/wiki/England_Getting_Started"
     },
     "onlineResearchHelp": {
-      "title": "United Kingdom Online Research Help",
+      "title": "England Online Research Help",
       "url": "https://www.familysearch.org/en/wiki/Online_Research_Help"
+    },
+    "genealogyRecords": {
+      "title": "England Genealogy Records",
+      "url": "https://www.familysearch.org/en/wiki/England_Online_Genealogy_Records"
+    }
+  },
+  "Scotland": {
+    "wikiUrl": "https://www.familysearch.org/en/wiki/Scotland_Genealogy",
+    "gettingStarted": {
+      "title": "Scotland Getting Started",
+      "url": "https://www.familysearch.org/en/wiki/Scotland_Getting_Started"
+    },
+    "onlineResearchHelp": {
+      "title": "Scotland Online Research Help",
+      "url": "https://www.familysearch.org/en/wiki/Online_Research_Help"
+    },
+    "genealogyRecords": {
+      "title": "Scotland Genealogy Records",
+      "url": "https://www.familysearch.org/en/wiki/Scotland_Online_Genealogy_Records"
+    }
+  },
+  "Wales": {
+    "wikiUrl": "https://www.familysearch.org/en/wiki/Wales_Genealogy",
+    "gettingStarted": {
+      "title": "Wales Getting Started",
+      "url": "https://www.familysearch.org/en/wiki/Wales_Getting_Started"
+    },
+    "onlineResearchHelp": {
+      "title": "Wales Online Research Help",
+      "url": "https://www.familysearch.org/en/wiki/Online_Research_Help"
+    },
+    "genealogyRecords": {
+      "title": "Wales Genealogy Records",
+      "url": "https://www.familysearch.org/en/wiki/Wales_Online_Genealogy_Records"
     }
   },
   "United Republic of Tanzania": {

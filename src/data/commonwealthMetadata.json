@@ -207,7 +207,15 @@
     "memberSince": 1962,
     "source": "Wikidata"
   },
-  "United Kingdom": {
+  "England": {
+    "memberSince": 1931,
+    "source": "Statute of Westminster"
+  },
+  "Scotland": {
+    "memberSince": 1931,
+    "source": "Statute of Westminster"
+  },
+  "Wales": {
     "memberSince": 1931,
     "source": "Statute of Westminster"
   },

@@ -459,6 +459,8 @@
   background: linear-gradient(105deg, rgba(255, 255, 255, 0) 37%, rgba(255, 255, 255, 0.52) 50%, rgba(255, 255, 255, 0) 62%);
   pointer-events: none;
   z-index: 1;
+  opacity: 0;
+  transform: translateX(-145%) skewX(-18deg);
 }
 
 .explore-cta-button.explore-cta-button-attract .explore-cta-sheen {
@@ -561,12 +563,12 @@
   background: conic-gradient(
     from 0deg,
     #87b940 0%,
-    #97d749 30%,
-    rgba(151, 215, 73, 0.15) 50%,
-    #97d749 70%,
+    #bfd730 30%,
+    rgba(191, 215, 48, 0.15) 50%,
+    #bfd730 70%,
     #87b940 100%
   );
-  animation: ctaBorderRotate 3s linear infinite;
+  animation: ctaBorderRotate 8s linear infinite, attractBorderColorCycle 16s ease-in-out infinite;
   filter: drop-shadow(0 0 8px rgba(151, 215, 73, 0.95));
 }
 
@@ -576,6 +578,30 @@
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes attractBorderColorCycle {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(135, 185, 64, 0.95)) hue-rotate(0deg);
+  }
+  20% {
+    filter: drop-shadow(0 0 8px rgba(135, 185, 64, 0.95)) hue-rotate(0deg);
+  }
+  25% {
+    filter: drop-shadow(0 0 8px rgba(191, 215, 48, 0.95)) hue-rotate(344deg);
+  }
+  45% {
+    filter: drop-shadow(0 0 8px rgba(191, 215, 48, 0.95)) hue-rotate(344deg);
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(240, 133, 33, 0.95)) hue-rotate(304deg);
+  }
+  75% {
+    filter: drop-shadow(0 0 8px rgba(240, 133, 33, 0.95)) hue-rotate(304deg);
+  }
+  80% {
+    filter: drop-shadow(0 0 8px rgba(135, 185, 64, 0.95)) hue-rotate(360deg);
   }
 }
 
@@ -602,7 +628,7 @@
   position: absolute;
   inset: 0;
   border-radius: 999px;
-  padding: 1.5px;
+  padding: 2.2px;
   /* gradient is set via inline --aura-gradient CSS variable */
   background: var(--aura-gradient, transparent);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
