@@ -868,5 +868,14 @@
       "title": "Zambia Genealogy Records",
       "url": "https://www.familysearch.org/en/wiki/Zambia_Online_Genealogy_Records"
     }
+  },
+  "Northern Ireland": {
+    "wikiUrl": "https://www.familysearch.org/en/wiki/Northern_Ireland_Genealogy",
+    "quickLinks": [
+      {
+        "title": "Northern Ireland Getting Started",
+        "url": "https://www.familysearch.org/en/wiki/Northern_Ireland_Getting_Started"
+      }
+    ]
   }
 }

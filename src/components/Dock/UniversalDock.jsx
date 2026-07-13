@@ -189,19 +189,21 @@ function UniversalDock({
                   : "none",
               }}
             >
-              <img
-                src={`https://flagcdn.com/w160/${country.countryCode || "xx"}.png`}
-                alt={country.name}
-                style={{
-                  width: "84px",
-                  height: "56px",
-                  borderRadius: "6px",
-                  objectFit: "cover",
-                  boxShadow: "0 3px 10px rgba(0,0,0,0.22)",
-                  transition: `transform 220ms ${SMOOTH_EASE}`,
-                  transform: isGov ? "scale(1.04)" : "scale(1)",
-                }}
-              />
+              {country.countryCode && (
+                <img
+                  src={`https://flagcdn.com/w160/${country.countryCode}.png`}
+                  alt={country.name}
+                  style={{
+                    width: "84px",
+                    height: "56px",
+                    borderRadius: "6px",
+                    objectFit: "cover",
+                    boxShadow: "0 3px 10px rgba(0,0,0,0.22)",
+                    transition: `transform 220ms ${SMOOTH_EASE}`,
+                    transform: isGov ? "scale(1.04)" : "scale(1)",
+                  }}
+                />
+              )}
               <span style={{
                 fontSize: "11px",
                 fontWeight: 600,

@@ -61,6 +61,7 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
   const isHoveringMarkerRef = useRef(false);
   const [internalHoveredName, setInternalHoveredName] = useState(null);
   const [geojson, setGeojson] = useState(null);
+  const [zoomedIntoUK, setZoomedIntoUK] = useState(false);
   React.useImperativeHandle(ref, () => ({
     getMap: () => mapRef.current?.getMap(),
     stop: () => mapRef.current?.getMap()?.stop(),
@@ -97,14 +98,19 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         }
         if (!data) throw new Error("All geojson fetches failed");
 
-        // Remove the single sovereign United Kingdom polygon
-        data.features = data.features.filter(feature => {
+        // Tag the single sovereign United Kingdom polygon instead of removing it
+        data.features.forEach(feature => {
           const props = feature.properties;
           const isUK = props.name === "United Kingdom" || props.NAME === "United Kingdom" || props.ADMIN === "United Kingdom" || props.SOVEREIGN === "United Kingdom";
-          return !isUK;
+          if (isUK) {
+            props.isUK = true;
+          }
         });
 
-        // Add individual England, Scotland, and Wales polygons
+        // Add individual England, Scotland, and Wales polygons, tagged as constituents
+        ukBoundaries.features.forEach(f => {
+          f.properties.isUKConstituent = true;
+        });
         data.features.push(...ukBoundaries.features);
         
         const commonwealthNames = new Set(countries.map(c => normalizeName(c.name)));
@@ -112,6 +118,10 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         
         data.features.forEach(feature => {
           const props = feature.properties;
+          if (props.isUK) {
+            props.cwName = 'United Kingdom';
+            return;
+          }
           const possibleNames = [props.name, props.NAME_EN, props.NAME, props.ADMIN, props.SOVEREIGN, props.ADMIN_EN];
           
           let cwName = null;
@@ -156,21 +166,52 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
   }, [onCountryHover]);
 
   const onClick = useCallback(event => {
+    const { features } = event;
+    const clickedFeature = features && features[0];
+    const clickedCwName = clickedFeature?.properties?.cwName;
+    const isConstituent = clickedFeature?.properties?.isUKConstituent;
+
     // A selected country owns the map interaction until its card is closed.
-    // Any map click, including another country, is treated as an outside click.
     if (selectedCountry) {
+      // If we are zoomed into the UK and click another UK constituent, switch to it directly
+      if (zoomedIntoUK && clickedCwName && isConstituent) {
+        onCountrySelect?.(clickedCwName);
+        return;
+      }
+      
+      // If we are zoomed into the UK and click outside (e.g. ocean or another country),
+      // clear the selection but do not reset the camera to the world view.
+      if (zoomedIntoUK) {
+        onMapClick?.({ keepZoom: true });
+        return;
+      }
+
+      // Default behavior: outside click clears selection and zooms out
       onMapClick?.();
       return;
     }
 
-    const { features } = event;
-    const clickedFeature = features && features[0];
-    if (clickedFeature && clickedFeature.properties.cwName && onCountrySelect) {
-      onCountrySelect(clickedFeature.properties.cwName);
+    if (clickedCwName) {
+      if (clickedCwName === 'United Kingdom') {
+        setZoomedIntoUK(true);
+        mapRef.current?.getMap()?.flyTo({ center: [-3.4, 54.5], zoom: 5.5, duration: 1500 });
+      } else if (onCountrySelect) {
+        onCountrySelect(clickedCwName);
+      }
     } else if (onMapClick) {
       onMapClick();
     }
-  }, [selectedCountry, onCountrySelect, onMapClick]);
+  }, [selectedCountry, onCountrySelect, onMapClick, zoomedIntoUK]);
+
+  const onZoom = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (map) {
+      const zoom = map.getZoom();
+      if (zoom < 4.0 && zoomedIntoUK) {
+        setZoomedIntoUK(false);
+      }
+    }
+  }, [zoomedIntoUK]);
 
   // Latitude/Longitude grid lines
   const gridFeatures = [];
@@ -212,7 +253,11 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
   const fillStyle = {
     id: 'country-fill',
     type: 'fill',
-    filter: ['!=', ['get', 'cwName'], ''],
+    filter: [
+      'all',
+      ['!=', ['get', 'cwName'], ''],
+      zoomedIntoUK ? ['!=', ['get', 'isUK'], true] : ['!=', ['get', 'isUKConstituent'], true]
+    ],
     paint: {
       'fill-color': [
         'case',
@@ -250,7 +295,11 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
   const lineStyle = {
     id: 'country-line',
     type: 'line',
-    filter: ['!=', ['get', 'cwName'], ''],
+    filter: [
+      'all',
+      ['!=', ['get', 'cwName'], ''],
+      zoomedIntoUK ? ['!=', ['get', 'isUK'], true] : ['!=', ['get', 'isUKConstituent'], true]
+    ],
     paint: {
       'line-color': [
         'case',
@@ -302,6 +351,7 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         interactiveLayerIds={['country-fill', 'land-fill']}
         onMouseMove={onHover}
         onClick={onClick}
+        onZoomEnd={onZoom}
         renderWorldCopies={false}
       >
         {/* Latitude/Longitude Grid — warm ink lines on parchment */}

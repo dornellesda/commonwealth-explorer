@@ -2076,7 +2076,7 @@ export default function App() {
     });
   };
 
-  const handleReset = ({ reopenDock = false } = {}) => {
+  const handleReset = ({ reopenDock = false, keepZoom = false } = {}) => {
     markUserActivity();
     clearSelectionTimeline();
 
@@ -2105,7 +2105,7 @@ export default function App() {
       setIsMenuClosing(false);
     }, 200);
 
-    if (mapRef?.current) {
+    if (mapRef?.current && !keepZoom) {
       mapRef.current.stop();
 
       // Let the panel start closing first so the map does not feel clipped,
@@ -3614,13 +3614,13 @@ export default function App() {
         thumbnailUrl: validatedHeroImage || selectedCountryHeroImage,
         sourceUrl: validatedHeroImage || selectedCountryHeroImage,
       },
-      {
+      ...(selectedCountry.countryCode ? [{
         id: `${selectedCountry.name}-photo-flag`,
         type: "photo",
         title: `${selectedCountry.name} Flag`,
-        thumbnailUrl: `https://flagcdn.com/w640/${selectedCountry.countryCode || "xx"}.png`,
-        sourceUrl: `https://flagcdn.com/w1280/${selectedCountry.countryCode || "xx"}.png`,
-      },
+        thumbnailUrl: `https://flagcdn.com/w640/${selectedCountry.countryCode}.png`,
+        sourceUrl: `https://flagcdn.com/w1280/${selectedCountry.countryCode}.png`,
+      }] : []),
       {
         id: `${selectedCountry.name}-video`,
         type: "video",
@@ -4653,7 +4653,7 @@ export default function App() {
             width: isVoyagerExpanded ? "min(320px, calc(100vw - 1.5rem))" : "fit-content",
             maxWidth: "calc(100vw - 1.5rem)",
             padding: isVoyagerExpanded ? "1rem 1.1rem 0.9rem" : "0.58rem 1.35rem 0.58rem 0.95rem",
-            borderRadius: isVoyagerExpanded ? "22px" : "999px",
+            borderRadius: "22px",
             border: "1px solid rgba(255,255,255,0.52)",
             background: isVoyagerExpanded ? "linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%)" : "rgba(255, 255, 255, 0.6)",
             backdropFilter: "blur(36px) saturate(200%)",
@@ -4684,9 +4684,11 @@ export default function App() {
             className={`voyager-aura-ring${voyagerAuraToken > 0 ? (voyagerProgressPercent >= 100 ? " aura-platinum" : " aura-active") : ""}`}
             style={{
               "--aura-gradient": getVoyagerAuraGradient(voyagerProgressPercent),
-              borderRadius: isVoyagerExpanded ? "22px" : "999px",
+              borderRadius: "22px",
             }}
-          />
+          >
+            <div className="voyager-aura-gradient" style={{ borderRadius: "22px" }} />
+          </div>
 
           {isVoyagerExpanded ? (
             <>
@@ -4813,6 +4815,64 @@ export default function App() {
                   })}
                 </div>
               </div>
+
+              {/* Clicked Country List */}
+              <div style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "4px",
+                justifyContent: "center",
+                maxHeight: "80px",
+                overflowY: "auto",
+                marginTop: "16px",
+                marginBottom: "8px",
+                width: "100%",
+                scrollbarWidth: "none"
+              }}>
+                {visitedVoyagerCountries.map(countryKey => (
+                  <span key={countryKey} style={{
+                    fontSize: "0.65rem",
+                    background: "rgba(15,23,42,0.06)",
+                    padding: "3px 8px",
+                    borderRadius: "12px",
+                    color: "rgba(15,23,42,0.85)",
+                    whiteSpace: "nowrap",
+                    textTransform: "capitalize"
+                  }}>
+                    {countryKey}
+                  </span>
+                ))}
+                {visitedVoyagerCountries.length === 0 && (
+                  <span style={{ fontSize: "0.7rem", color: "rgba(15,23,42,0.5)" }}>
+                    Select a country to begin your journey.
+                  </span>
+                )}
+              </div>
+
+              {/* Download Certificate Option */}
+              {voyagerProgressCount >= 5 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCertificateStep('name');
+                    setIsVoyagerExpanded(false);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "rgba(15, 23, 42, 0.6)",
+                    textDecoration: "underline",
+                    fontSize: "0.7rem",
+                    cursor: "pointer",
+                    padding: "4px",
+                    transition: "color 150ms ease"
+                  }}
+                  onMouseEnter={(e) => e.target.style.color = "rgba(15, 23, 42, 0.95)"}
+                  onMouseLeave={(e) => e.target.style.color = "rgba(15, 23, 42, 0.6)"}
+                >
+                  Download your certificate
+                </button>
+              )}
             </>
           ) : (
             /* Minimal View */
@@ -5172,18 +5232,20 @@ export default function App() {
                       }
                     }}
                   >
-                    <img
-                      src={`https://flagcdn.com/w80/${country.countryCode || "xx"}.png`}
-                      alt=""
-                      style={{
-                        width: "42px",
-                        height: "26px",
-                        borderRadius: "5px",
-                        objectFit: "cover",
-                        border: "1px solid rgba(255,255,255,0.55)",
-                        boxShadow: "0 2px 8px rgba(15,23,42,0.24)",
-                      }}
-                    />
+                    {country.countryCode && (
+                       <img
+                         src={`https://flagcdn.com/w80/${country.countryCode}.png`}
+                         alt=""
+                         style={{
+                           width: "42px",
+                           height: "26px",
+                           borderRadius: "5px",
+                           objectFit: "cover",
+                           border: "1px solid rgba(255,255,255,0.55)",
+                           boxShadow: "0 2px 8px rgba(15,23,42,0.24)",
+                         }}
+                       />
+                     )}
                     <span
                       style={{
                         fontSize: "0.79rem",
@@ -5487,19 +5549,21 @@ export default function App() {
               }}
             >
               <div style={{ position: "relative", zIndex: 2 }}>
-                <img
-                  src={`https://flagcdn.com/w40/${selectedCountry.countryCode || "xx"}.png`}
-                  alt=""
-                  style={{
-                    width: "26px",
-                    height: "17px",
-                    borderRadius: "4px",
-                    objectFit: "cover",
-                    border: "1px solid rgba(255,255,255,0.4)",
-                    boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-                    opacity: 0.92,
-                  }}
-                />
+                {selectedCountry.countryCode && (
+                   <img
+                     src={`https://flagcdn.com/w40/${selectedCountry.countryCode}.png`}
+                     alt=""
+                     style={{
+                       width: "26px",
+                       height: "17px",
+                       borderRadius: "4px",
+                       objectFit: "cover",
+                       border: "1px solid rgba(255,255,255,0.4)",
+                       boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+                       opacity: 0.92,
+                     }}
+                   />
+                 )}
                 <h2
                   style={{
                     margin: "0.4rem 0 0",

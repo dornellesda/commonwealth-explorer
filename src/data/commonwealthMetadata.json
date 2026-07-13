@@ -230,5 +230,9 @@
   "Zambia": {
     "memberSince": 1964,
     "source": "Wikidata"
+  },
+  "Northern Ireland": {
+    "joined": "1931-12-11",
+    "region": "Europe"
   }
 }

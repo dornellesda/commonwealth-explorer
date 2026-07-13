@@ -113,7 +113,7 @@ const GEOJSON_FALLBACK_URLS = [
 ];
 const FAMILYSEARCH_LOGO_URL = familysearchLogo;
 const MAP_BACKGROUND_ART_URL = "https://plus.unsplash.com/premium_photo-1779463020508-7cd254b1d37f?auto=format&fit=crop&w=2400&q=80";
-const FAMILYSEARCH_COLLECTIONS_BASE_URL = "https://www.familysearch.org/en/search/collection/list";
+const FAMILYSEARCH_COLLECTIONS_BASE_URL = "https://www.familysearch.org/search/collection/list";
 const FAMILYSEARCH_FETCH_MIRROR_BASE_URL = "https://r.jina.ai/http://www.familysearch.org";
 const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v6";
 const FAMILYSEARCH_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
@@ -577,13 +577,13 @@ function toFamilySearchFetchUrl(url = "") {
 }
 
 function parseCanonicalCollectionsUrlFromLocationPage(pageText = "") {
-  const match = pageText.match(/\[See all [^\]]*Collections\]\((https?:\/\/www\.familysearch\.org\/en\/search\/collection\/list\?[^)]+)\)/i);
-  return match ? match[1] : null;
+  const match = pageText.match(/\[See all [^\]]*Collections\]\((https?:\/\/www\.familysearch\.org(?:\/en)?\/search\/collection\/list\?[^)]+)\)/i);
+  return match ? match[1].replace("/en/search/", "/search/") : null;
 }
 
 function parseGenealogySeeAllUrlFromLocationPage(pageText = "") {
-  const match = pageText.match(/\[See all [^\]]*Genealogies\]\((https?:\/\/www\.familysearch\.org\/en\/search\/genealogies\/submissions\?[^)]+)\)/i);
-  return match ? match[1] : null;
+  const match = pageText.match(/\[See all [^\]]*Genealogies\]\((https?:\/\/www\.familysearch\.org(?:\/en)?\/search\/genealogies\/submissions\?[^)]+)\)/i);
+  return match ? match[1].replace("/en/search/", "/search/") : null;
 }
 
 function hasFamilySearchGenealogyResults(pageText = "") {
@@ -601,14 +601,14 @@ function hasFamilySearchGenealogyResults(pageText = "") {
     return false;
   }
 
-  return /\/en\/search\/genealogies\/submission\//i.test(pageText);
+  return /(?:\/en)?\/search\/genealogies\/submission\//i.test(pageText);
 }
 
 function buildFamilySearchGenealogyFallback(countryName = "") {
   return [
     {
       title: `${countryName} Genealogies`,
-      link: `https://www.familysearch.org/en/search/genealogies/submissions?q.place=${encodeURIComponent(countryName)}`,
+      link: `https://www.familysearch.org/search/genealogies/submissions?q.place=${encodeURIComponent(countryName)}`,
       updated: "",
       updatedAt: new Date(0),
       category: "genealogy",
@@ -649,12 +649,13 @@ function parseFamilySearchCollectionsFromLocationPage(pageText = "") {
     }
 
     const title = match[1].trim();
-    const link = match[2].trim();
-    if (!title || !link) {
+    const rawLink = match[2].trim();
+    if (!title || !rawLink) {
       return;
     }
+    const link = rawLink.replace("/en/search/", "/search/");
 
-    if (activeSection === "records" && /\/en\/search\/collection\/\d+/i.test(link)) {
+    if (activeSection === "records" && /(?:\/en)?\/search\/collection\/\d+/i.test(link)) {
       if (seenRecordLinks.has(link)) {
         return;
       }
@@ -670,7 +671,7 @@ function parseFamilySearchCollectionsFromLocationPage(pageText = "") {
       return;
     }
 
-    if (activeSection === "genealogies" && /\/en\/search\/genealogies\/submission\//i.test(link)) {
+    if (activeSection === "genealogies" && /(?:\/en)?\/search\/genealogies\/submission\//i.test(link)) {
       if (seenGenealogyLinks.has(link)) {
         return;
       }
@@ -2065,7 +2066,7 @@ export default function App() {
     });
   };
 
-  const handleReset = ({ reopenDock = false } = {}) => {
+  const handleReset = ({ keepZoom = false, skipMenuState = false } = {}) => {
     markUserActivity();
     clearSelectionTimeline();
 
@@ -2083,18 +2084,14 @@ export default function App() {
     setActivatedCountryName(null);
     setIsDockExpanding(false);
 
-    window.setTimeout(() => {
-      if (reopenDock) {
-        setIsMenuOpen(true);
+    if (!skipMenuState) {
+      window.setTimeout(() => {
+        setIsMenuOpen(false);
         setIsMenuClosing(false);
-        return;
-      }
+      }, 200);
+    }
 
-      setIsMenuOpen(false);
-      setIsMenuClosing(false);
-    }, 200);
-
-    if (mapRef?.current) {
+    if (mapRef?.current && !keepZoom) {
       mapRef.current.stop();
 
       // Let the panel start closing first so the map does not feel clipped,
@@ -2325,6 +2322,7 @@ export default function App() {
 
     setIsMenuClosing(false);
     setIsMenuOpen(true);
+    setIsMenuOpening(true);
 
     if (shouldExpand) {
       // Card reveal staggers: start after expansion (200ms), then 20-40ms between cards
@@ -2357,11 +2355,8 @@ export default function App() {
 
   const handleExploreCommonwealthPress = () => {
     if (selectedCountry) {
-      setIsButtonTransitioning(true);
-      handleReset({ reopenDock: true });
-      window.setTimeout(() => {
-        setIsButtonTransitioning(false);
-      }, EXHIBIT_TRANSITION_MS);
+      handleReset({ skipMenuState: true });
+      openCountryDock(true);
       return;
     }
 
@@ -3714,13 +3709,13 @@ export default function App() {
         thumbnailUrl: validatedHeroImage || selectedCountryHeroImage,
         sourceUrl: validatedHeroImage || selectedCountryHeroImage,
       },
-      {
+      ...(selectedCountry.countryCode ? [{
         id: `${selectedCountry.name}-photo-flag`,
         type: "photo",
         title: `${selectedCountry.name} Flag`,
-        thumbnailUrl: `https://flagcdn.com/w640/${selectedCountry.countryCode || "xx"}.png`,
-        sourceUrl: `https://flagcdn.com/w1280/${selectedCountry.countryCode || "xx"}.png`,
-      },
+        thumbnailUrl: `https://flagcdn.com/w640/${selectedCountry.countryCode}.png`,
+        sourceUrl: `https://flagcdn.com/w1280/${selectedCountry.countryCode}.png`,
+      }] : []),
       {
         id: `${selectedCountry.name}-video`,
         type: "video",
@@ -4117,13 +4112,13 @@ export default function App() {
     };
   }, [isAttractMode, selectedCountry]);
 
-  // When panel closes, if no country is selected, restore Explore button.
+  // When panel closes, if no country is selected, restore Explore button (if the menu is not opening).
   useEffect(() => {
-    if (!selectedCountry && !isPanelOpen && !isPanelVisible) {
+    if (!selectedCountry && !isPanelOpen && !isPanelVisible && !isMenuOpen && !isMenuOpening) {
       setIsMenuOpen(false);
       setIsMenuClosing(false);
     }
-  }, [selectedCountry, isPanelOpen, isPanelVisible]);
+  }, [selectedCountry, isPanelOpen, isPanelVisible, isMenuOpen, isMenuOpening]);
 
 
   const contextValue = {
@@ -4494,6 +4489,7 @@ export default function App() {
             ? "translateY(0) scale(1)"
             : hiddenExploreTransform;
           const exploreButtonLabel = isAttractMode ? "Touch to Begin" : "Explore by Country";
+          const hideRecentre = selectedCountry || isMenuOpen || isDockExpanding || isButtonTransitioning;
 
           const applyCtaTransform = (node) => {
             if (!node) return;
@@ -4518,7 +4514,7 @@ export default function App() {
               },
             });
           };
-          if (!isExploreButtonVisible && !isMenuOpening && !isMenuClosing) {
+          if (!isExploreButtonVisible && !isMenuOpening && !isMenuClosing && !isButtonTransitioning) {
             return null;
           }
 
@@ -4586,7 +4582,7 @@ export default function App() {
                 top: isAttractMode ? "72%" : "auto",
                 bottom: isAttractMode ? "auto" : "2.2rem",
                 transform: `translateX(-50%) ${baseExploreTransform}`,
-                zIndex: 910,
+                zIndex: selectedCountry ? 995 : 910,
                 display: "flex",
                 alignItems: "center",
                 gap: (isAttractMode || isPanelOpen) ? "0px" : "4px",
@@ -4621,7 +4617,7 @@ export default function App() {
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
-                  padding: (isAttractMode || isPanelOpen) ? "10px 20px" : "10px 22px 10px 18px", // Symmetric when recentre is hidden
+                  padding: (isAttractMode || hideRecentre) ? "10px 20px" : "10px 22px 10px 18px", // Symmetric when recentre is hidden
                   borderRadius: "999px",
                   border: "none",
                   background: "linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.2) 100%)",
@@ -4651,12 +4647,12 @@ export default function App() {
                 <div
                   style={{
                     overflow: "hidden",
-                    width: isPanelOpen ? "0px" : "48px", // Larger width
-                    minWidth: isPanelOpen ? "0px" : "48px",
-                    maxWidth: isPanelOpen ? "0px" : "48px",
-                    opacity: isPanelOpen ? 0 : 1,
+                    width: hideRecentre ? "0px" : "48px", // Larger width
+                    minWidth: hideRecentre ? "0px" : "48px",
+                    maxWidth: hideRecentre ? "0px" : "48px",
+                    opacity: hideRecentre ? 0 : 1,
                     transition: "width 400ms cubic-bezier(0.22,1,0.36,1), min-width 400ms cubic-bezier(0.22,1,0.36,1), max-width 400ms cubic-bezier(0.22,1,0.36,1), opacity 280ms ease",
-                    pointerEvents: isPanelOpen ? "none" : "auto",
+                    pointerEvents: hideRecentre ? "none" : "auto",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -4802,15 +4798,15 @@ export default function App() {
               width: isVoyagerExpanded
                 ? "min(340px, calc(100vw - 1.5rem))"
                 : `min(${voyagerCollapsedWidth}px, calc(100vw - 1.5rem))`,
-              height: isVoyagerExpanded ? (voyagerProgressCount >= 5 ? "236px" : "170px") : "44px",
-              borderRadius: isVoyagerExpanded ? "22px" : "999px",
+              height: isVoyagerExpanded ? (voyagerProgressCount >= 5 ? "400px" : "330px") : "44px",
+              borderRadius: "22px",
               padding: "1.5px", // Thickness of the glowing border
               background: "rgba(15, 23, 42, 0.22)", // Subtle backdrop boundary
               pointerEvents: "auto",
               overflow: "hidden",
               isolation: "isolate",
               cursor: "pointer",
-              transition: "width 400ms cubic-bezier(0.22, 1, 0.36, 1), height 400ms cubic-bezier(0.22, 1, 0.36, 1), border-radius 400ms ease, background 400ms ease",
+              transition: "all 400ms cubic-bezier(0.22, 1, 0.36, 1)",
               boxSizing: "border-box",
               willChange: "width, height, border-radius", // Promote layout changes to GPU
               transform: "translateZ(0)", // Create a stacking context to isolate child repaints
@@ -4818,25 +4814,40 @@ export default function App() {
             }}
           >
             {/* Conic-gradient rotating border beam (FamilySearch brand colors) that fades in/out occasionally */}
-            <div style={{
-              position: "absolute",
-              top: "-200%",
-              left: "-200%",
-              width: "500%",
-              height: "500%",
-              background: "conic-gradient(from 0deg, #87b940 0%, #bfd730 25%, #1ba9e6 50%, #bfd730 75%, #87b940 100%)",
-              animation: "spin 4.5s linear infinite, beamPulse 12s ease-in-out infinite",
-              transformOrigin: "center center",
-              pointerEvents: "none",
-              zIndex: 1,
-              willChange: "transform, opacity", // Promote to its own GPU layer – avoids repainting parent on every frame
-            }} />
+            <div
+              className="voyager-border-beam-mask"
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "22px",
+                opacity: isVoyagerExpanded ? 0 : 1, // Fade out when expanded for an elegant look
+                transition: "opacity 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+                pointerEvents: "none",
+                zIndex: 1,
+                animation: "beamPulse 12s ease-in-out infinite",
+                overflow: "hidden",
+                padding: "1.5px",
+                boxSizing: "border-box",
+              }}
+            >
+              <div style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                width: "100vh", // Perfect square prevents gradient distortion
+                height: "100vh",
+                marginLeft: "-50vh",
+                marginTop: "-50vh",
+                background: "conic-gradient(from 0deg, transparent 50%, rgba(135, 185, 64, 0.8) 75%, #1ba9e6 95%, transparent 100%)",
+                animation: "spin 4.5s linear infinite",
+              }} />
+            </div>
 
             {/* Inner Dark Glass Container */}
             <div style={{
               position: "relative",
               zIndex: 2,
-              borderRadius: isVoyagerExpanded ? "21px" : "999px",
+              borderRadius: "21px",
               background: "rgba(15, 23, 42, 0.78)", // Dark slate glass
               backdropFilter: "blur(36px) saturate(180%)",
               WebkitBackdropFilter: "blur(36px) saturate(180%)",
@@ -4858,7 +4869,7 @@ export default function App() {
                   position: "absolute",
                   inset: 0,
                   background: "radial-gradient(circle at 40% 30%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 58%, transparent 100%)",
-                  borderRadius: isVoyagerExpanded ? "21px" : "999px",
+                  borderRadius: "21px",
                   pointerEvents: "none",
                   zIndex: 1,
                 }}
@@ -4870,10 +4881,12 @@ export default function App() {
                 className={`voyager-aura-ring${voyagerAuraToken > 0 ? (voyagerProgressPercent >= 100 ? " aura-platinum" : " aura-active") : ""}`}
                 style={{
                   "--aura-gradient": getVoyagerAuraGradient(voyagerProgressPercent),
-                  borderRadius: isVoyagerExpanded ? "21px" : "999px",
+                  borderRadius: "21px",
                   zIndex: 2,
                 }}
-              />
+              >
+                <div className="voyager-aura-gradient" style={{ borderRadius: "21px" }} />
+              </div>
 
               {/* Classy Cross-fade container for Expanded View */}
               <div style={{
@@ -5016,6 +5029,65 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Clicked Country List */}
+              <div style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "4px",
+                justifyContent: "center",
+                maxHeight: "80px",
+                overflowY: "auto",
+                marginTop: "16px",
+                marginBottom: "8px",
+                width: "100%",
+                padding: "4px",
+                scrollbarWidth: "none"
+              }}>
+                {visitedVoyagerCountries.map(countryKey => (
+                  <span key={countryKey} style={{
+                    fontSize: "0.65rem",
+                    background: "rgba(255,255,255,0.08)",
+                    padding: "3px 8px",
+                    borderRadius: "12px",
+                    color: "rgba(255,255,255,0.85)",
+                    whiteSpace: "nowrap",
+                    textTransform: "capitalize"
+                  }}>
+                    {countryKey}
+                  </span>
+                ))}
+                {visitedVoyagerCountries.length === 0 && (
+                  <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
+                    Select a country to begin your journey.
+                  </span>
+                )}
+              </div>
+
+              {/* Download Certificate Option */}
+              {voyagerProgressCount >= 5 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCertificateStep('name');
+                    setIsVoyagerExpanded(false);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "rgba(255, 255, 255, 0.5)",
+                    textDecoration: "underline",
+                    fontSize: "0.7rem",
+                    cursor: "pointer",
+                    padding: "4px",
+                    transition: "color 150ms ease"
+                  }}
+                  onMouseEnter={(e) => e.target.style.color = "rgba(255, 255, 255, 0.9)"}
+                  onMouseLeave={(e) => e.target.style.color = "rgba(255, 255, 255, 0.5)"}
+                >
+                  Download your certificate
+                </button>
+              )}
+
               {/* Classy Cross-fade container for Minimal View */}
               <div style={{
                 position: "absolute",
@@ -5136,9 +5208,9 @@ export default function App() {
           <MapLibreMap
             ref={mapRef}
             onCountrySelect={handleSelectCountry}
-            onMapClick={() => {
+            onMapClick={(options = {}) => {
               if (selectedCountry) {
-                handleReset();
+                handleReset(options);
               } else if (isMenuOpen) {
                 setIsMenuClosing(true);
                 window.setTimeout(() => {
@@ -5271,119 +5343,11 @@ export default function App() {
             </button>
           ) : null}
 
-          {/* --- DYNAMIC STICKY HERO HEADER --- */}
-          {selectedCountry ? (
-            <div
-              key={`hero-${selectedCountry.name}-${heroMotionSeed}`}
-              style={{
-                borderRadius: "32px 32px 0 0",
-                overflow: "hidden",
-                height: "220px", // Fixed height so it stays still at the top
-                flexShrink: 0,
-                backgroundImage: `linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.65) 100%), url(${validatedHeroImage || selectedCountryHeroImage})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center 30%",
-                display: "flex",
-                flexDirection: "row", // Side-by-side flex flow to eliminate overlaps
-                justifyContent: "space-between",
-                alignItems: "flex-end",
-                padding: `1.4rem ${STORY_CARD_SIDE_PADDING}`,
-                position: "relative",
-                gap: "1.5rem",
-                zIndex: 5,
-                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.1)", // Casts a soft shadow over the scrolling content
-                ...getRevealStyle(0),
-              }}
-            >
-              {/* Left-side: Flag, Title, and Member since text */}
-              <div style={{ position: "relative", zIndex: 2, flex: 1, minWidth: 0 }}>
-                <img
-                  src={`https://flagcdn.com/w40/${selectedCountry.countryCode || "xx"}.png`}
-                  alt=""
-                  style={{
-                    width: "26px",
-                    height: "17px",
-                    borderRadius: "4px",
-                    objectFit: "cover",
-                    border: "1px solid rgba(255,255,255,0.4)",
-                    boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-                    opacity: 0.92,
-                  }}
-                />
-                <h2
-                  style={{
-                    margin: "0.4rem 0 0",
-                    fontSize: "2.8rem",
-                    lineHeight: 1.02,
-                    fontWeight: 700,
-                    color: "#fff",
-                    textShadow: "0 2px 8px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.25)",
-                    letterSpacing: "-0.02em",
-                    opacity: isContentVisible ? 1 : 0,
-                    transform: isContentVisible ? "translateY(0)" : "translateY(24px)",
-                    transition: `opacity 550ms ${springEase}, transform 550ms ${springEase}`,
-                    transitionDelay: isContentVisible ? "100ms" : "0ms",
-                  }}
-                >
-                  {selectedCountry.name}
-                </h2>
-                {selectedCountryMetadata?.memberSince ? (
-                  <div
-                    style={{
-                      fontSize: "0.65rem",
-                      fontWeight: 600,
-                      color: "#97d749",
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                      textShadow: "0 1px 4px rgba(0,0,0,0.5)",
-                      pointerEvents: "none",
-                      marginTop: "0.35rem",
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    Member since {selectedCountryMetadata.memberSince}
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Right-side: Image source credit text */}
-              <div style={{ position: "relative", zIndex: 4, display: "flex", flexDirection: "column", alignItems: "flex-end", height: "100%", justifyContent: "flex-end", paddingBottom: "4px" }}>
-                {selectedCountry.imageSource && selectedCountry.imageSource !== "none" && (
-                  <div
-                    style={{
-                      opacity: isContentVisible ? 0.75 : 0,
-                      transition: `opacity 400ms ${springEase}`,
-                      transitionDelay: isContentVisible ? "200ms" : "0ms",
-                      pointerEvents: "none",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "0.6rem",
-                        color: "rgba(255, 255, 255, 0.75)",
-                        letterSpacing: "0.04em",
-                        textTransform: "uppercase",
-                        fontWeight: 500,
-                        textShadow: "0 1px 3px rgba(0,0,0,0.4)",
-                      }}
-                    >
-                      Image by {selectedCountry.imageSource === "wikipedia" ? "Wikipedia" :
-                        selectedCountry.imageSource === "wikimedia-commons" ? "Wikimedia" :
-                          selectedCountry.imageSource === "unsplash" ? "Unsplash" :
-                            selectedCountry.imageSource === "pexels" ? "Pexels" :
-                              selectedCountry.imageSource === "pixabay" ? "Pixabay" :
-                                selectedCountry.imageSource}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : null}
-
           <div
             className="floating-story-card-scroll"
             onScroll={(e) => {
               const scrollTop = e.currentTarget.scrollTop;
+              e.currentTarget.style.setProperty('--scroll-y', Math.max(0, scrollTop));
               const scrolled = scrollTop > 20;
               if (scrolled !== isPanelScrolledRef.current) {
                 isPanelScrolledRef.current = scrolled;
@@ -5391,13 +5355,161 @@ export default function App() {
             }}
             style={{
               width: "100%",
-              flex: 1, // Fills remaining space below fixed hero header
+              flex: 1,
               overflowY: "auto",
               overflowX: "hidden",
               color: "#fff",
               boxSizing: "border-box",
             }}
           >
+            {/* --- DYNAMIC STICKY HERO HEADER --- */}
+            {selectedCountry ? (
+              <div
+                key={`hero-${selectedCountry.name}-${heroMotionSeed}`}
+                style={{
+                  borderRadius: "32px 32px 0 0",
+                  overflow: "hidden",
+                  height: "300px", // Taller height to allow scrolling before sticking
+                  flexShrink: 0,
+                  display: "flex",
+                  flexDirection: "row", // Side-by-side flex flow to eliminate overlaps
+                  justifyContent: "space-between",
+                  alignItems: "flex-end",
+                  padding: `1.4rem ${STORY_CARD_SIDE_PADDING}`,
+                  position: "sticky",
+                  top: "-200px", // Scrolls up 200px then sticks, leaving 100px at the top
+                  gap: "1.5rem",
+                  zIndex: 10,
+                  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.1)",
+                  ...getRevealStyle(0),
+                }}
+              >
+                {/* 1. Parallax Background Image */}
+                <div style={{
+                  position: "absolute",
+                  inset: 0,
+                  backgroundImage: `url(${validatedHeroImage || selectedCountryHeroImage})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center 30%",
+                  zIndex: 0,
+                  transform: "translateY(calc(var(--scroll-y, 0) * 0.4px))",
+                }} />
+
+                {/* 2. Base Gradient Overlay for Text Contrast */}
+                <div style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.75) 100%)",
+                  zIndex: 1,
+                }} />
+
+                {/* 3. Apple-Style Glass Blur (Fades in seamlessly as it becomes sticky) */}
+                <div style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(15, 23, 42, 0.35)",
+                  backdropFilter: "blur(16px)",
+                  WebkitBackdropFilter: "blur(16px)",
+                  opacity: "clamp(0, calc(var(--scroll-y, 0) / 200), 1)",
+                  zIndex: 2,
+                  pointerEvents: "none",
+                  transition: "opacity 0.1s linear",
+                }} />
+
+                {/* Left-side: Flag, Title, and Member since text */}
+                <div style={{ 
+                  position: "relative", 
+                  zIndex: 4, 
+                  flex: 1, 
+                  minWidth: 0,
+                  transform: "scale(clamp(0.85, 1 - (var(--scroll-y, 0) / 1333), 1))",
+                  transformOrigin: "left bottom",
+                }}>
+                  {selectedCountry.countryCode && (
+                    <img
+                      src={`https://flagcdn.com/w40/${selectedCountry.countryCode}.png`}
+                      alt=""
+                      style={{
+                        width: "26px",
+                        height: "17px",
+                        borderRadius: "4px",
+                        objectFit: "cover",
+                        border: "1px solid rgba(255,255,255,0.4)",
+                        boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+                        opacity: 0.92,
+                      }}
+                    />
+                  )}
+                  <h2
+                    style={{
+                      margin: "0.4rem 0 0",
+                      fontSize: "2.8rem",
+                      lineHeight: 1.02,
+                      fontWeight: 700,
+                      color: "#fff",
+                      textShadow: "0 2px 8px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.25)",
+                      letterSpacing: "-0.02em",
+                      opacity: isContentVisible ? 1 : 0,
+                      transform: isContentVisible ? "translateY(0)" : "translateY(24px)",
+                      transition: `opacity 550ms ${springEase}, transform 550ms ${springEase}`,
+                      transitionDelay: isContentVisible ? "100ms" : "0ms",
+                    }}
+                  >
+                    {selectedCountry.name}
+                  </h2>
+                  {selectedCountryMetadata?.memberSince ? (
+                    <div
+                      style={{
+                        fontSize: "0.65rem",
+                        fontWeight: 600,
+                        color: "#97d749",
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        textShadow: "0 1px 4px rgba(0,0,0,0.5)",
+                        pointerEvents: "none",
+                        marginTop: "0.35rem",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      Member since {selectedCountryMetadata.memberSince}
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Right-side: Image source credit text */}
+                <div style={{ position: "relative", zIndex: 4, display: "flex", flexDirection: "column", alignItems: "flex-end", height: "100%", justifyContent: "flex-end", paddingBottom: "4px" }}>
+                  {selectedCountry.imageSource && selectedCountry.imageSource !== "none" && (
+                    <div
+                      style={{
+                        opacity: isContentVisible ? 0.75 : 0,
+                        transition: `opacity 400ms ${springEase}`,
+                        transitionDelay: isContentVisible ? "200ms" : "0ms",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "0.6rem",
+                          color: "rgba(255, 255, 255, 0.75)",
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                          fontWeight: 500,
+                          textShadow: "0 1px 3px rgba(0,0,0,0.4)",
+                        }}
+                      >
+                        Image by {selectedCountry.imageSource === "wikipedia" ? "Wikipedia" :
+                          selectedCountry.imageSource === "wikimedia-commons" ? "Wikimedia" :
+                            selectedCountry.imageSource === "unsplash" ? "Unsplash" :
+                              selectedCountry.imageSource === "pexels" ? "Pexels" :
+                                selectedCountry.imageSource === "pixabay" ? "Pixabay" :
+                                  selectedCountry.imageSource}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
             {selectedCountry ? (
               <div
                 style={{

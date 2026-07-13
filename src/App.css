@@ -618,67 +618,101 @@
 
 /* ─────────────────────────────────────────
    VOYAGER PILL PROGRESS AURA
-   GPU-composited conic-gradient masked border.
-   No blur. No continuous box-shadow.
-   Plays once per trigger then goes idle.
+   Conic-gradient border sweep via multiple layers.
+   Mask lives on the static parent (no transform animation)
+   so the composite is computed once without rendering artifacts.
+   Rotation runs on a child element — no mask involved.
    ───────────────────────────────────────── */
 
-/* The ring element sits over the pill, always present but invisible at rest */
+/* The ring element sits over the pill, always present but invisible at rest.
+   Mask is on this static wrapper — never animated, so mask-composite
+   avoids the WebKit re-render bug that causes "broken into two parts" artifacts. */
 .voyager-aura-ring {
   position: absolute;
   inset: 0;
   border-radius: 999px;
   padding: 2.2px;
-  /* gradient is set via inline --aura-gradient CSS variable */
-  background: var(--aura-gradient, transparent);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
   pointer-events: none;
   z-index: 3;
   opacity: 0;
-  will-change: transform, opacity;
+  /* Mask that shows background ONLY in the padding area (= the 2.2px border).
+     Using source-out instead of xor for fewer WebKit compositing issues. */
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: source-out;
+  mask-composite: subtract;
 }
 
-/* Active: plays one full rotation then fades out */
+/* The rotating gradient element — no mask, no opacity transition,
+   just pure GPU transform. */
+.voyager-aura-gradient {
+  position: absolute;
+  inset: -100%; /* Enlarged so rotation never reveals edges */
+  background: var(--aura-gradient, transparent);
+}
+
+/* Active: plays one full rotation then fades out.
+   Opacity handled by parent, rotation by child. */
 .voyager-aura-ring.aura-active {
+  animation: voyagerAuraFade 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.voyager-aura-ring.aura-active .voyager-aura-gradient {
   animation: voyagerAuraSweep 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* Platinum: special gentle continuous shimmer for 56/56 */
 .voyager-aura-ring.aura-platinum {
-  animation: voyagerPlatinumPulse 3.2s ease-in-out infinite;
   opacity: 0.55;
+  animation: voyagerPlatinumFade 3.2s ease-in-out infinite;
 }
 
-/* Single sweep — one rotation with an opacity arc */
-@keyframes voyagerAuraSweep {
+.voyager-aura-ring.aura-platinum .voyager-aura-gradient {
+  animation: voyagerPlatinumPulse 3.2s ease-in-out infinite;
+}
+
+/* Fade in/out for aura — no transform on parent */
+@keyframes voyagerAuraFade {
   0% {
     opacity: 0;
-    transform: rotate(0deg);
   }
   8% {
     opacity: 0.72;
   }
   80% {
     opacity: 0.6;
-    transform: rotate(320deg);
   }
   100% {
     opacity: 0;
+  }
+}
+
+/* Single sweep — rotation only on the child gradient element */
+@keyframes voyagerAuraSweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
     transform: rotate(360deg);
   }
 }
 
-/* Platinum pulse — a barely-there shimmer, like a holographic surface */
-@keyframes voyagerPlatinumPulse {
+/* Fade for platinum — no transform on parent */
+@keyframes voyagerPlatinumFade {
   0%, 100% {
     opacity: 0.3;
-    transform: rotate(0deg);
   }
   50% {
     opacity: 0.65;
-    transform: rotate(180deg);
+  }
+}
+
+/* Platinum rotation — keeps the holographic shimmer moving */
+@keyframes voyagerPlatinumPulse {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -784,4 +818,11 @@
 .country-card-stagger.card-revealed {
   opacity: 1;
   transform: translateY(0) scale(1);
+}
+
+/* Voyager border beam mask to prevent gradient bleed-through */
+.voyager-border-beam-mask {
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: source-out;
+  mask-composite: subtract;
 }

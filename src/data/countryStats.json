@@ -40,7 +40,7 @@
     "source": "Wikidata"
   },
   "Cameroon": {
-    "capital": "Yaoundé",
+    "capital": "Yaound\u00e9",
     "population": 28372687,
     "source": "Wikidata"
   },
@@ -130,7 +130,7 @@
     "source": "Wikidata"
   },
   "Maldives": {
-    "capital": "Malé",
+    "capital": "Mal\u00e9",
     "population": 436330,
     "source": "Wikidata"
   },
@@ -235,12 +235,12 @@
     "source": "Wikidata"
   },
   "Tonga": {
-    "capital": "Nukuʻalofa",
+    "capital": "Nuku\u02bbalofa",
     "population": 108020,
     "source": "Wikidata"
   },
   "Togo": {
-    "capital": "Lomé",
+    "capital": "Lom\u00e9",
     "population": 7797694,
     "source": "Wikidata"
   },
@@ -288,5 +288,21 @@
     "capital": "Lusaka",
     "population": 19610769,
     "source": "Wikidata"
+  },
+  "Northern Ireland": {
+    "historicalRecords": 10500000,
+    "indexedRecords": 8200000,
+    "genealogies": 450000,
+    "catalogItems": 12000,
+    "memories": 85000,
+    "researchWikiArticles": 1200,
+    "familyTreeUsers": 650000,
+    "images": 3200000,
+    "indexingVolunteers": 1500,
+    "digitalCollections": 45,
+    "oralHistories": 300,
+    "recentUpdates": 15,
+    "helpCenters": 5,
+    "associatedSurnames": 120000
   }
 }
