@@ -107,7 +107,7 @@ const FAMILYSEARCH_LOGO_URL = familysearchLogo;
 const MAP_BACKGROUND_ART_URL = "https://plus.unsplash.com/premium_photo-1779463020508-7cd254b1d37f?auto=format&fit=crop&w=2400&q=80";
 const FAMILYSEARCH_COLLECTIONS_BASE_URL = "https://www.familysearch.org/en/search/collection/list";
 const FAMILYSEARCH_FETCH_MIRROR_BASE_URL = "https://r.jina.ai/http://www.familysearch.org";
-const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v6";
+const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v7";
 const FAMILYSEARCH_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const FAMILYSEARCH_GENEALOGY_KEYWORD_REGEX = /\b(genealog(?:y|ies)|family\s*tree|lineage)\b/i;
 const DEFAULT_GALLERY_VIDEO_ID = "aqz-KE-bpKQ";
@@ -679,8 +679,8 @@ function parseFamilySearchCollectionsFromLocationPage(pageText = "") {
   });
 
   return {
-    records: records.slice(0, 3),
-    genealogies: genealogies.slice(0, 3),
+    records: records.slice(0, 8),
+    genealogies: genealogies.slice(0, 8),
   };
 }
 
@@ -2462,16 +2462,53 @@ export default function App() {
   const loadFamilySearchCollectionsForCountry = async (countryName) => {
     const cacheKey = normalizeName(countryName);
 
-    // Return instantly from static bundle
+    // Check in-memory cache first (from previous live fetches)
+    if (Object.prototype.hasOwnProperty.call(familySearchCollectionsCacheRef.current, cacheKey)) {
+      return familySearchCollectionsCacheRef.current[cacheKey];
+    }
+
+    // Mark as in-flight to avoid duplicate requests
+    if (Object.prototype.hasOwnProperty.call(familySearchCollectionsInFlightRef.current, cacheKey)) {
+      return familySearchCollectionsInFlightRef.current[cacheKey];
+    }
+
+    // Try fetching live data from the FamilySearch country location page via Jina AI mirror
+    const locationUrl = getFamilySearchLocationUrl(countryName);
+    if (locationUrl) {
+      const fetchUrl = toFamilySearchFetchUrl(locationUrl);
+      if (fetchUrl) {
+        familySearchCollectionsInFlightRef.current[cacheKey] = [];
+        try {
+          const response = await fetch(fetchUrl, {
+            headers: {
+              "Accept": "text/plain, text/markdown",
+              "X-Return-Format": "markdown",
+            },
+          });
+          if (response.ok) {
+            const pageText = await response.text();
+            if (pageText && pageText.length > 50) {
+              const parsed = parseFamilySearchCollectionsFromLocationPage(pageText);
+              const allCollections = [...parsed.records, ...parsed.genealogies];
+              if (allCollections.length > 0) {
+                familySearchCollectionsCacheRef.current[cacheKey] = allCollections;
+                persistFamilySearchCache();
+                return allCollections;
+              }
+            }
+          }
+        } catch (err) {
+          console.log("Failed to fetch FamilySearch data for:", countryName, err.message);
+        }
+        delete familySearchCollectionsInFlightRef.current[cacheKey];
+      }
+    }
+
+    // Fall back to static bundled data if live fetch failed
     const bundledData = countryDataBundle[countryName]?.familySearch;
     if (bundledData && Array.isArray(bundledData) && bundledData.length > 0) {
       familySearchCollectionsCacheRef.current[cacheKey] = bundledData;
       return bundledData;
-    }
-
-    // Fallback cache logic if bundled data isn't there for some reason
-    if (Object.prototype.hasOwnProperty.call(familySearchCollectionsCacheRef.current, cacheKey)) {
-      return familySearchCollectionsCacheRef.current[cacheKey];
     }
 
     familySearchCollectionsCacheRef.current[cacheKey] = [];
