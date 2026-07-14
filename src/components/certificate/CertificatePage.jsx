@@ -89,8 +89,23 @@ export default function CertificatePage() {
       });
       const { width, height } = node.getBoundingClientRect();
       const orientation = width >= height ? "landscape" : "portrait";
-      const pdf = new jsPDF({ orientation, unit: "px", format: [width, height] });
-      pdf.addImage(dataUrl, "PNG", 0, 0, width, height);
+      const pdf = new jsPDF({ orientation, unit: "pt", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const certificateRatio = width / height;
+      const pageRatio = pageWidth / pageHeight;
+      let renderWidth;
+      let renderHeight;
+      if (certificateRatio > pageRatio) {
+        renderWidth = pageWidth;
+        renderHeight = renderWidth / certificateRatio;
+      } else {
+        renderHeight = pageHeight;
+        renderWidth = renderHeight * certificateRatio;
+      }
+      const offsetX = (pageWidth - renderWidth) / 2;
+      const offsetY = (pageHeight - renderHeight) / 2;
+      pdf.addImage(dataUrl, "PNG", offsetX, offsetY, renderWidth, renderHeight);
       pdf.save(`Commonwealth-Explorer-Certificate-${name.replace(/\s+/g, "-")}.pdf`);
     } catch (error) {
       console.error("PDF export failed", error);
@@ -177,7 +192,7 @@ export default function CertificatePage() {
               style={{
                 ...styles.badgeMedallion,
                 border: `1px solid ${colors.primary}66`,
-                boxShadow: `0 10px 30px ${colors.glow}`,
+                boxShadow: `0 0 28px ${colors.glow}`,
               }}
             >
               {icon}
@@ -225,18 +240,18 @@ const SERIF = "'Roboto Slab', Georgia, serif";
 
 const styles = {
   page: {
-    minHeight: "100vh",
+    minHeight: "100dvh",
     width: "100%",
     background: "#FFFFFF",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    padding: "clamp(1.25rem, 5vw, 3rem) 1rem 3rem",
+    padding: "clamp(1.25rem, 5vw, 3rem) 1rem calc(1.5rem + env(safe-area-inset-bottom, 0px))",
     boxSizing: "border-box",
     fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
   },
   notFoundWrap: {
-    minHeight: "100vh",
+    minHeight: "100dvh",
     width: "100%",
     background: "#FFFFFF",
     display: "flex",
@@ -362,9 +377,17 @@ const styles = {
     gap: "0.75rem",
     marginTop: "1.75rem",
     flexWrap: "wrap",
+    position: "sticky",
+    bottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
+    zIndex: 3,
+    padding: "0.5rem",
+    borderRadius: "18px",
+    background: "rgba(255, 255, 255, 0.94)",
+    backdropFilter: "blur(6px)",
   },
   actionButton: {
     flex: "1 1 140px",
+    minHeight: "50px",
     padding: "0.85rem 1rem",
     borderRadius: "999px",
     fontSize: "0.92rem",

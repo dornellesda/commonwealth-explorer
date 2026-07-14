@@ -342,7 +342,17 @@ const ATTRACT_CUSTOM_ROUTE_POINTS = {
 };
 const MAP_HIGHLIGHT_TRANSITION_MS = 520;
 const MAP_HIGHLIGHT_EASE = "cubic-bezier(0.2, 0.65, 0.25, 1)";
-const VOYAGER_TOTAL_COUNTRIES = countries.length;
+const UK_VOYAGER_COUNTRY_KEYS = new Set([
+  "united kingdom",
+  "england",
+  "scotland",
+  "wales",
+  "northern ireland",
+]);
+
+const VOYAGER_TOTAL_COUNTRIES = new Set(
+  countries.map((country) => getVoyagerCountryKey(country.name))
+).size;
 
 function getVoyagerTitle(visitedCount) {
   if (visitedCount >= 56) {
@@ -425,6 +435,20 @@ function normalizeName(value = "") {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function getVoyagerCountryKey(countryName = "") {
+  const normalized = normalizeName(countryName);
+  return UK_VOYAGER_COUNTRY_KEYS.has(normalized) ? "united kingdom" : normalized;
+}
+
+function getVoyagerCountryLabel(countryKey = "") {
+  if (countryKey === "united kingdom") return "United Kingdom";
+  return countryKey
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function getCountryLookupKeys(value = "") {
@@ -2249,10 +2273,11 @@ export default function App() {
       setIsMenuClosing(false);
     }
     const countryKey = normalizeName(country.name);
-    const alreadyVisited = visitedVoyagerCountriesRef.current.includes(countryKey);
+    const voyagerCountryKey = getVoyagerCountryKey(country.name);
+    const alreadyVisited = visitedVoyagerCountriesRef.current.includes(voyagerCountryKey);
 
     if (!alreadyVisited) {
-      const nextVisitedCountries = [...visitedVoyagerCountriesRef.current, countryKey];
+      const nextVisitedCountries = [...visitedVoyagerCountriesRef.current, voyagerCountryKey];
       visitedVoyagerCountriesRef.current = nextVisitedCountries;
       setVisitedVoyagerCountries(nextVisitedCountries);
 
@@ -2301,7 +2326,7 @@ export default function App() {
       } else {
         setVoyagerNotice({
           type: "discovery",
-          label: `${country.name} added`,
+          label: `${voyagerCountryKey === "united kingdom" ? "United Kingdom" : country.name} added`,
           detail: null,
         });
 
@@ -5071,7 +5096,9 @@ export default function App() {
               width: isVoyagerExpanded
                 ? "min(340px, calc(100vw - 1.5rem))"
                 : `min(${voyagerCollapsedWidth}px, calc(100vw - 1.5rem))`,
-              height: isVoyagerExpanded ? (voyagerProgressCount >= 5 ? "400px" : "252px") : "44px",
+              height: isVoyagerExpanded
+                ? (voyagerProgressCount >= 5 ? "400px" : (visitedVoyagerCountries.length === 0 ? "224px" : "252px"))
+                : "44px",
               borderRadius: "22px",
               padding: "1.5px", // Thickness of the glowing border
               background: "rgba(15, 23, 42, 0.22)", // Subtle backdrop boundary
@@ -5305,10 +5332,12 @@ export default function App() {
                 {visitedVoyagerCountries.length === 0 ? (
                   <div
                     style={{
-                      marginTop: "0.55rem",
+                      marginTop: "0.85rem",
                       fontSize: "0.75rem",
                       color: "rgba(255,255,255,0.4)",
                       textAlign: "center",
+                      lineHeight: 1.45,
+                      maxWidth: "240px",
                     }}
                   >
                     Select a country to begin your journey.
@@ -5338,10 +5367,9 @@ export default function App() {
                       padding: "3px 8px",
                       borderRadius: "12px",
                       color: "rgba(255,255,255,0.85)",
-                      whiteSpace: "nowrap",
-                      textTransform: "capitalize"
+                      whiteSpace: "nowrap"
                     }}>
-                      {countryKey}
+                      {getVoyagerCountryLabel(countryKey)}
                     </span>
                   ))}
                 </div>
@@ -5759,37 +5787,6 @@ export default function App() {
                   ) : null}
                 </div>
 
-                {/* Right-side: Image source credit text */}
-                <div style={{ position: "relative", zIndex: 4, display: "flex", flexDirection: "column", alignItems: "flex-end", height: "100%", justifyContent: "flex-end", paddingBottom: "4px" }}>
-                  {selectedCountry.imageSource && selectedCountry.imageSource !== "none" && (
-                    <div
-                      style={{
-                        opacity: isContentVisible ? 0.75 : 0,
-                        transition: `opacity 400ms ${springEase}`,
-                        transitionDelay: isContentVisible ? "200ms" : "0ms",
-                        pointerEvents: "none",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "0.6rem",
-                          color: "rgba(255, 255, 255, 0.75)",
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
-                          fontWeight: 500,
-                          textShadow: "0 1px 3px rgba(0,0,0,0.4)",
-                        }}
-                      >
-                        Image by {selectedCountry.imageSource === "wikipedia" ? "Wikipedia" :
-                          selectedCountry.imageSource === "wikimedia-commons" ? "Wikimedia" :
-                            selectedCountry.imageSource === "unsplash" ? "Unsplash" :
-                              selectedCountry.imageSource === "pexels" ? "Pexels" :
-                                selectedCountry.imageSource === "pixabay" ? "Pixabay" :
-                                  selectedCountry.imageSource}
-                      </span>
-                    </div>
-                  )}
-                </div>
               </div>
             ) : null}
 

@@ -5680,42 +5680,6 @@ export default function App() {
                   {renderCommonwealthStamp(String(selectedCountryMetadata.memberSince))}
                 </div>
               ) : null}
-              {selectedCountry.imageSource && selectedCountry.imageSource !== "none" && (
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    background: "linear-gradient(transparent, rgba(0,0,0,0.4))",
-                    padding: `1.5rem ${STORY_CARD_SIDE_PADDING} 0.5rem`,
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    alignItems: "flex-end",
-                    opacity: isContentVisible ? 1 : 0,
-                    transition: `opacity 400ms ${springEase}`,
-                    transitionDelay: isContentVisible ? "200ms" : "0ms",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "0.6rem",
-                      color: "rgba(255, 255, 255, 0.75)",
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
-                      fontWeight: 500,
-                    }}
-                  >
-                    Image by {selectedCountry.imageSource === "wikipedia" ? "Wikipedia" :
-                      selectedCountry.imageSource === "wikimedia-commons" ? "Wikimedia" :
-                        selectedCountry.imageSource === "unsplash" ? "Unsplash" :
-                          selectedCountry.imageSource === "pexels" ? "Pexels" :
-                            selectedCountry.imageSource === "pixabay" ? "Pixabay" :
-                              selectedCountry.imageSource}
-                  </span>
-                </div>
-              )}
             </div>
 
             {/* FamilySearch Collections and Research Helps */}
