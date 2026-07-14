@@ -27,8 +27,10 @@ function UniversalDock({
   const [activeLetter, setActiveLetter] = useState('A');
   const [hoveredCardIdx, setHoveredCardIdx] = useState(null);
   const isDragging = useRef(false);
+  const visibleCountries = searchResults.filter((country) => country.name !== 'United Kingdom');
+  const selectedCountryName = searchResults[selectedCountryIndex]?.name || null;
 
-  const alphaIndex = buildIndex(searchResults);
+  const alphaIndex = buildIndex(visibleCountries);
   const available  = new Set(Object.keys(alphaIndex));
 
   // Determine active letter based on flag scroll position
@@ -42,7 +44,7 @@ function UniversalDock({
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i];
       if (card.offsetLeft + card.clientWidth / 2 > scrollLeft) {
-        const countryName = searchResults[i]?.name;
+        const countryName = visibleCountries[i]?.name;
         if (countryName) {
           firstVisibleLetter = countryName[0].toUpperCase();
         }
@@ -50,7 +52,7 @@ function UniversalDock({
       }
     }
     setActiveLetter(firstVisibleLetter);
-  }, [searchResults]);
+  }, [visibleCountries]);
 
   useEffect(() => {
     const el = cardsRef.current;
@@ -143,8 +145,8 @@ function UniversalDock({
           alignItems: "center",
         }}
       >
-        {searchResults.map((country, index) => {
-          const isSel = selectedCountryIndex === index;
+        {visibleCountries.map((country, index) => {
+          const isSel = selectedCountryName === country.name;
           const isGov = hoveredCardIdx === index;
           return (
             <button

@@ -11,6 +11,7 @@ import "./App.css";
 import familysearchLogo from './assets/familysearch-tree.svg';
 import FamilySearchQrModal from './components/FamilySearchQrModal';
 import ukBoundaries from './data/uk_boundaries.json';
+import { BADGE_ICONS } from './components/certificate/badges';
 
 // Format population number (e.g., 5771000 → "5.8 million")
 function formatPopulation(pop) {
@@ -3302,121 +3303,12 @@ export default function App() {
     );
   };
 
-  // Voyager badge icons mapping
   const VOYAGER_BADGES = {
-    5: { // Curious Explorer - Compass
-      icon: (
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#compassGrad)" stroke="rgba(135,185,64,0.72)" strokeWidth="1.5" />
-          <circle cx="32" cy="32" r="22" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <path d="M32 8L34.5 27.5L32 32L29.5 27.5L32 8Z" fill="rgba(255,255,255,0.95)" />
-          <path d="M32 56L34.5 36.5L32 32L29.5 36.5L32 56Z" fill="rgba(255,255,255,0.5)" />
-          <path d="M8 32L27.5 29.5L32 32L27.5 34.5L8 32Z" fill="rgba(255,255,255,0.5)" />
-          <path d="M56 32L36.5 29.5L32 32L36.5 34.5L56 32Z" fill="rgba(255,255,255,0.5)" />
-          <circle cx="32" cy="32" r="3" fill="rgba(135,185,64,0.9)" />
-          <defs>
-            <linearGradient id="compassGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#87b940" />
-              <stop offset="1" stopColor="#5f8f24" />
-            </linearGradient>
-          </defs>
-        </svg>
-      )
-    },
-    10: { // Commonwealth Traveller - Ship Wheel
-      icon: (
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#wheelGrad)" stroke="rgba(156,148,122,0.72)" strokeWidth="1.5" />
-          <circle cx="32" cy="32" r="6" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-          <circle cx="32" cy="32" r="2" fill="rgba(255,255,255,0.8)" />
-          {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => {
-            const rad = (angle * Math.PI) / 180;
-            const innerR = 10;
-            const outerR = 24;
-            const x1 = 32 + innerR * Math.sin(rad);
-            const y1 = 32 - innerR * Math.cos(rad);
-            const x2 = 32 + outerR * Math.sin(rad);
-            const y2 = 32 - outerR * Math.cos(rad);
-            return (
-              <line key={angle} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" />
-            );
-          })}
-          <defs>
-            <linearGradient id="wheelGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#9c947a" />
-              <stop offset="1" stopColor="#6f6a58" />
-            </linearGradient>
-          </defs>
-        </svg>
-      )
-    },
-    25: { // Global Navigator - Sextant
-      icon: (
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#sextantGrad)" stroke="rgba(241,100,88,0.72)" strokeWidth="1.5" />
-          <path d="M32 12L33.5 32L32 52L30.5 32L32 12Z" fill="rgba(255,255,255,0.3)" />
-          <path d="M12 32L30.5 30.5L32 32L30.5 33.5L12 32Z" fill="rgba(255,255,255,0.3)" />
-          <path d="M52 32L33.5 30.5L32 32L33.5 33.5L52 32Z" fill="rgba(255,255,255,0.3)" />
-          <path d="M32 48C35.3137 48 38 45.3137 38 42C38 38.6863 35.3137 36 32 36C28.6863 36 26 38.6863 26 42C26 45.3137 28.6863 48 32 48Z" fill="rgba(255,255,255,0.6)" />
-          <circle cx="32" cy="32" r="2" fill="rgba(241,100,88,0.95)" />
-          <defs>
-            <linearGradient id="sextantGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#f16458" />
-              <stop offset="1" stopColor="#c84f45" />
-            </linearGradient>
-          </defs>
-        </svg>
-      )
-    },
-    40: { // World Voyager - Historic Map
-      icon: (
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#mapGrad)" stroke="rgba(39,196,244,0.72)" strokeWidth="1.5" />
-          <rect x="16" y="16" width="32" height="32" rx="2" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
-          <path d="M16 24H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <path d="M16 32H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <path d="M16 40H48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <path d="M24 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <path d="M32 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <path d="M40 16V48" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75" />
-          <circle cx="24" cy="24" r="2" fill="rgba(39,196,244,0.92)" />
-          <circle cx="40" cy="32" r="2" fill="rgba(39,196,244,0.92)" />
-          <circle cx="32" cy="40" r="2" fill="rgba(39,196,244,0.92)" />
-          <path d="M20 44L24 40L28 44L32 40L36 44L40 40L44 44" stroke="rgba(255,255,255,0.3)" strokeWidth="0.75" fill="none" />
-          <defs>
-            <linearGradient id="mapGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#27c4f4" />
-              <stop offset="1" stopColor="#198fb2" />
-            </linearGradient>
-          </defs>
-        </svg>
-      )
-    },
-    56: { // Golden Commonwealth Explorer - Gold Compass Rose
-      icon: (
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="28" fill="url(#goldGrad)" stroke="rgba(153,103,153,0.84)" strokeWidth="2" />
-          <circle cx="32" cy="32" r="24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.75" />
-          <circle cx="32" cy="32" r="18" fill="none" stroke="rgba(255,215,0,0.3)" strokeWidth="0.5" />
-          <path d="M32 6L35 29L32 32L29 29L32 6Z" fill="rgba(255,255,255,0.95)" />
-          <path d="M32 58L35 35L32 32L29 35L32 58Z" fill="rgba(153,103,153,0.72)" />
-          <path d="M6 32L29 29L32 32L29 35L6 32Z" fill="rgba(153,103,153,0.72)" />
-          <path d="M58 32L35 29L32 32L35 35L58 32Z" fill="rgba(153,103,153,0.72)" />
-          <text x="32" y="4" textAnchor="middle" fontSize="5" fill="rgba(255,255,255,0.8)" fontFamily="serif" fontWeight="bold">N</text>
-          <text x="32" y="62" textAnchor="middle" fontSize="5" fill="rgba(255,215,0,0.8)" fontFamily="serif" fontWeight="bold">S</text>
-          <text x="4" y="34" textAnchor="middle" fontSize="5" fill="rgba(255,215,0,0.8)" fontFamily="serif" fontWeight="bold">W</text>
-          <text x="60" y="34" textAnchor="middle" fontSize="5" fill="rgba(255,215,0,0.8)" fontFamily="serif" fontWeight="bold">E</text>
-          <circle cx="32" cy="32" r="2.5" fill="rgba(153,103,153,0.95)" />
-          <defs>
-            <linearGradient id="goldGrad" x1="4" y1="4" x2="60" y2="60">
-              <stop stopColor="#996799" />
-              <stop offset="0.5" stopColor="#b881b8" />
-              <stop offset="1" stopColor="#744b74" />
-            </linearGradient>
-          </defs>
-        </svg>
-      )
-    }
+    5: { icon: BADGE_ICONS[5] },
+    10: { icon: BADGE_ICONS[10] },
+    25: { icon: BADGE_ICONS[25] },
+    40: { icon: BADGE_ICONS[40] },
+    56: { icon: BADGE_ICONS[56] },
   };
 
   const renderVoyagerBadge = (count, size = "full", shouldBounce = false) => {
