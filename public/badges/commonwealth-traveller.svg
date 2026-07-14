@@ -1,9 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
   <defs>
-    <linearGradient id="silver" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fff"/><stop offset="25%" stop-color="#ccc"/><stop offset="50%" stop-color="#8E8E93"/><stop offset="75%" stop-color="#D1D1D6"/><stop offset="100%" stop-color="#AEAEB2"/></linearGradient>
-    <linearGradient id="lime" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C0EB75"/><stop offset="100%" stop-color="#75A827"/></linearGradient>
-    <linearGradient id="dark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#48484A"/><stop offset="100%" stop-color="#1C1C1E"/></linearGradient>
-    <radialGradient id="reflection" cx="35%" cy="30%" r="60%"><stop offset="0%" stop-color="#fff" stop-opacity=".6"/><stop offset="50%" stop-color="#fff" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".4"/></radialGradient>
+    <linearGradient id="silver" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fff"/><stop offset="25%" stop-color="#E5E5EA"/><stop offset="50%" stop-color="#9A9AA0"/><stop offset="75%" stop-color="#D1D1D6"/><stop offset="100%" stop-color="#AEAEB2"/></linearGradient>
+    <linearGradient id="lime" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#D3F79A"/><stop offset="100%" stop-color="#6E9E22"/></linearGradient>
+    <radialGradient id="dark" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#5A5A5E"/><stop offset="100%" stop-color="#19191B"/></radialGradient>
+    <radialGradient id="reflection" cx="35%" cy="28%" r="65%"><stop offset="0%" stop-color="#fff" stop-opacity=".65"/><stop offset="55%" stop-color="#fff" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".35"/></radialGradient>
+    <linearGradient id="icon" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="#C7C7CC"/></linearGradient>
   </defs>
-  <circle cx="50" cy="50" r="46" fill="url(#silver)" stroke="#AEAEB2" stroke-width=".5"/><circle cx="50" cy="50" r="43" fill="url(#dark)"/><circle cx="50" cy="50" r="36" fill="url(#lime)" stroke="url(#silver)" stroke-width="1.5"/><circle cx="50" cy="50" r="26" fill="url(#silver)" stroke="#8E8E93" stroke-width=".5"/><circle cx="50" cy="50" r="22" fill="url(#dark)"/><circle cx="50" cy="50" r="12" fill="url(#silver)"/><circle cx="50" cy="50" r="9" fill="url(#reflection)"/><circle cx="50" cy="50" r="2.5" fill="#fff" opacity=".9"/>
+
+  <circle cx="50" cy="50" r="46" fill="url(#silver)" stroke="#8E8E93" stroke-width=".5"/>
+  <circle cx="50" cy="50" r="43" fill="url(#dark)"/>
+  <circle cx="50" cy="50" r="37" fill="url(#lime)" stroke="url(#silver)" stroke-width="1.5"/>
+  <circle cx="50" cy="50" r="31" fill="url(#dark)"/>
+  <circle cx="50" cy="50" r="31" fill="none" stroke="#fff" stroke-width=".4" opacity=".4"/>
+
+  <!-- ship's wheel -->
+  <g stroke="url(#icon)" stroke-width="2" stroke-linecap="round">
+    <line x1="50" y1="24" x2="50" y2="76"/>
+    <line x1="24" y1="50" x2="76" y2="50"/>
+    <line x1="32.5" y1="32.5" x2="67.5" y2="67.5"/>
+    <line x1="67.5" y1="32.5" x2="32.5" y2="67.5"/>
+  </g>
+  <circle cx="50" cy="50" r="18" fill="none" stroke="url(#icon)" stroke-width="2.5"/>
+  <g fill="url(#icon)">
+    <rect x="47.3" y="21" width="5.4" height="6" rx="1.5"/>
+    <rect x="47.3" y="73" width="5.4" height="6" rx="1.5"/>
+    <rect x="21" y="47.3" width="6" height="5.4" rx="1.5"/>
+    <rect x="73" y="47.3" width="6" height="5.4" rx="1.5"/>
+    <rect x="29.6" y="29.6" width="5.6" height="5.6" rx="1.4" transform="rotate(45 32.4 32.4)"/>
+    <rect x="64.4" y="29.6" width="5.6" height="5.6" rx="1.4" transform="rotate(45 67.6 32.4)"/>
+    <rect x="29.6" y="64.4" width="5.6" height="5.6" rx="1.4" transform="rotate(45 32.4 67.6)"/>
+    <rect x="64.4" y="64.4" width="5.6" height="5.6" rx="1.4" transform="rotate(45 67.6 67.6)"/>
+  </g>
+  <circle cx="50" cy="50" r="8" fill="url(#icon)" stroke="#8E8E93" stroke-width=".5"/>
+  <circle cx="50" cy="50" r="8" fill="url(#reflection)"/>
+  <circle cx="50" cy="50" r="2.2" fill="#3A3A3C"/>
 </svg>

@@ -1,12 +1,36 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
   <defs>
-    <linearGradient id="gold1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFF9D4"/><stop offset="100%" stop-color="#D4AF37"/></linearGradient>
-    <linearGradient id="gold2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#E5C158"/><stop offset="100%" stop-color="#AA7C11"/></linearGradient>
-    <linearGradient id="gold3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#A37A1A"/><stop offset="100%" stop-color="#624602"/></linearGradient>
-    <linearGradient id="gold4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFF1A0"/><stop offset="100%" stop-color="#8C6615"/></linearGradient>
+    <linearGradient id="t1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFF3DD"/><stop offset="100%" stop-color="#D99A55"/></linearGradient>
+    <linearGradient id="t2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#E8A756"/><stop offset="100%" stop-color="#A8631F"/></linearGradient>
+    <linearGradient id="t3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8B5523"/><stop offset="100%" stop-color="#54300F"/></linearGradient>
+    <linearGradient id="t4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFDFA8"/><stop offset="100%" stop-color="#8B5523"/></linearGradient>
+    <linearGradient id="rim" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFF3DD"/><stop offset="100%" stop-color="#B8791F"/></linearGradient>
+    <linearGradient id="rimline" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFE8BE"/><stop offset="100%" stop-color="#FFE8BE"/></linearGradient>
+    <linearGradient id="platerim" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFE8BE"/><stop offset="100%" stop-color="#8B5523"/></linearGradient>
+    <radialGradient id="platedark" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#5A3210"/><stop offset="100%" stop-color="#2B1706"/></radialGradient>
+    <linearGradient id="icon" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#D8C9AE"/></linearGradient>
+    <radialGradient id="gloss" cx="35%" cy="25%" r="55%"><stop offset="0%" stop-color="#fff" stop-opacity=".55"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient>
   </defs>
-  <polygon points="50,5 60.6,35.4 92.8,36.1 67.1,55.6 76.5,86.4 50,68 23.5,86.4 32.9,55.6 7.2,36.1 39.4,35.4" fill="url(#gold2)" stroke="#FFF9D4" stroke-width=".75"/>
-  <polygon points="50,5 50,50 39.4,35.4" fill="url(#gold1)"/><polygon points="50,5 50,50 60.6,35.4" fill="url(#gold4)"/><polygon points="92.8,36.1 50,50 60.6,35.4" fill="url(#gold2)"/><polygon points="92.8,36.1 50,50 67.1,55.6" fill="url(#gold3)"/><polygon points="76.5,86.4 50,50 67.1,55.6" fill="url(#gold1)"/><polygon points="76.5,86.4 50,50 50,68" fill="url(#gold4)"/><polygon points="23.5,86.4 50,50 50,68" fill="url(#gold2)"/><polygon points="23.5,86.4 50,50 32.9,55.6" fill="url(#gold3)"/><polygon points="7.2,36.1 50,50 32.9,55.6" fill="url(#gold1)"/><polygon points="7.2,36.1 50,50 39.4,35.4" fill="url(#gold4)"/>
-  <polygon points="50,5 60.6,35.4 92.8,36.1 67.1,55.6 76.5,86.4 50,68 23.5,86.4 32.9,55.6 7.2,36.1 39.4,35.4" fill="none" stroke="#FFE875" stroke-width=".4" stroke-linejoin="round"/>
-  <circle cx="50" cy="50" r="1.5" fill="#fff"/>
+
+  <polygon points="50,5 60.6,35.4 92.8,36.1 67.1,55.6 76.5,86.4 50,68 23.5,86.4 32.9,55.6 7.2,36.1 39.4,35.4" fill="url(#t2)" stroke="url(#rim)" stroke-width=".75"/>
+  <polygon points="50,5 50,50 39.4,35.4" fill="url(#t1)"/><polygon points="50,5 50,50 60.6,35.4" fill="url(#t4)"/><polygon points="92.8,36.1 50,50 60.6,35.4" fill="url(#t2)"/><polygon points="92.8,36.1 50,50 67.1,55.6" fill="url(#t3)"/><polygon points="76.5,86.4 50,50 67.1,55.6" fill="url(#t1)"/><polygon points="76.5,86.4 50,50 50,68" fill="url(#t4)"/><polygon points="23.5,86.4 50,50 50,68" fill="url(#t2)"/><polygon points="23.5,86.4 50,50 32.9,55.6" fill="url(#t3)"/><polygon points="7.2,36.1 50,50 32.9,55.6" fill="url(#t1)"/><polygon points="7.2,36.1 50,50 39.4,35.4" fill="url(#t4)"/>
+  <polygon points="50,5 60.6,35.4 92.8,36.1 67.1,55.6 76.5,86.4 50,68 23.5,86.4 32.9,55.6 7.2,36.1 39.4,35.4" fill="none" stroke="url(#rimline)" stroke-width=".4" stroke-linejoin="round"/>
+
+  <circle cx="50" cy="50" r="27" fill="url(#platerim)"/>
+  <circle cx="50" cy="50" r="24" fill="url(#platedark)"/>
+  <circle cx="50" cy="50" r="24" fill="none" stroke="#FFF3DD" stroke-width=".4" opacity=".5"/>
+
+  <!-- compass rose -->
+  <g stroke="#5A3210" stroke-width=".5" stroke-linejoin="round">
+    <polygon points="50,26 54,46 74,50 54,54 50,74 46,54 26,50 46,46" fill="url(#icon)"/>
+  </g>
+  <polygon points="50,26 54,46 50,50 46,46" fill="#fff" opacity=".6"/>
+  <circle cx="50" cy="50" r="10" fill="none" stroke="url(#icon)" stroke-width="1"/>
+  <circle cx="50" cy="34" r="1.1" fill="#FFF3DD"/>
+  <circle cx="50" cy="66" r="1.1" fill="#FFF3DD"/>
+  <circle cx="34" cy="50" r="1.1" fill="#FFF3DD"/>
+  <circle cx="66" cy="50" r="1.1" fill="#FFF3DD"/>
+  <circle cx="50" cy="50" r="2.2" fill="url(#icon)" stroke="#5A3210" stroke-width=".4"/>
+
+  <ellipse cx="38" cy="28" rx="30" ry="18" fill="url(#gloss)"/>
 </svg>
