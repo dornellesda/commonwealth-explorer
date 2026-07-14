@@ -49,7 +49,7 @@ const VINTAGE_MAP_STYLE = {
       id: "background",
       type: "background",
       paint: {
-        "background-color": "#4e4a3c"
+        "background-color": "#6b624c"
       }
     }
   ]
@@ -233,8 +233,8 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
     type: 'fill',
     filter: ['==', ['get', 'cwName'], ''],
     paint: {
-      'fill-color': '#333536',
-      'fill-opacity': 0.85,
+      'fill-color': '#6a624f',
+      'fill-opacity': 0.84,
     }
   };
 
@@ -244,9 +244,28 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
     type: 'line',
     filter: ['==', ['get', 'cwName'], ''],
     paint: {
-      'line-color': '#7a6e56',
-      'line-width': 0.6,
-      'line-opacity': 0.6,
+      'line-color': '#5f503a',
+      'line-width': 1.05,
+      'line-opacity': 0.82,
+    }
+  };
+
+  // Stronger cartographic coastline/continent read so land masses stay legible
+  // under parchment overlays.
+  const coastOutlineStyle = {
+    id: 'coast-outline',
+    type: 'line',
+    paint: {
+      'line-color': '#433522',
+      'line-width': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        1, 0.85,
+        3, 1.05,
+        5, 1.3,
+      ],
+      'line-opacity': 0.65,
     }
   };
 
@@ -287,7 +306,7 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         ['all', ['==', ['get', 'cwName'], effectiveHoveredCountry], ['!=', effectiveHoveredCountry, '']],
         0.65,
 
-        0.38,
+        0.48,
       ]
     }
   };
@@ -325,23 +344,32 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         ['all', ['==', ['get', 'cwName'], effectiveHoveredCountry], ['!=', effectiveHoveredCountry, '']],
         1.5,
 
-        1.0,
+        1.25,
+      ],
+      'line-opacity': [
+        'case',
+        ['all', ['==', ['get', 'cwName'], selCountry], ['!=', selCountry, '']],
+        1,
+        ['all', ['==', ['get', 'cwName'], effectiveHoveredCountry], ['!=', effectiveHoveredCountry, '']],
+        1,
+        0.86,
       ]
     }
   };
 
   if (!geojson) {
     return (
-      <div style={{ width: '100%', height: '100vh', position: 'absolute', top: 0, left: 0, zIndex: 0, background: '#4e4a3c', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(200,190,160,0.8)', fontSize: '1.1rem' }}>
+      <div style={{ width: '100%', height: '100vh', position: 'absolute', top: 0, left: 0, zIndex: 0, background: 'radial-gradient(circle at 32% 24%, #7b7057 0%, #675d47 52%, #4b4335 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(224,212,183,0.86)', fontSize: '1.1rem' }}>
         Loading map...
       </div>
     );
   }
 
   return (
-    <div style={{ width: '100%', height: '100vh', position: 'absolute', top: 0, left: 0, zIndex: 0, background: '#4e4a3c' }}>
+    <div style={{ width: '100%', height: '100vh', position: 'absolute', top: 0, left: 0, zIndex: 0, background: 'radial-gradient(circle at 35% 25%, #7f7359 0%, #655c46 54%, #4d4537 100%)', overflow: 'hidden' }}>
       <MapGL
         ref={mapRef}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 1 }}
         mapStyle={VINTAGE_MAP_STYLE}
         initialViewState={{
           longitude: ATTRACT_MODE_VIEW.center[0],
@@ -359,7 +387,7 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
           <Layer
             id="grid-line"
             type="line"
-            paint={{ 'line-color': '#6b5e46', 'line-width': 0.7, 'line-opacity': 0.5 }}
+            paint={{ 'line-color': '#7b6a4f', 'line-width': 0.7, 'line-opacity': 0.38 }}
           />
         </Source>
 
@@ -367,6 +395,7 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         <Source id="countries" type="geojson" data={geojson}>
           {/* Non-Commonwealth land mass */}
           <Layer {...landFillStyle} />
+          <Layer {...coastOutlineStyle} />
           <Layer {...landLineStyle} />
           {/* Commonwealth countries */}
           <Layer {...fillStyle} />
@@ -525,6 +554,60 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         </Marker>
 
       </MapGL>
+
+      {/* Parchment tonal wash */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 2,
+          pointerEvents: 'none',
+          background: 'radial-gradient(circle at 16% 14%, rgba(238,224,185,0.42) 0%, rgba(238,224,185,0) 34%), radial-gradient(circle at 84% 82%, rgba(58,46,31,0.22) 0%, rgba(58,46,31,0) 44%), linear-gradient(165deg, rgba(203,179,133,0.14) 0%, rgba(131,104,73,0.2) 54%, rgba(82,64,44,0.22) 100%)',
+          mixBlendMode: 'soft-light',
+        }}
+      />
+
+      {/* Fine paper grain + fiber texture */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 3,
+          pointerEvents: 'none',
+          opacity: 0.28,
+          backgroundImage: 'repeating-radial-gradient(circle at 20% 20%, rgba(255,255,255,0.14) 0 0.9px, rgba(0,0,0,0.06) 1.4px 2.2px), repeating-linear-gradient(12deg, rgba(255,255,255,0.08) 0 1px, rgba(0,0,0,0.05) 1px 2px)',
+          backgroundSize: '140px 140px, 4px 4px',
+          mixBlendMode: 'overlay',
+        }}
+      />
+
+      {/* Subtle engraved contour effect */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 4,
+          pointerEvents: 'none',
+          opacity: 0.14,
+          backgroundImage: 'repeating-linear-gradient(-18deg, rgba(255,245,220,0.28) 0 1px, rgba(48,39,27,0.12) 1px 3px)',
+          mixBlendMode: 'soft-light',
+        }}
+      />
+
+      {/* Vintage vignette for edge falloff */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 5,
+          pointerEvents: 'none',
+          background: 'radial-gradient(circle at center, rgba(0,0,0,0) 46%, rgba(35,27,17,0.2) 74%, rgba(24,18,11,0.34) 100%)',
+        }}
+      />
     </div>
   );
 });

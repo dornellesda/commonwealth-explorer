@@ -78,16 +78,36 @@ export default function CertificatePage() {
         import("html-to-image"),
         import("jspdf"),
       ]);
-      const node = certificateRef.current;
-      const dataUrl = await toPng(node, {
-        pixelRatio: 2,
-        cacheBust: true,
-        styleSheetFilter: (styleSheet) => {
-          if (!styleSheet.href) return true;
-          return styleSheet.href.startsWith(window.location.origin);
-        }
-      });
-      const { width, height } = node.getBoundingClientRect();
+      const sourceNode = certificateRef.current;
+      const { width, height } = sourceNode.getBoundingClientRect();
+      const exportNode = sourceNode.cloneNode(true);
+      const badgeForPdf = exportNode.querySelector('[data-cert-badge="true"]');
+      if (badgeForPdf) {
+        badgeForPdf.style.boxShadow = "none";
+      }
+      exportNode.style.position = "fixed";
+      exportNode.style.left = "-10000px";
+      exportNode.style.top = "0";
+      exportNode.style.width = `${Math.ceil(width)}px`;
+      exportNode.style.maxWidth = "none";
+      exportNode.style.margin = "0";
+      exportNode.style.animation = "none";
+      document.body.appendChild(exportNode);
+
+      let dataUrl = "";
+      try {
+        dataUrl = await toPng(exportNode, {
+          pixelRatio: 2,
+          cacheBust: true,
+          styleSheetFilter: (styleSheet) => {
+            if (!styleSheet.href) return true;
+            return styleSheet.href.startsWith(window.location.origin);
+          }
+        });
+      } finally {
+        exportNode.remove();
+      }
+
       const orientation = width >= height ? "landscape" : "portrait";
       const pdf = new jsPDF({ orientation, unit: "pt", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -189,6 +209,7 @@ export default function CertificatePage() {
 
           <div style={styles.badgeWrap}>
             <div
+              data-cert-badge="true"
               style={{
                 ...styles.badgeMedallion,
                 border: `1px solid ${colors.primary}66`,
