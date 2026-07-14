@@ -9,6 +9,7 @@ import countryStats from "./data/countryStats.json";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 import familysearchLogo from './assets/familysearch-tree.svg';
+import FamilySearchQrModal from './components/FamilySearchQrModal';
 import ukBoundaries from './data/uk_boundaries.json';
 
 // Format population number (e.g., 5771000 → "5.8 million")
@@ -107,7 +108,7 @@ const FAMILYSEARCH_LOGO_URL = familysearchLogo;
 const MAP_BACKGROUND_ART_URL = "https://plus.unsplash.com/premium_photo-1779463020508-7cd254b1d37f?auto=format&fit=crop&w=2400&q=80";
 const FAMILYSEARCH_COLLECTIONS_BASE_URL = "https://www.familysearch.org/en/search/collection/list";
 const FAMILYSEARCH_FETCH_MIRROR_BASE_URL = "https://r.jina.ai/http://www.familysearch.org";
-const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v7";
+const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v8";
 const FAMILYSEARCH_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const FAMILYSEARCH_GENEALOGY_KEYWORD_REGEX = /\b(genealog(?:y|ies)|family\s*tree|lineage)\b/i;
 const DEFAULT_GALLERY_VIDEO_ID = "aqz-KE-bpKQ";
@@ -121,11 +122,13 @@ const COUNTRY_GALLERY_VIDEO_ID_BY_NAME = {
 const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   "antigua and barbuda": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/antigua-and-barbuda",
   australia: "https://www.familysearch.org/en/search/location/australia-&-new-zealand/australia",
+  bahamas: "https://www.familysearch.org/en/search/location/caribbean-and-central-america/bahamas",
   "the bahamas": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/bahamas",
   bangladesh: "https://www.familysearch.org/en/search/location/asia-&-middle-east/bangladesh",
   barbados: "https://www.familysearch.org/en/search/location/caribbean-and-central-america/barbados",
   belize: "https://www.familysearch.org/en/search/location/caribbean-and-central-america/belize",
   botswana: "https://www.familysearch.org/en/search/location/africa/botswana",
+  brunei: "https://www.familysearch.org/en/search/location/asia-&-middle-east/brunei",
   "brunei darussalam": "https://www.familysearch.org/en/search/location/asia-&-middle-east/brunei",
   cameroon: "https://www.familysearch.org/en/search/location/africa/cameroon",
   canada: "https://www.familysearch.org/en/search/location/canada",
@@ -134,6 +137,7 @@ const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   eswatini: "https://www.familysearch.org/en/search/location/africa/eswatini",
   fiji: "https://www.familysearch.org/en/search/location/pacific-islands/fiji",
   gabon: "https://www.familysearch.org/en/search/location/africa/gabon",
+  gambia: "https://www.familysearch.org/en/search/location/africa/gambia",
   "the gambia": "https://www.familysearch.org/en/search/location/africa/gambia",
   ghana: "https://www.familysearch.org/en/search/location/africa/ghana",
   grenada: "https://www.familysearch.org/en/search/location/caribbean-and-central-america/grenada",
@@ -156,8 +160,10 @@ const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   pakistan: "https://www.familysearch.org/en/search/location/asia-&-middle-east/pakistan",
   "papua new guinea": "https://www.familysearch.org/en/search/location/pacific-islands/papua-new-guinea",
   rwanda: "https://www.familysearch.org/en/search/location/africa/rwanda",
+  "saint kitts and nevis": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-kitts-and-nevis",
   "st kitts and nevis": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-kitts-and-nevis",
   "saint lucia": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-lucia",
+  "saint vincent and the grenadines": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-vincent-and-the-grenadines",
   "st vincent and the grenadines": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-vincent-and-the-grenadines",
   samoa: "https://www.familysearch.org/en/search/location/pacific-islands/samoa",
   seychelles: "https://www.familysearch.org/en/search/location/africa/seychelles",
@@ -175,6 +181,7 @@ const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   england: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/england",
   scotland: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/scotland",
   wales: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/wales",
+  "northern ireland": "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/northern-ireland",
   "united republic of tanzania": "https://www.familysearch.org/en/search/location/africa/tanzania",
   vanuatu: "https://www.familysearch.org/en/search/location/pacific-islands/vanuatu",
   zambia: "https://www.familysearch.org/en/search/location/africa/zambia",
@@ -537,6 +544,28 @@ function buildFamilySearchCollectionUrl(countryName = "", options = {}) {
   return `${FAMILYSEARCH_COLLECTIONS_BASE_URL}?${params.toString()}`;
 }
 
+const FAMILYSEARCH_CAMPAIGN_ID = "RE-00062906";
+
+function appendFamilySearchCampaignId(url = "") {
+  if (!url || !/https?:\/\/(www\.)?familysearch\.org/i.test(url)) {
+    return url;
+  }
+
+  try {
+    const parsed = new URL(url);
+    if (!parsed.searchParams.has("CID")) {
+      parsed.searchParams.set("CID", FAMILYSEARCH_CAMPAIGN_ID);
+    }
+    return parsed.toString();
+  } catch {
+    if (!/[?&]CID=/i.test(url)) {
+      const separator = url.includes("?") ? "&" : "?";
+      return `${url}${separator}CID=${FAMILYSEARCH_CAMPAIGN_ID}`;
+    }
+    return url;
+  }
+}
+
 function getFamilySearchLocationUrl(countryName = "") {
   const normalizedCountry = normalizeName(countryName);
   return FAMILYSEARCH_LOCATION_URL_BY_COUNTRY[normalizedCountry] || null;
@@ -641,7 +670,7 @@ function parseFamilySearchCollectionsFromLocationPage(pageText = "") {
     }
 
     const title = match[1].trim();
-    const link = match[2].trim();
+    const link = match[2].trim().replace(/^http:/i, "https:");
     if (!title || !link) {
       return;
     }
@@ -1854,6 +1883,7 @@ export default function App() {
   const [hoveredCountry, setHoveredCountry] = useState(null);
   const [countryDataCache] = useState(countryStatsByLookup);
   const [familySearchCollections, setFamilySearchCollections] = useState([]);
+  const [familySearchQrDestination, setFamilySearchQrDestination] = useState(null);
   const [lightboxItem, setLightboxItem] = useState(null);
   const [showGalleryNavigation, setShowGalleryNavigation] = useState(false);
   const [galleryActiveIndex, setGalleryActiveIndex] = useState(0);
@@ -2489,7 +2519,10 @@ export default function App() {
             const pageText = await response.text();
             if (pageText && pageText.length > 50) {
               const parsed = parseFamilySearchCollectionsFromLocationPage(pageText);
-              const allCollections = [...parsed.records, ...parsed.genealogies];
+              const allCollections = [...parsed.records, ...parsed.genealogies].map((collection) => ({
+                ...collection,
+                link: appendFamilySearchCampaignId(collection.link),
+              }));
               if (allCollections.length > 0) {
                 familySearchCollectionsCacheRef.current[cacheKey] = allCollections;
                 persistFamilySearchCache();
@@ -2880,7 +2913,7 @@ export default function App() {
     : [];
   const detailStatItems = detailItems.filter((item) => item.label !== "Member Since");
   const familySearchLocationUrl = selectedCountry
-    ? getFamilySearchLocationUrl(selectedCountry.name)
+    ? appendFamilySearchCampaignId(getFamilySearchLocationUrl(selectedCountry.name))
     : null;
   const visibleFamilySearchCollections = familySearchCollections.filter(
     (collection) => !/no collections found/i.test(collection.title)
@@ -2920,7 +2953,18 @@ export default function App() {
       label: "Genealogy Records",
       value: selectedCountryResearchLinks?.genealogyRecords,
     },
-  ].filter((entry) => entry.value?.url);
+  ].filter((entry) => entry.value?.url).map((entry) => {
+    if (/https?:\/\/(www\.)?familysearch\.org/i.test(entry.value.url)) {
+      return {
+        ...entry,
+        value: {
+          ...entry.value,
+          url: appendFamilySearchCampaignId(entry.value.url),
+        },
+      };
+    }
+    return entry;
+  });
 
   const LINK_BASE_COLOR = "#87b940";
   const LINK_HOVER_COLOR = "#9ecd4e";
@@ -5692,12 +5736,11 @@ export default function App() {
                           {isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}
                         </div>
                         {displayedFamilySearchPreferredCollections.map((collection, index) => (
-                          <a
+                          <button
                             key={`${isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}-${collection.title}-${collection.link}`}
-                            href={collection.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={familySearchRecordLinkStyle}
+                            type="button"
+                            onClick={() => setFamilySearchQrDestination({ title: collection.title, url: appendFamilySearchCampaignId(collection.link) })}
+                            style={{ ...familySearchRecordLinkStyle, padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
                             onMouseEnter={handleFamilySearchRecordMouseEnter}
                             onMouseLeave={handleFamilySearchRecordMouseLeave}
                           >
@@ -5722,7 +5765,7 @@ export default function App() {
                             >
                               {collection.title}
                             </span>
-                          </a>
+                          </button>
                         ))}
                       </>
                     ) : null}
@@ -5732,13 +5775,15 @@ export default function App() {
                     ) : null}
                   </div>
                   {familySearchLocationUrl ? (
-                    <a
-                      href={familySearchLocationUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => setFamilySearchQrDestination({ title: `${selectedCountry.name} FamilySearch research`, url: familySearchLocationUrl })}
                       style={{
                         marginTop: "0.72rem",
                         ...seeMoreLikeLinkStyle,
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
                       }}
                       onMouseEnter={handleSeeMoreLikeLinkMouseEnter}
                       onMouseLeave={handleSeeMoreLikeLinkMouseLeave}
@@ -5747,7 +5792,7 @@ export default function App() {
                         {renderLinkArrowIcon()}
                         <span>See more</span>
                       </span>
-                    </a>
+                    </button>
                   ) : (
                     <div style={{ marginTop: "0.72rem", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.9rem", textAlign: "left" }}>
                       Country research page not available.
@@ -5762,12 +5807,11 @@ export default function App() {
                   <div style={{ display: "grid", gap: "0.38rem" }}>
                     {researchHelpEntries.length ? (
                       researchHelpEntries.map((entry) => (
-                        <a
+                        <button
                           key={`${entry.key}-${entry.value.url}`}
-                          href={entry.value.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={researchHelpLinkStyle}
+                          type="button"
+                          onClick={() => setFamilySearchQrDestination({ title: entry.value.title || entry.label, url: entry.value.url })}
+                          style={{ ...researchHelpLinkStyle, padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
                           onMouseEnter={handleResearchHelpMouseEnter}
                           onMouseLeave={handleResearchHelpMouseLeave}
                           title={entry.value.title || entry.label}
@@ -5776,7 +5820,7 @@ export default function App() {
                             {renderLinkArrowIcon()}
                             <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{entry.label}</span>
                           </span>
-                        </a>
+                        </button>
                       ))
                     ) : (
                       <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No research help links available.</div>
@@ -6148,6 +6192,14 @@ export default function App() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {familySearchQrDestination ? (
+        <FamilySearchQrModal
+          destination={familySearchQrDestination.url}
+          title={familySearchQrDestination.title}
+          onClose={() => setFamilySearchQrDestination(null)}
+        />
       ) : null}
 
       {lightboxItem ? (

@@ -7,6 +7,7 @@ import MapLibreMap from './components/MapLibreMap';
 import AchievementModal from './components/certificate/AchievementModal';
 import CertificateNameDialog from './components/certificate/CertificateNameDialog';
 import CertificateQRCode from './components/certificate/CertificateQRCode';
+import FamilySearchQrModal from './components/FamilySearchQrModal';
 import { LEVEL_NAMES } from './components/certificate/badges';
 import { buildCertificateUrl } from './components/certificate/payload';
 import countries from "./data/countries.json";
@@ -115,7 +116,7 @@ const FAMILYSEARCH_LOGO_URL = familysearchLogo;
 const MAP_BACKGROUND_ART_URL = "https://plus.unsplash.com/premium_photo-1779463020508-7cd254b1d37f?auto=format&fit=crop&w=2400&q=80";
 const FAMILYSEARCH_COLLECTIONS_BASE_URL = "https://www.familysearch.org/search/collection/list";
 const FAMILYSEARCH_FETCH_MIRROR_BASE_URL = "https://r.jina.ai/http://www.familysearch.org";
-const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v7";
+const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v8";
 const FAMILYSEARCH_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const FAMILYSEARCH_GENEALOGY_KEYWORD_REGEX = /\b(genealog(?:y|ies)|family\s*tree|lineage)\b/i;
 const DEFAULT_GALLERY_VIDEO_ID = "aqz-KE-bpKQ";
@@ -129,11 +130,13 @@ const COUNTRY_GALLERY_VIDEO_ID_BY_NAME = {
 const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   "antigua and barbuda": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/antigua-and-barbuda",
   australia: "https://www.familysearch.org/en/search/location/australia-&-new-zealand/australia",
+  bahamas: "https://www.familysearch.org/en/search/location/caribbean-and-central-america/bahamas",
   "the bahamas": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/bahamas",
   bangladesh: "https://www.familysearch.org/en/search/location/asia-&-middle-east/bangladesh",
   barbados: "https://www.familysearch.org/en/search/location/caribbean-and-central-america/barbados",
   belize: "https://www.familysearch.org/en/search/location/caribbean-and-central-america/belize",
   botswana: "https://www.familysearch.org/en/search/location/africa/botswana",
+  brunei: "https://www.familysearch.org/en/search/location/asia-&-middle-east/brunei",
   "brunei darussalam": "https://www.familysearch.org/en/search/location/asia-&-middle-east/brunei",
   cameroon: "https://www.familysearch.org/en/search/location/africa/cameroon",
   canada: "https://www.familysearch.org/en/search/location/canada",
@@ -142,6 +145,7 @@ const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   eswatini: "https://www.familysearch.org/en/search/location/africa/eswatini",
   fiji: "https://www.familysearch.org/en/search/location/pacific-islands/fiji",
   gabon: "https://www.familysearch.org/en/search/location/africa/gabon",
+  gambia: "https://www.familysearch.org/en/search/location/africa/gambia",
   "the gambia": "https://www.familysearch.org/en/search/location/africa/gambia",
   ghana: "https://www.familysearch.org/en/search/location/africa/ghana",
   grenada: "https://www.familysearch.org/en/search/location/caribbean-and-central-america/grenada",
@@ -164,8 +168,10 @@ const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   pakistan: "https://www.familysearch.org/en/search/location/asia-&-middle-east/pakistan",
   "papua new guinea": "https://www.familysearch.org/en/search/location/pacific-islands/papua-new-guinea",
   rwanda: "https://www.familysearch.org/en/search/location/africa/rwanda",
+  "saint kitts and nevis": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-kitts-and-nevis",
   "st kitts and nevis": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-kitts-and-nevis",
   "saint lucia": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-lucia",
+  "saint vincent and the grenadines": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-vincent-and-the-grenadines",
   "st vincent and the grenadines": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-vincent-and-the-grenadines",
   samoa: "https://www.familysearch.org/en/search/location/pacific-islands/samoa",
   seychelles: "https://www.familysearch.org/en/search/location/africa/seychelles",
@@ -183,6 +189,7 @@ const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   england: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/england",
   scotland: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/scotland",
   wales: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/wales",
+  "northern ireland": "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/northern-ireland",
   "united republic of tanzania": "https://www.familysearch.org/en/search/location/africa/tanzania",
   vanuatu: "https://www.familysearch.org/en/search/location/pacific-islands/vanuatu",
   zambia: "https://www.familysearch.org/en/search/location/africa/zambia",
@@ -359,6 +366,15 @@ function getVoyagerTitle(visitedCount) {
   }
 
   return "Explorer";
+}
+
+function getVoyagerBadgeLevel(visitedCount = 0) {
+  if (visitedCount >= 56) return 56;
+  if (visitedCount >= 40) return 40;
+  if (visitedCount >= 25) return 25;
+  if (visitedCount >= 10) return 10;
+  if (visitedCount >= 5) return 5;
+  return null;
 }
 
 const countryZoomOverrides = {
@@ -545,6 +561,28 @@ function buildFamilySearchCollectionUrl(countryName = "", options = {}) {
   return `${FAMILYSEARCH_COLLECTIONS_BASE_URL}?${params.toString()}`;
 }
 
+const FAMILYSEARCH_CAMPAIGN_ID = "RE-00062906";
+
+function appendFamilySearchCampaignId(url = "") {
+  if (!url || !/https?:\/\/(www\.)?familysearch\.org/i.test(url)) {
+    return url;
+  }
+
+  try {
+    const parsed = new URL(url);
+    if (!parsed.searchParams.has("CID")) {
+      parsed.searchParams.set("CID", FAMILYSEARCH_CAMPAIGN_ID);
+    }
+    return parsed.toString();
+  } catch {
+    if (!/[?&]CID=/i.test(url)) {
+      const separator = url.includes("?") ? "&" : "?";
+      return `${url}${separator}CID=${FAMILYSEARCH_CAMPAIGN_ID}`;
+    }
+    return url;
+  }
+}
+
 function getFamilySearchLocationUrl(countryName = "") {
   const normalizedCountry = normalizeName(countryName);
   return FAMILYSEARCH_LOCATION_URL_BY_COUNTRY[normalizedCountry] || null;
@@ -653,7 +691,7 @@ function parseFamilySearchCollectionsFromLocationPage(pageText = "") {
     if (!title || !rawLink) {
       return;
     }
-    const link = rawLink.replace("/en/search/", "/search/");
+    const link = rawLink.replace(/^http:/i, "https:").replace("/en/search/", "/search/");
 
     if (activeSection === "records" && /(?:\/en)?\/search\/collection\/\d+/i.test(link)) {
       if (seenRecordLinks.has(link)) {
@@ -801,6 +839,55 @@ function getFamilySearchCollectionCategory(title = "") {
   }
 
   return "record";
+}
+
+function isValidFamilySearchRecordCollectionLink(link = "") {
+  return /https?:\/\/(www\.)?familysearch\.org(?:\/en)?\/search\/collection\/\d+(?:[/?#].*)?$/i.test(link);
+}
+
+function sanitizeFamilySearchCollections(collections = []) {
+  if (!Array.isArray(collections)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const sanitized = [];
+
+  collections.forEach((collection) => {
+    if (!collection?.title || !collection?.link) {
+      return;
+    }
+
+    const normalizedLink = String(collection.link)
+      .trim()
+      .replace(/^http:/i, "https:")
+      .replace("/en/search/", "/search/");
+
+    if (!isValidFamilySearchRecordCollectionLink(normalizedLink)) {
+      return;
+    }
+
+    if (seen.has(normalizedLink)) {
+      return;
+    }
+
+    seen.add(normalizedLink);
+    sanitized.push({
+      ...collection,
+      link: normalizedLink,
+      category: "record",
+    });
+  });
+
+  return sanitized;
+}
+
+function sanitizeCollectionsByCountryMap(collectionsByCountry = {}) {
+  const sanitized = {};
+  Object.entries(collectionsByCountry || {}).forEach(([countryKey, collections]) => {
+    sanitized[countryKey] = sanitizeFamilySearchCollections(collections);
+  });
+  return sanitized;
 }
 
 function splitFamilySearchCollectionsByCategory(collections = []) {
@@ -1865,6 +1952,7 @@ export default function App() {
   const [hoveredMilestone, setHoveredMilestone] = useState(null);
   const [countryDataCache] = useState(countryStatsByLookup);
   const [familySearchCollections, setFamilySearchCollections] = useState([]);
+  const [familySearchQrDestination, setFamilySearchQrDestination] = useState(null);
   const [lightboxItem, setLightboxItem] = useState(null);
   const [showGalleryNavigation, setShowGalleryNavigation] = useState(false);
   const [galleryActiveIndex, setGalleryActiveIndex] = useState(0);
@@ -2433,8 +2521,14 @@ export default function App() {
       const isFresh = parsed?.updatedAt && Date.now() - parsed.updatedAt < FAMILYSEARCH_CACHE_TTL_MS;
 
       if (isFresh) {
-        familySearchCollectionsCacheRef.current = parsed.collectionsByCountry || {};
+        const sanitizedCollectionsByCountry = sanitizeCollectionsByCountryMap(parsed.collectionsByCountry || {});
+        familySearchCollectionsCacheRef.current = sanitizedCollectionsByCountry;
         familySearchCollectionUrlCacheRef.current = parsed.urlByCountry || {};
+
+        // Rewrite stale cached items (legacy slug links / genealogies) with sanitized data.
+        if (JSON.stringify(sanitizedCollectionsByCountry) !== JSON.stringify(parsed.collectionsByCountry || {})) {
+          persistFamilySearchCache();
+        }
       } else {
         localStorage.removeItem(FAMILYSEARCH_CACHE_STORAGE_KEY);
       }
@@ -2450,7 +2544,18 @@ export default function App() {
 
     // Check in-memory cache first (from previous live fetches)
     if (Object.prototype.hasOwnProperty.call(familySearchCollectionsCacheRef.current, cacheKey)) {
-      return familySearchCollectionsCacheRef.current[cacheKey];
+      const cachedCollections = familySearchCollectionsCacheRef.current[cacheKey];
+      const sanitizedCachedCollections = sanitizeFamilySearchCollections(cachedCollections);
+
+      if (
+        Array.isArray(cachedCollections)
+        && sanitizedCachedCollections.length !== cachedCollections.length
+      ) {
+        familySearchCollectionsCacheRef.current[cacheKey] = sanitizedCachedCollections;
+        persistFamilySearchCache();
+      }
+
+      return sanitizedCachedCollections;
     }
 
     // Mark as in-flight to avoid duplicate requests
@@ -2475,11 +2580,12 @@ export default function App() {
             const pageText = await response.text();
             if (pageText && pageText.length > 50) {
               const parsed = parseFamilySearchCollectionsFromLocationPage(pageText);
-              const allCollections = [...parsed.records, ...parsed.genealogies];
-              if (allCollections.length > 0) {
-                familySearchCollectionsCacheRef.current[cacheKey] = allCollections;
+              const liveRecordCollections = sanitizeFamilySearchCollections(parsed.records);
+
+              if (liveRecordCollections.length > 0) {
+                familySearchCollectionsCacheRef.current[cacheKey] = liveRecordCollections;
                 persistFamilySearchCache();
-                return allCollections;
+                return liveRecordCollections;
               }
             }
           }
@@ -2493,8 +2599,23 @@ export default function App() {
     // Fall back to static bundled data if live fetch failed
     const bundledData = countryDataBundle[countryName]?.familySearch;
     if (bundledData && Array.isArray(bundledData) && bundledData.length > 0) {
-      familySearchCollectionsCacheRef.current[cacheKey] = bundledData;
-      return bundledData;
+      const recordCollections = sanitizeFamilySearchCollections(bundledData);
+
+      if (recordCollections.length > 0) {
+        familySearchCollectionsCacheRef.current[cacheKey] = recordCollections;
+        try {
+          persistFamilySearchCache();
+        } catch (_) {}
+        return recordCollections;
+      }
+
+      // If no record collections exist in the bundle, do not expose genealogy-only
+      // fallbacks as primary collections to avoid showing misleading 'slug' links.
+      familySearchCollectionsCacheRef.current[cacheKey] = [];
+      try {
+        persistFamilySearchCache();
+      } catch (_) {}
+      return [];
     }
 
     familySearchCollectionsCacheRef.current[cacheKey] = [];
@@ -2838,7 +2959,7 @@ export default function App() {
     );
 
     if (hasCachedCollections) {
-      const cachedCollections = familySearchCollectionsCacheRef.current[cacheKey];
+      const cachedCollections = sanitizeFamilySearchCollections(familySearchCollectionsCacheRef.current[cacheKey]);
       setFamilySearchCollections(cachedCollections || []);
 
       if (Array.isArray(cachedCollections) && cachedCollections.length === 0) {
@@ -2867,6 +2988,90 @@ export default function App() {
     };
   }, [selectedCountry?.name, isFamilySearchCacheReady]);
 
+  // Prefetch FamilySearch collections for all countries into the cache (background)
+  useEffect(() => {
+    if (!isFamilySearchCacheReady) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const countryNames = countries.map((c) => c.name);
+      // Simple sequential prefetch with a small delay to avoid bursting requests
+      for (const name of countryNames) {
+        if (cancelled) return;
+        const key = normalizeName(name);
+        if (Object.prototype.hasOwnProperty.call(familySearchCollectionsCacheRef.current, key)) {
+          continue;
+        }
+
+        try {
+          // Trigger load which will persist when it finds live or bundled data
+          // Do not await aggressively — wait for each to finish to limit concurrency
+          // and avoid many simultaneous mirror requests.
+          // A small delay between requests reduces load further.
+          // eslint-disable-next-line no-await-in-loop
+          await loadFamilySearchCollectionsForCountry(name);
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => setTimeout(r, 220));
+        } catch (err) {
+          // swallow individual errors and continue
+          // eslint-disable-next-line no-console
+          console.log('Prefetch FamilySearch failed for', name, err?.message || err);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isFamilySearchCacheReady]);
+
+  // One-time, URL-gated force refresh: visit the app with
+  // `?forceFamilySearchRefresh=1` to clear the FamilySearch cache and
+  // re-run the prefetch immediately (useful for QA/dev).
+  useEffect(() => {
+    if (!isFamilySearchCacheReady) return;
+
+    try {
+      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      if (!params || params.get('forceFamilySearchRefresh') !== '1') return;
+
+      (async () => {
+        console.log('Force FamilySearch cache refresh requested. Clearing cache...');
+        try {
+          localStorage.removeItem(FAMILYSEARCH_CACHE_STORAGE_KEY);
+        } catch (_) {}
+        familySearchCollectionsCacheRef.current = {};
+        familySearchCollectionUrlCacheRef.current = {};
+        persistFamilySearchCache();
+
+        const countryNames = countries.map((c) => c.name);
+        for (const name of countryNames) {
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            await loadFamilySearchCollectionsForCountry(name);
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((r) => setTimeout(r, 200));
+          } catch (err) {
+            // continue on errors
+            // eslint-disable-next-line no-console
+            console.log('Prefetch error for', name, err?.message || err);
+          }
+        }
+
+        console.log('FamilySearch cache force-refresh complete.');
+        // Remove the query param from the URL to avoid accidental repeats
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('forceFamilySearchRefresh');
+          window.history.replaceState(null, '', url.toString());
+        } catch (_) {}
+      })();
+    } catch (err) {
+      // ignore
+    }
+  }, [isFamilySearchCacheReady]);
+
   const selectedCountryMetadata = selectedCountry
     ? getLookupValue(commonwealthMetadataByLookup, selectedCountry.name)
     : null;
@@ -2888,9 +3093,9 @@ export default function App() {
     : [];
   const detailStatItems = detailItems.filter((item) => item.label !== "Member Since");
   const familySearchLocationUrl = selectedCountry
-    ? getFamilySearchLocationUrl(selectedCountry.name)
+    ? appendFamilySearchCampaignId(getFamilySearchLocationUrl(selectedCountry.name))
     : null;
-  const visibleFamilySearchCollections = familySearchCollections.filter(
+  const visibleFamilySearchCollections = sanitizeFamilySearchCollections(familySearchCollections).filter(
     (collection) => !/no collections found/i.test(collection.title)
   );
   const {
@@ -2905,6 +3110,8 @@ export default function App() {
   const voyagerCountriesUntilSurprise = Math.max(5 - voyagerProgressCount, 0);
   const voyagerProgressPercent = Math.min((voyagerProgressCount / VOYAGER_TOTAL_COUNTRIES) * 100, 100);
   const voyagerProgressTitle = getVoyagerTitle(voyagerProgressCount);
+  const activeCertificateBadgeLevel = achievementUnlocked?.badgeLevel || getVoyagerBadgeLevel(voyagerProgressCount);
+  const activeCertificateLevelName = activeCertificateBadgeLevel ? LEVEL_NAMES[activeCertificateBadgeLevel] : null;
   const voyagerPillLabel = voyagerProgressCount >= 5
     ? voyagerProgressTitle
     : `${voyagerCountriesUntilSurprise} ${voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} to go!`;
@@ -2934,7 +3141,18 @@ export default function App() {
       label: "Genealogy Records",
       value: selectedCountryResearchLinks?.genealogyRecords,
     },
-  ].filter((entry) => entry.value?.url);
+  ].filter((entry) => entry.value?.url).map((entry) => {
+    if (/https?:\/\/(www\.)?familysearch\.org/i.test(entry.value.url)) {
+      return {
+        ...entry,
+        value: {
+          ...entry.value,
+          url: appendFamilySearchCampaignId(entry.value.url),
+        },
+      };
+    }
+    return entry;
+  });
 
   const LINK_BASE_COLOR = "#87b940";
   const LINK_HOVER_COLOR = "#9ecd4e";
@@ -2982,6 +3200,24 @@ export default function App() {
         decodedUrl.includes(underscored)
       );
     });
+  };
+
+  const openCertificateFlow = () => {
+    const badgeLevel = getVoyagerBadgeLevel(voyagerProgressCount);
+    if (!badgeLevel) {
+      return;
+    }
+
+    if (!achievementUnlocked) {
+      setAchievementUnlocked({
+        count: badgeLevel,
+        badgeLevel,
+        levelName: LEVEL_NAMES[badgeLevel],
+      });
+    }
+
+    setCertificateStep('name');
+    setIsVoyagerExpanded(false);
   };
 
   const isCountrySpecificHeroUrl = (url = "", countryName = "") => {
@@ -3558,10 +3794,10 @@ export default function App() {
         rgba(134,185,64,0.3) 0%,
         rgba(175,207,104,0.9) 8%,
         rgba(134,185,64,0.75) 22%,
-        rgba(255,255,255,0.75) 30%,
+        rgba(198,214,170,0.45) 30%,
         rgba(134,185,64,0.6) 42%,
         rgba(175,207,104,0.85) 56%,
-        rgba(255,255,255,0.6) 64%,
+        rgba(189,208,156,0.38) 64%,
         rgba(134,185,64,0.5) 78%,
         rgba(134,185,64,0.3) 100%)`;
     }
@@ -3573,10 +3809,10 @@ export default function App() {
       return `conic-gradient(from 0deg,
         rgba(187,183,177,${minOpa}) 0%,
         ${g} 10%,
-        rgba(255,255,255,0.65) 20%,
+        rgba(203,210,196,0.42) 20%,
         rgba(156,148,122,0.4) 38%,
         ${g} 55%,
-        rgba(255,255,255,0.5) 65%,
+        rgba(198,206,188,0.34) 65%,
         rgba(187,183,177,0.35) 80%,
         rgba(187,183,177,${minOpa}) 100%)`;
     }
@@ -3585,11 +3821,11 @@ export default function App() {
       // Low–mid: mostly warm silver with a hint of sage
       return `conic-gradient(from 0deg,
         rgba(187,183,177,0.25) 0%,
-        rgba(255,255,255,0.7) 8%,
+        rgba(206,210,200,0.4) 8%,
         rgba(187,183,177,0.55) 20%,
         rgba(156,148,122,0.35) 36%,
         rgba(175,207,104,0.45) 50%,
-        rgba(255,255,255,0.55) 62%,
+        rgba(199,206,190,0.32) 62%,
         rgba(187,183,177,0.4) 78%,
         rgba(187,183,177,0.25) 100%)`;
     }
@@ -3597,10 +3833,10 @@ export default function App() {
     // Very early: pure elegant silver/white
     return `conic-gradient(from 0deg,
       rgba(187,183,177,0.25) 0%,
-      rgba(255,255,255,0.75) 8%,
+      rgba(205,210,200,0.42) 8%,
       rgba(187,183,177,0.6) 22%,
       rgba(156,148,122,0.3) 45%,
-      rgba(255,255,255,0.6) 62%,
+      rgba(197,205,189,0.34) 62%,
       rgba(187,183,177,0.45) 80%,
       rgba(187,183,177,0.25) 100%)`;
   };
@@ -4835,7 +5071,7 @@ export default function App() {
               width: isVoyagerExpanded
                 ? "min(340px, calc(100vw - 1.5rem))"
                 : `min(${voyagerCollapsedWidth}px, calc(100vw - 1.5rem))`,
-              height: isVoyagerExpanded ? (voyagerProgressCount >= 5 ? "400px" : "330px") : "44px",
+              height: isVoyagerExpanded ? (voyagerProgressCount >= 5 ? "400px" : "252px") : "44px",
               borderRadius: "22px",
               padding: "1.5px", // Thickness of the glowing border
               background: "rgba(15, 23, 42, 0.22)", // Subtle backdrop boundary
@@ -4936,8 +5172,9 @@ export default function App() {
                 flexDirection: "column",
                 alignItems: "center",
                 width: "100%",
-                height: isVoyagerExpanded ? "100%" : "0px",
-                justifyContent: "space-between",
+                height: isVoyagerExpanded ? (voyagerProgressCount >= 5 ? "100%" : "auto") : "0px",
+                justifyContent: voyagerProgressCount >= 5 ? "space-between" : "flex-start",
+                gap: voyagerProgressCount >= 5 ? "0" : "0.55rem",
                 zIndex: 3,
               }}>
                 {/* Badge Icon — only rendered if unlocked (count >= 5) */}
@@ -5064,49 +5301,58 @@ export default function App() {
                     })}
                   </div>
                 </div>
+
+                {visitedVoyagerCountries.length === 0 ? (
+                  <div
+                    style={{
+                      marginTop: "0.55rem",
+                      fontSize: "0.75rem",
+                      color: "rgba(255,255,255,0.4)",
+                      textAlign: "center",
+                    }}
+                  >
+                    Select a country to begin your journey.
+                  </div>
+                ) : null}
               </div>
 
               {/* Clicked Country List */}
-              <div style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "4px",
-                justifyContent: "center",
-                maxHeight: "80px",
-                overflowY: "auto",
-                marginTop: "16px",
-                marginBottom: "8px",
-                width: "100%",
-                padding: "4px",
-                scrollbarWidth: "none"
-              }}>
-                {visitedVoyagerCountries.map(countryKey => (
-                  <span key={countryKey} style={{
-                    fontSize: "0.65rem",
-                    background: "rgba(255,255,255,0.08)",
-                    padding: "3px 8px",
-                    borderRadius: "12px",
-                    color: "rgba(255,255,255,0.85)",
-                    whiteSpace: "nowrap",
-                    textTransform: "capitalize"
-                  }}>
-                    {countryKey}
-                  </span>
-                ))}
-                {visitedVoyagerCountries.length === 0 && (
-                  <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
-                    Select a country to begin your journey.
-                  </span>
-                )}
-              </div>
+              {visitedVoyagerCountries.length > 0 ? (
+                <div style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "4px",
+                  justifyContent: "center",
+                  maxHeight: "80px",
+                  overflowY: "auto",
+                  marginTop: voyagerProgressCount >= 5 ? "16px" : "6px",
+                  marginBottom: "8px",
+                  width: "100%",
+                  padding: "4px",
+                  scrollbarWidth: "none"
+                }}>
+                  {visitedVoyagerCountries.map(countryKey => (
+                    <span key={countryKey} style={{
+                      fontSize: "0.65rem",
+                      background: "rgba(255,255,255,0.08)",
+                      padding: "3px 8px",
+                      borderRadius: "12px",
+                      color: "rgba(255,255,255,0.85)",
+                      whiteSpace: "nowrap",
+                      textTransform: "capitalize"
+                    }}>
+                      {countryKey}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
 
               {/* Download Certificate Option */}
               {voyagerProgressCount >= 5 && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setCertificateStep('name');
-                    setIsVoyagerExpanded(false);
+                    openCertificateFlow();
                   }}
                   style={{
                     background: "none",
@@ -5577,12 +5823,11 @@ export default function App() {
                               {isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}
                             </div>
                             {displayedFamilySearchPreferredCollections.map((collection, index) => (
-                              <a
+                              <button
                                 key={`${isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}-${collection.title}-${collection.link}`}
-                                href={collection.link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={familySearchRecordLinkStyle}
+                                type="button"
+                                onClick={() => setFamilySearchQrDestination({ title: collection.title, url: appendFamilySearchCampaignId(collection.link) })}
+                                style={{ ...familySearchRecordLinkStyle, padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
                                 onMouseEnter={handleFamilySearchRecordMouseEnter}
                                 onMouseLeave={handleFamilySearchRecordMouseLeave}
                               >
@@ -5607,7 +5852,7 @@ export default function App() {
                                 >
                                   {collection.title}
                                 </span>
-                              </a>
+                              </button>
                             ))}
                           </>
                         ) : null}
@@ -5617,13 +5862,15 @@ export default function App() {
                         ) : null}
                       </div>
                       {familySearchLocationUrl ? (
-                        <a
-                          href={familySearchLocationUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => setFamilySearchQrDestination({ title: `${selectedCountry.name} FamilySearch research`, url: familySearchLocationUrl })}
                           style={{
                             marginTop: "0.72rem",
                             ...seeMoreLikeLinkStyle,
+                            border: "none",
+                            background: "transparent",
+                            cursor: "pointer",
                           }}
                           onMouseEnter={handleSeeMoreLikeLinkMouseEnter}
                           onMouseLeave={handleSeeMoreLikeLinkMouseLeave}
@@ -5632,7 +5879,7 @@ export default function App() {
                             {renderLinkArrowIcon()}
                             <span>See more</span>
                           </span>
-                        </a>
+                        </button>
                       ) : (
                         <div style={{ marginTop: "0.72rem", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.9rem", textAlign: "left" }}>
                           Country research page not available.
@@ -5647,12 +5894,11 @@ export default function App() {
                       <div style={{ display: "grid", gap: "0.38rem" }}>
                         {researchHelpEntries.length ? (
                           researchHelpEntries.map((entry) => (
-                            <a
+                            <button
                               key={`${entry.key}-${entry.value.url}`}
-                              href={entry.value.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={researchHelpLinkStyle}
+                              type="button"
+                              onClick={() => setFamilySearchQrDestination({ title: entry.value.title || entry.label, url: entry.value.url })}
+                              style={{ ...researchHelpLinkStyle, padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
                               onMouseEnter={handleResearchHelpMouseEnter}
                               onMouseLeave={handleResearchHelpMouseLeave}
                               title={entry.value.title || entry.label}
@@ -5661,7 +5907,7 @@ export default function App() {
                                 {renderLinkArrowIcon()}
                                 <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{entry.label}</span>
                               </span>
-                            </a>
+                            </button>
                           ))
                         ) : (
                           <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No research help links available.</div>
@@ -5971,7 +6217,7 @@ export default function App() {
           <AchievementModal
             unlocked={achievementUnlocked}
             onClose={() => setAchievementUnlocked(null)}
-            onViewCertificate={() => setCertificateStep('name')}
+            onViewCertificate={openCertificateFlow}
           />
         ) : null}
 
@@ -5985,15 +6231,15 @@ export default function App() {
           />
         ) : null}
 
-        {certificateStep === 'qr' && achievementUnlocked ? (
+        {certificateStep === 'qr' && activeCertificateBadgeLevel && activeCertificateLevelName ? (
           <CertificateQRCode
             name={certificateName}
-            badgeLevel={achievementUnlocked.badgeLevel}
-            levelName={achievementUnlocked.levelName}
+            badgeLevel={activeCertificateBadgeLevel}
+            levelName={activeCertificateLevelName}
             certificateUrl={buildCertificateUrl({
               name: certificateName,
-              level: achievementUnlocked.levelName,
-              badgeLevel: achievementUnlocked.badgeLevel,
+              level: activeCertificateLevelName,
+              badgeLevel: activeCertificateBadgeLevel,
               date: new Date().toISOString(),
             })}
             onClose={() => {
@@ -6001,6 +6247,14 @@ export default function App() {
               setCertificateStep(null);
               setCertificateName('');
             }}
+          />
+        ) : null}
+
+        {familySearchQrDestination ? (
+          <FamilySearchQrModal
+            destination={familySearchQrDestination.url}
+            title={familySearchQrDestination.title}
+            onClose={() => setFamilySearchQrDestination(null)}
           />
         ) : null}
 

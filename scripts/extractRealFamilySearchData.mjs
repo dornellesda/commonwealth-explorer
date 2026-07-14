@@ -8,11 +8,13 @@ const FAMILYSEARCH_FETCH_MIRROR_BASE_URL = "https://r.jina.ai/http://www.familys
 const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   "antigua and barbuda": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/antigua-and-barbuda",
   australia: "https://www.familysearch.org/en/search/location/australia-&-new-zealand/australia",
+  bahamas: "https://www.familysearch.org/en/search/location/caribbean-and-central-america/bahamas",
   "the bahamas": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/bahamas",
   bangladesh: "https://www.familysearch.org/en/search/location/asia-&-middle-east/bangladesh",
   barbados: "https://www.familysearch.org/en/search/location/caribbean-and-central-america/barbados",
   belize: "https://www.familysearch.org/en/search/location/caribbean-and-central-america/belize",
   botswana: "https://www.familysearch.org/en/search/location/africa/botswana",
+  brunei: "https://www.familysearch.org/en/search/location/asia-&-middle-east/brunei",
   "brunei darussalam": "https://www.familysearch.org/en/search/location/asia-&-middle-east/brunei",
   cameroon: "https://www.familysearch.org/en/search/location/africa/cameroon",
   canada: "https://www.familysearch.org/en/search/location/canada",
@@ -21,6 +23,7 @@ const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   eswatini: "https://www.familysearch.org/en/search/location/africa/eswatini",
   fiji: "https://www.familysearch.org/en/search/location/pacific-islands/fiji",
   gabon: "https://www.familysearch.org/en/search/location/africa/gabon",
+  gambia: "https://www.familysearch.org/en/search/location/africa/gambia",
   "the gambia": "https://www.familysearch.org/en/search/location/africa/gambia",
   ghana: "https://www.familysearch.org/en/search/location/africa/ghana",
   grenada: "https://www.familysearch.org/en/search/location/caribbean-and-central-america/grenada",
@@ -43,8 +46,10 @@ const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   pakistan: "https://www.familysearch.org/en/search/location/asia-&-middle-east/pakistan",
   "papua new guinea": "https://www.familysearch.org/en/search/location/pacific-islands/papua-new-guinea",
   rwanda: "https://www.familysearch.org/en/search/location/africa/rwanda",
+  "saint kitts and nevis": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-kitts-and-nevis",
   "st kitts and nevis": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-kitts-and-nevis",
   "saint lucia": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-lucia",
+  "saint vincent and the grenadines": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-vincent-and-the-grenadines",
   "st vincent and the grenadines": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/saint-vincent-and-the-grenadines",
   samoa: "https://www.familysearch.org/en/search/location/pacific-islands/samoa",
   seychelles: "https://www.familysearch.org/en/search/location/africa/seychelles",
@@ -58,9 +63,11 @@ const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   "trinidad and tobago": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/trinidad-and-tobago",
   tuvalu: "https://www.familysearch.org/en/search/location/pacific-islands/tuvalu",
   uganda: "https://www.familysearch.org/en/search/location/africa/uganda",
+  "united kingdom": "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/england",
   england: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/england",
   scotland: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/scotland",
   wales: "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/wales",
+  "northern ireland": "https://www.familysearch.org/en/search/location/united-kingdom-and-ireland/northern-ireland",
   "united republic of tanzania": "https://www.familysearch.org/en/search/location/africa/tanzania",
   vanuatu: "https://www.familysearch.org/en/search/location/pacific-islands/vanuatu",
   zambia: "https://www.familysearch.org/en/search/location/africa/zambia",
@@ -117,7 +124,7 @@ function parseFamilySearchCollectionsFromLocationPage(pageText = "") {
     if (!match) return;
 
     const title = match[1].trim();
-    const link = match[2].trim();
+    const link = match[2].trim().replace(/^http:/i, "https:");
     if (!title || !link) return;
 
     if (activeSection === "records" && /\/en\/search\/collection\/\d+/i.test(link)) {
