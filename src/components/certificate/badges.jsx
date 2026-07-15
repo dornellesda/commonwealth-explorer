@@ -33,8 +33,8 @@ export const LEVEL_NAMES = {
 export const BADGE_COLORS = {
   5: { primary: "#87B940", glow: "rgba(135, 185, 64, 0.6)" },
   10: { primary: "#BFD730", glow: "rgba(191, 215, 48, 0.56)" },
-  25: { primary: "#F16458", glow: "rgba(241, 100, 88, 0.58)" },
-  40: { primary: "#27C4F4", glow: "rgba(39, 196, 244, 0.58)" },
+  25: { primary: "#27C4F4", glow: "rgba(39, 196, 244, 0.58)" },
+  40: { primary: "#F16458", glow: "rgba(241, 100, 88, 0.58)" },
   56: { primary: "#996799", glow: "rgba(153, 103, 153, 0.64)" },
 };
 
