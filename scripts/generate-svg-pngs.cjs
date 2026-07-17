@@ -178,7 +178,7 @@ const getStar16Facets = () => {
 
 const BADGES = {
   "curious-explorer": `
-  <svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="512" height="512" viewBox="-15 -15 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
     ${SHARED_DEFS}
     <g filter="url(#ref-drop-shadow)">
       ${getStar16Facets()}
@@ -229,7 +229,7 @@ const BADGES = {
   </svg>
   `,
   "commonwealth-traveller": `
-  <svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="512" height="512" viewBox="-15 -15 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
     ${SHARED_DEFS}
     <g filter="url(#ref-drop-shadow)">
       <circle cx="50" cy="50" r="46" fill="url(#silver-metallic)" filter="url(#ref-inner-bevel)" stroke="#424242" stroke-width="1" />
@@ -261,7 +261,7 @@ const BADGES = {
   </svg>
   `,
   "global-navigator": `
-  <svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="512" height="512" viewBox="-15 -15 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
     ${SHARED_DEFS}
     <g filter="url(#ref-drop-shadow)">
       <polygon points="50,4 90,27 90,73 50,96 10,73 10,27" fill="url(#silver-border)" filter="url(#ref-inner-bevel)" />
@@ -284,7 +284,7 @@ const BADGES = {
   </svg>
   `,
   "world-voyager": `
-  <svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="512" height="512" viewBox="-15 -15 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
     ${SHARED_DEFS}
     <g filter="url(#ref-drop-shadow)">
       <path d="M 12,24 C 12,24 35,24 50,18 C 65,24 88,24 88,24 L 88,60 C 88,80 50,96 50,96 C 50,96 12,80 12,60 Z" fill="url(#silver-border)" filter="url(#ref-inner-bevel)" />
@@ -324,7 +324,7 @@ const BADGES = {
   </svg>
   `,
   "golden-commonwealth-explorer": `
-  <svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="512" height="512" viewBox="-15 -15 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
     ${SHARED_DEFS}
     <g filter="url(#ref-drop-shadow)">
       <polygon points="50,4 90,27 90,73 50,96 10,73 10,27" fill="url(#gold-border)" filter="url(#ref-inner-bevel)" />
