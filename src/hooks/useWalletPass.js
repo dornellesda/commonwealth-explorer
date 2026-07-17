@@ -59,7 +59,7 @@ function saveSerials(serials) {
  */
 function buildPassBody({ milestone, totalVisited, visitedNames, heroImageUrl, userId }) {
   const meta = MILESTONE_META[milestone] || MILESTONE_META[5];
-  const barcodeId = `CE-V23-${userId}-${milestone}`;
+  const barcodeId = `CE-V24-${userId}-${milestone}`;
   const countDisplay = `${totalVisited} / 56`;
 
   const body = {
@@ -73,8 +73,8 @@ function buildPassBody({ milestone, totalVisited, visitedNames, heroImageUrl, us
 
     // Note: For images (logoURL, iconURL, stripURL) WalletWallet requires absolute public URLs.
     // We are pulling your exact badge SVGs directly from your public GitHub repository!
-    iconURL: `https://raw.githubusercontent.com/dornellesda/commonwealth-explorer/main/public/badges/${meta.icon}.png?v=13`,
-    thumbnailURL: `https://raw.githubusercontent.com/dornellesda/commonwealth-explorer/main/public/badges/${meta.icon}.png?v=13`,
+    iconURL: `https://raw.githubusercontent.com/dornellesda/commonwealth-explorer/main/public/badges/${meta.icon}.png?v=14`,
+    thumbnailURL: `https://raw.githubusercontent.com/dornellesda/commonwealth-explorer/main/public/badges/${meta.icon}.png?v=14`,
 
     // Top-right strip (the only fields visible when the pass is stacked in Wallet)
     headerFields: [

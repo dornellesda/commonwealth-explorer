@@ -23,12 +23,12 @@ export const FAMILYSEARCH_COLORS = {
 };
 
 // Short, formal level names used on the certificate + achievement modal.
-export const BADGE_ICON_PATHS = {
-  5: "/badges/curious-explorer.png?v=13",
-  10: "/badges/commonwealth-traveller.png?v=13",
-  25: "/badges/global-navigator.png?v=13",
-  40: "/badges/world-voyager.png?v=13",
-  56: "/badges/golden-commonwealth-explorer.png?v=13",
+const BADGE_ICON_PATHS = {
+  5: "/badges/curious-explorer.png?v=14",
+  10: "/badges/commonwealth-traveller.png?v=14",
+  25: "/badges/global-navigator.png?v=14",
+  40: "/badges/world-voyager.png?v=14",
+  56: "/badges/golden-commonwealth-explorer.png?v=14",
 };
 
 export const LEVEL_NAMES = {
