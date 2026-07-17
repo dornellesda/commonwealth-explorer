@@ -5322,11 +5322,11 @@ export default function App() {
                       fontSize: "0.74rem",
                       fontWeight: 800,
                       letterSpacing: "0.01em",
-                      color: "#87B940",
+                      color: "#333331", // Dark charcoal base
                       marginLeft: "auto",
                       flexShrink: 0,
                     }}>
-                      {voyagerProgressCount}/{VOYAGER_TOTAL_COUNTRIES}
+                      <span style={{ color: "#4C7D1E" }}>{voyagerProgressCount}</span>/{VOYAGER_TOTAL_COUNTRIES}
                     </div>
                   </>
                 ) : (
@@ -5340,9 +5340,9 @@ export default function App() {
                     color: "#333331",
                     width: "100%",
                   }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", color: "#87B940" }}>{renderGiftIcon(14)}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", color: "#4C7D1E" }}>{renderGiftIcon(14)}</span>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {voyagerCountriesUntilSurprise} {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} to go!
+                      <span style={{ color: "#4C7D1E", fontWeight: 800 }}>{voyagerCountriesUntilSurprise}</span> {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} to go!
                     </span>
                   </div>
                 )}
