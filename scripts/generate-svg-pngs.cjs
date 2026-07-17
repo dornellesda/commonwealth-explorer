@@ -7,101 +7,87 @@ if (!fs.existsSync(OUT_DIR)) {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 }
 
-// These SVGs exactly mirror the AAA SVGs in BadgeSVGs.jsx
 const SHARED_DEFS = `
   <defs>
-    <filter id="aaa-drop-shadow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000000" flood-opacity="0.6" />
-    </filter>
-    <filter id="aaa-contact-shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.8" />
-    </filter>
-    <filter id="aaa-inner-bevel" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="blur" />
-      <feOffset dx="-2" dy="-2" in="blur" result="offset1" />
-      <feComposite in="SourceAlpha" in2="offset1" operator="arithmetic" k2="-1" k3="1" result="highlight" />
-      <feFlood flood-color="white" flood-opacity="0.7" result="highlightColor" />
-      <feComposite in="highlightColor" in2="highlight" operator="in" result="highlightOverlay" />
-      <feOffset dx="2" dy="2" in="blur" result="offset2" />
-      <feComposite in="SourceAlpha" in2="offset2" operator="arithmetic" k2="-1" k3="1" result="shadow" />
-      <feFlood flood-color="black" flood-opacity="0.7" result="shadowColor" />
-      <feComposite in="shadowColor" in2="shadow" operator="in" result="shadowOverlay" />
-      <feMerge>
-        <feMergeNode in="SourceGraphic" />
-        <feMergeNode in="shadowOverlay" />
-        <feMergeNode in="highlightOverlay" />
-      </feMerge>
+    <filter id="apple-drop-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.5" />
     </filter>
 
-    <linearGradient id="gold-base" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#FFF7B0" />
-      <stop offset="20%" stop-color="#FFDF00" />
-      <stop offset="50%" stop-color="#D4AF37" />
-      <stop offset="80%" stop-color="#AA7C11" />
-      <stop offset="100%" stop-color="#4A3B00" />
+    <linearGradient id="apple-gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFE57F" />
+      <stop offset="30%" stop-color="#FFD54F" />
+      <stop offset="70%" stop-color="#FFB300" />
+      <stop offset="100%" stop-color="#B388FF" stop-opacity="0" />
     </linearGradient>
-    
-    <linearGradient id="gold-highlight" x1="1" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FFFFFF" />
-      <stop offset="30%" stop-color="#FFDF00" />
-      <stop offset="70%" stop-color="#8A5A19" />
-      <stop offset="100%" stop-color="#2A1A00" />
+    <linearGradient id="apple-gold-border" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF9C4" />
+      <stop offset="50%" stop-color="#FBC02D" />
+      <stop offset="100%" stop-color="#F57F17" />
     </linearGradient>
-
-    <linearGradient id="bronze-base" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#F3E5AB" />
-      <stop offset="25%" stop-color="#CD7F32" />
-      <stop offset="50%" stop-color="#8B4513" />
-      <stop offset="75%" stop-color="#5C3A21" />
-      <stop offset="100%" stop-color="#2A1B0B" />
+    <linearGradient id="apple-gold-light" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFF59D" />
+      <stop offset="100%" stop-color="#FBC02D" />
     </linearGradient>
-    
-    <linearGradient id="bronze-highlight" x1="1" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FFEDCC" />
-      <stop offset="30%" stop-color="#A0522D" />
-      <stop offset="70%" stop-color="#6B4226" />
-      <stop offset="100%" stop-color="#201000" />
+    <linearGradient id="apple-gold-dark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FBC02D" />
+      <stop offset="100%" stop-color="#D84315" />
     </linearGradient>
 
-    <linearGradient id="silver-base" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="apple-silver" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#FFFFFF" />
-      <stop offset="30%" stop-color="#E0E0E0" />
-      <stop offset="50%" stop-color="#9E9E9E" />
-      <stop offset="80%" stop-color="#424242" />
-      <stop offset="100%" stop-color="#111111" />
+      <stop offset="35%" stop-color="#E0E0E0" />
+      <stop offset="70%" stop-color="#BDBDBD" />
+      <stop offset="100%" stop-color="#757575" />
     </linearGradient>
-    
-    <linearGradient id="silver-highlight" x1="1" y1="0" x2="0" y2="1">
+    <linearGradient id="apple-silver-border" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#FFFFFF" />
-      <stop offset="20%" stop-color="#FAFAFA" />
-      <stop offset="50%" stop-color="#757575" />
-      <stop offset="100%" stop-color="#212121" />
+      <stop offset="50%" stop-color="#BDBDBD" />
+      <stop offset="100%" stop-color="#424242" />
     </linearGradient>
-    
-    <linearGradient id="silver-brushed" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0%" stop-color="#424242" />
-      <stop offset="30%" stop-color="#EEEEEE" />
-      <stop offset="70%" stop-color="#757575" />
-      <stop offset="100%" stop-color="#F5F5F5" />
+    <linearGradient id="apple-silver-light" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#E0E0E0" />
+    </linearGradient>
+    <linearGradient id="apple-silver-dark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#BDBDBD" />
+      <stop offset="100%" stop-color="#616161" />
     </linearGradient>
 
-    <radialGradient id="gem-blue" cx="30%" cy="30%" r="70%">
-      <stop offset="0%" stop-color="#4FC3F7" />
-      <stop offset="50%" stop-color="#0277BD" />
-      <stop offset="100%" stop-color="#00223E" />
-    </radialGradient>
-    
-    <radialGradient id="gem-green" cx="30%" cy="30%" r="70%">
-      <stop offset="0%" stop-color="#B2FF59" />
-      <stop offset="50%" stop-color="#558B2F" />
-      <stop offset="100%" stop-color="#1B3B00" />
-    </radialGradient>
-    
-    <radialGradient id="gem-red" cx="30%" cy="30%" r="70%">
-      <stop offset="0%" stop-color="#FF5252" />
-      <stop offset="50%" stop-color="#B71C1C" />
-      <stop offset="100%" stop-color="#3E0000" />
-    </radialGradient>
+    <linearGradient id="apple-bronze" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFE0B2" />
+      <stop offset="50%" stop-color="#B87333" />
+      <stop offset="100%" stop-color="#5D4037" />
+    </linearGradient>
+    <linearGradient id="apple-bronze-light" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFD180" />
+      <stop offset="100%" stop-color="#B87333" />
+    </linearGradient>
+    <linearGradient id="apple-bronze-dark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#B87333" />
+      <stop offset="100%" stop-color="#4E342E" />
+    </linearGradient>
+
+    <linearGradient id="apple-enamel-green" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#AEEA00" />
+      <stop offset="100%" stop-color="#64DD17" />
+    </linearGradient>
+    <linearGradient id="apple-enamel-blue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00E5FF" />
+      <stop offset="100%" stop-color="#2979FF" />
+    </linearGradient>
+    <linearGradient id="apple-enamel-red" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF1744" />
+      <stop offset="100%" stop-color="#D50000" />
+    </linearGradient>
+    <linearGradient id="apple-enamel-orange" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF9100" />
+      <stop offset="100%" stop-color="#FF3D00" />
+    </linearGradient>
+
+    <linearGradient id="apple-gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.0" />
+    </linearGradient>
   </defs>
 `;
 
@@ -109,107 +95,90 @@ const BADGES = {
   "curious-explorer": `
   <svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
     ${SHARED_DEFS}
-    <g filter="url(#aaa-drop-shadow)">
-      <polygon points="30,5 70,5 95,30 95,70 70,95 30,95 5,70 5,30" fill="url(#bronze-base)" filter="url(#aaa-inner-bevel)" />
-      <polygon points="32,10 68,10 90,32 90,68 68,90 32,90 10,68 10,32" fill="#1A1108" stroke="url(#bronze-highlight)" stroke-width="1.5" />
-      <g filter="url(#aaa-contact-shadow)">
-        <polygon points="50,10 62,38 90,38 68,55 78,85 50,65 22,85 32,55 10,38 38,38" fill="url(#bronze-highlight)" filter="url(#aaa-inner-bevel)" />
-      </g>
-      <polygon points="50,15 58,40 80,45 62,58 68,80 50,68 32,80 38,58 20,45 42,40" fill="url(#bronze-base)" filter="url(#aaa-inner-bevel)" />
-      <circle cx="50" cy="50" r="18" fill="url(#gem-green)" filter="url(#aaa-contact-shadow)" />
-      <circle cx="50" cy="50" r="18" fill="none" stroke="url(#bronze-highlight)" stroke-width="3" filter="url(#aaa-inner-bevel)" />
-      <ellipse cx="44" cy="40" rx="6" ry="3" fill="#FFFFFF" opacity="0.6" transform="rotate(-30 44 40)" />
-      <circle cx="50" cy="50" r="6" fill="url(#bronze-base)" filter="url(#aaa-inner-bevel)" />
+    <g filter="url(#apple-drop-shadow)">
+      <polygon points="50,50 50,6 60.6,35.4" fill="url(#apple-gold-light)" />
+      <polygon points="50,50 50,6 39.4,35.4" fill="url(#apple-gold-dark)" />
+      
+      <polygon points="50,50 91.8,36.4 67.1,55.6" fill="url(#apple-gold-light)" />
+      <polygon points="50,50 91.8,36.4 60.6,35.4" fill="url(#apple-gold-dark)" />
+      
+      <polygon points="50,50 75.9,85.6 50,68" fill="url(#apple-gold-light)" />
+      <polygon points="50,50 75.9,85.6 67.1,55.6" fill="url(#apple-gold-dark)" />
+      
+      <polygon points="50,50 24.1,85.6 32.9,55.6" fill="url(#apple-gold-light)" />
+      <polygon points="50,50 24.1,85.6 50,68" fill="url(#apple-gold-dark)" />
+      
+      <polygon points="50,50 8.2,36.4 39.4,35.4" fill="url(#apple-gold-light)" />
+      <polygon points="50,50 8.2,36.4 32.9,55.6" fill="url(#apple-gold-dark)" />
+
+      <polygon points="50,6 91.8,36.4 75.9,85.6 24.1,85.6 8.2,36.4" fill="none" stroke="url(#apple-gold-border)" stroke-width="4" stroke-linejoin="round" />
+      <polygon points="50,15 80,38 68,75 32,75 20,38" fill="none" stroke="url(#apple-gold-border)" stroke-width="2" stroke-linejoin="round" opacity="0.8" />
+      <path d="M 8.2 36.4 A 44 44 0 0 1 91.8 36.4 A 44 25 0 0 0 8.2 36.4 Z" fill="url(#apple-gloss)" />
     </g>
   </svg>
   `,
   "commonwealth-traveller": `
   <svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
     ${SHARED_DEFS}
-    <g filter="url(#aaa-drop-shadow)">
-      <circle cx="50" cy="50" r="46" fill="url(#silver-brushed)" filter="url(#aaa-inner-bevel)" />
-      <circle cx="50" cy="50" r="38" fill="#111" stroke="url(#silver-highlight)" stroke-width="2" />
-      <circle cx="50" cy="50" r="36" fill="url(#gem-green)" />
-      <g filter="url(#aaa-contact-shadow)">
-        <circle cx="50" cy="50" r="26" fill="none" stroke="url(#silver-highlight)" stroke-width="4" filter="url(#aaa-inner-bevel)" />
-        <line x1="14" y1="50" x2="86" y2="50" stroke="url(#silver-base)" stroke-width="4" filter="url(#aaa-inner-bevel)" />
-        <line x1="50" y1="14" x2="50" y2="86" stroke="url(#silver-base)" stroke-width="4" filter="url(#aaa-inner-bevel)" />
-        <line x1="24.54" y1="24.54" x2="75.46" y2="75.46" stroke="url(#silver-base)" stroke-width="4" filter="url(#aaa-inner-bevel)" />
-        <line x1="24.54" y1="75.46" x2="75.46" y2="24.54" stroke="url(#silver-base)" stroke-width="4" filter="url(#aaa-inner-bevel)" />
-      </g>
-      <circle cx="50" cy="50" r="14" fill="url(#silver-highlight)" filter="url(#aaa-contact-shadow)" />
-      <circle cx="50" cy="50" r="10" fill="url(#silver-brushed)" filter="url(#aaa-inner-bevel)" />
-      <circle cx="46" cy="46" r="3" fill="#FFFFFF" opacity="0.7" />
+    <g filter="url(#apple-drop-shadow)">
+      <circle cx="50" cy="50" r="46" fill="url(#apple-silver)" stroke="url(#apple-silver-border)" stroke-width="3" />
+      <circle cx="50" cy="50" r="37" fill="url(#apple-enamel-green)" />
+      <circle cx="50" cy="50" r="28" fill="url(#apple-silver)" stroke="url(#apple-silver-border)" stroke-width="2.5" />
+      <circle cx="50" cy="50" r="19" fill="url(#apple-enamel-green)" />
+      <circle cx="50" cy="50" r="9" fill="url(#apple-silver)" stroke="url(#apple-silver-border)" stroke-width="1.5" />
+      <circle cx="50" cy="50" r="3" fill="#111" />
+      <path d="M 4 50 A 46 46 0 0 1 96 50 A 46 25 0 0 0 4 50 Z" fill="url(#apple-gloss)" />
     </g>
   </svg>
   `,
   "global-navigator": `
   <svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
     ${SHARED_DEFS}
-    <g filter="url(#aaa-drop-shadow)">
-      <polygon points="50,4 90,27 90,73 50,96 10,73 10,27" fill="url(#silver-base)" filter="url(#aaa-inner-bevel)" />
-      <polygon points="50,10 84,30 84,70 50,90 16,70 16,30" fill="#000814" stroke="url(#silver-highlight)" stroke-width="2" />
-      <polygon points="50,12 82,31 82,69 50,88 18,69 18,31" fill="url(#gem-blue)" />
-      <g filter="url(#aaa-contact-shadow)">
-        <circle cx="50" cy="50" r="32" fill="#041A33" stroke="url(#silver-highlight)" stroke-width="4" filter="url(#aaa-inner-bevel)" />
-        <ellipse cx="50" cy="50" rx="14" ry="32" fill="none" stroke="url(#silver-base)" stroke-width="2" />
-        <ellipse cx="50" cy="50" rx="32" ry="14" fill="none" stroke="url(#silver-base)" stroke-width="2" />
-        <line x1="50" y1="18" x2="50" y2="82" stroke="url(#silver-base)" stroke-width="2" />
-        <line x1="18" y1="50" x2="82" y2="50" stroke="url(#silver-base)" stroke-width="2" />
+    <g filter="url(#apple-drop-shadow)">
+      <polygon points="50,4 90,27 90,73 50,96 10,73 10,27" fill="url(#apple-silver)" stroke="url(#apple-silver-border)" stroke-width="4" stroke-linejoin="round" />
+      <polygon points="50,9 86,30 86,70 50,91 14,70 14,30" fill="url(#apple-enamel-blue)" stroke="#000000" stroke-width="1.5" stroke-linejoin="round" />
+      <g stroke="url(#apple-silver-border)" stroke-width="3.5" stroke-linecap="round" fill="none">
+        <circle cx="50" cy="50" r="24" stroke-width="4" />
+        <path d="M 26 50 L 74 50" />
+        <path d="M 50 26 L 50 74" />
+        <path d="M 33 33 Q 50 45 67 33" />
+        <path d="M 33 67 Q 50 55 67 67" />
       </g>
-      <g filter="url(#aaa-contact-shadow)">
-        <polygon points="50,25 55,50 50,75 45,50" fill="url(#silver-highlight)" filter="url(#aaa-inner-bevel)" />
-        <polygon points="25,50 50,45 75,50 50,55" fill="url(#silver-brushed)" filter="url(#aaa-inner-bevel)" />
-      </g>
-      <circle cx="50" cy="50" r="5" fill="url(#silver-highlight)" filter="url(#aaa-inner-bevel)" />
+      <path d="M 10 27 A 46 46 0 0 1 90 27 A 46 25 0 0 0 10 27 Z" fill="url(#apple-gloss)" />
     </g>
   </svg>
   `,
   "world-voyager": `
   <svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
     ${SHARED_DEFS}
-    <g filter="url(#aaa-drop-shadow)">
-      <path d="M 10 25 L 90 25 L 90 55 C 90 85 50 98 50 98 C 50 98 10 85 10 55 Z" fill="url(#silver-brushed)" filter="url(#aaa-inner-bevel)" />
-      <path d="M 16 30 L 84 30 L 84 55 C 84 80 50 91 50 91 C 50 91 16 80 16 55 Z" fill="#2A0000" stroke="url(#silver-highlight)" stroke-width="2" />
-      <path d="M 18 32 L 82 32 L 82 55 C 82 78 50 88 50 88 C 50 88 18 78 18 55 Z" fill="url(#gem-red)" />
-      <g filter="url(#aaa-contact-shadow)">
-        <path d="M 22 26 L 28 8 L 40 20 L 50 5 L 60 20 L 72 8 L 78 26 Z" fill="url(#silver-highlight)" filter="url(#aaa-inner-bevel)" />
-        <path d="M 26 28 L 74 28 L 72 32 L 28 32 Z" fill="url(#silver-base)" />
-        <circle cx="28" cy="8" r="3" fill="url(#gem-blue)" filter="url(#aaa-inner-bevel)" />
-        <circle cx="50" cy="5" r="3.5" fill="url(#gem-blue)" filter="url(#aaa-inner-bevel)" />
-        <circle cx="72" cy="8" r="3" fill="url(#gem-blue)" filter="url(#aaa-inner-bevel)" />
+    <g filter="url(#apple-drop-shadow)">
+      <path d="M 12,4 L 88,4 L 88,72 L 50,96 L 12,72 Z" fill="url(#apple-silver)" stroke="url(#apple-silver-border)" stroke-width="4" stroke-linejoin="round" />
+      <path d="M 17,9 L 83,9 L 83,68 L 50,89 L 17,68 Z" fill="url(#apple-enamel-red)" stroke="#000000" stroke-width="1.5" stroke-linejoin="round" />
+      <g stroke="url(#apple-silver-border)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="50" cy="48" r="22" stroke-width="4" />
+        <circle cx="50" cy="48" r="12" stroke-width="3" />
+        <circle cx="50" cy="48" r="4" fill="url(#apple-silver-border)" stroke-width="1" />
+        <path d="M 32,20 L 38,10 L 50,16 L 62,10 L 68,20 Z" stroke-width="3" fill="url(#apple-silver-light)" />
       </g>
-      <g filter="url(#aaa-contact-shadow)">
-        <polygon points="50,42 56,58 72,58 60,68 64,84 50,74 36,84 40,68 28,58 44,58" fill="url(#silver-highlight)" filter="url(#aaa-inner-bevel)" />
-        <polygon points="30,40 33,48 41,48 35,53 37,61 30,56 23,61 25,53 19,48 27,48" fill="url(#silver-base)" filter="url(#aaa-inner-bevel)" />
-        <polygon points="70,40 73,48 81,48 75,53 77,61 70,56 63,61 65,53 59,48 67,48" fill="url(#silver-base)" filter="url(#aaa-inner-bevel)" />
-      </g>
+      <path d="M 12 4 L 88 4 L 88 40 Q 50 50 12 40 Z" fill="url(#apple-gloss)" />
     </g>
   </svg>
   `,
   "golden-commonwealth-explorer": `
   <svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
     ${SHARED_DEFS}
-    <g filter="url(#aaa-drop-shadow)">
-      <polygon points="50,4 90,27 90,73 50,96 10,73 10,27" fill="url(#gold-highlight)" filter="url(#aaa-inner-bevel)" />
-      <polygon points="50,8 86,29 86,71 50,92 14,71 14,29" fill="url(#gold-base)" filter="url(#aaa-inner-bevel)" />
-      <line x1="50" y1="12" x2="50" y2="88" stroke="url(#gold-highlight)" stroke-width="1" opacity="0.4" transform="rotate(0 50 50)" />
-      <line x1="50" y1="12" x2="50" y2="88" stroke="url(#gold-highlight)" stroke-width="1" opacity="0.4" transform="rotate(30 50 50)" />
-      <line x1="50" y1="12" x2="50" y2="88" stroke="url(#gold-highlight)" stroke-width="1" opacity="0.4" transform="rotate(60 50 50)" />
-      <line x1="50" y1="12" x2="50" y2="88" stroke="url(#gold-highlight)" stroke-width="1" opacity="0.4" transform="rotate(90 50 50)" />
-      <line x1="50" y1="12" x2="50" y2="88" stroke="url(#gold-highlight)" stroke-width="1" opacity="0.4" transform="rotate(120 50 50)" />
-      <line x1="50" y1="12" x2="50" y2="88" stroke="url(#gold-highlight)" stroke-width="1" opacity="0.4" transform="rotate(150 50 50)" />
-      <circle cx="50" cy="50" r="38" fill="#1A1100" stroke="url(#gold-base)" stroke-width="3" filter="url(#aaa-contact-shadow)" />
-      <circle cx="50" cy="50" r="35" fill="url(#gold-base)" />
-      <g filter="url(#aaa-contact-shadow)">
-        <circle cx="50" cy="50" r="28" fill="#000000" />
-        <circle cx="50" cy="50" r="28" fill="none" stroke="url(#gold-highlight)" stroke-width="3" filter="url(#aaa-inner-bevel)" />
-        <ellipse cx="50" cy="50" rx="12" ry="28" fill="none" stroke="url(#gold-base)" stroke-width="1.5" />
-        <ellipse cx="50" cy="50" rx="28" ry="12" fill="none" stroke="url(#gold-base)" stroke-width="1.5" />
-        <polygon points="50,34 54,44 64,44 56,50 59,60 50,54 41,60 44,50 36,44 46,44" fill="url(#gold-highlight)" filter="url(#aaa-inner-bevel)" />
-        <circle cx="50" cy="50" r="6" fill="url(#gold-base)" filter="url(#aaa-inner-bevel)" />
-        <circle cx="48" cy="48" r="2" fill="#FFFFFF" opacity="0.8" />
+    <g filter="url(#apple-drop-shadow)">
+      <polygon points="50,4 90,27 90,73 50,96 10,73 10,27" fill="url(#apple-gold)" stroke="url(#apple-gold-border)" stroke-width="4" stroke-linejoin="round" />
+      <polygon points="50,9 86,30 86,70 50,91 14,70 14,30" fill="url(#apple-enamel-orange)" stroke="#000000" stroke-width="1.5" stroke-linejoin="round" />
+      <g stroke="url(#apple-gold-border)" stroke-width="3.5" stroke-linecap="round" fill="none">
+        <circle cx="50" cy="50" r="24" stroke-width="4" />
+        <path d="M 26 50 L 74 50" />
+        <path d="M 50 26 L 50 74" />
+        <path d="M 33 33 Q 50 45 67 33" />
+        <path d="M 33 67 Q 50 55 67 67" />
+        <circle cx="50" cy="50" r="7" fill="url(#apple-gold-light)" stroke-width="1" />
       </g>
+      <path d="M 10 27 A 46 46 0 0 1 90 27 A 46 25 0 0 0 10 27 Z" fill="url(#apple-gloss)" />
     </g>
   </svg>
   `
@@ -219,6 +188,6 @@ const BADGES = {
   for (const [name, svgStr] of Object.entries(BADGES)) {
     const pngPath = path.join(OUT_DIR, name + ".png");
     await sharp(Buffer.from(svgStr)).png().toFile(pngPath);
-    console.log("Generated AAA SVG PNG: " + pngPath);
+    console.log("Generated Apple-style SVG PNG: " + pngPath);
   }
 })();
