@@ -5035,16 +5035,16 @@ export default function App() {
               }} />
             </div>
 
-            {/* Inner Dark Glass Container */}
-            {/* Inner Premium Warm Glass Container (FamilySearch Brand) */}
+            {/* Inner Premium Liquid Glass Container (FamilySearch Brand) */}
             <div style={{
               position: "relative",
               zIndex: 2,
               borderRadius: "21px",
-              background: "rgba(255, 255, 255, 0.94)", // Warm light white glass
-              backdropFilter: "blur(24px) saturate(140%)",
-              WebkitBackdropFilter: "blur(24px) saturate(140%)",
-              boxShadow: "0 12px 36px rgba(51, 51, 49, 0.15), inset 0 1px 0 rgba(255,255,255,0.6)",
+              background: "rgba(255, 255, 255, 0.58)", // Highly translucent, glossy liquid glass base
+              backdropFilter: "blur(40px) saturate(160%)",
+              WebkitBackdropFilter: "blur(40px) saturate(160%)",
+              // Premium liquid glass shading with intense internal reflections & high-contrast top rim highlights
+              boxShadow: "0 12px 36px rgba(51, 51, 49, 0.12), inset 0 12px 24px -10px rgba(255,255,255,0.8), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 2px rgba(0,0,0,0.04)",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -5056,12 +5056,13 @@ export default function App() {
               color: "#333331", // Brand charcoal text
             }}>
 
-              {/* Subtle internal overlay for depth */}
+              {/* Liquid Glass Gloss Shine & Highlight Overlays */}
               <div
                 style={{
                   position: "absolute",
                   inset: 0,
-                  background: "radial-gradient(circle at 40% 30%, rgba(135, 185, 64, 0.06) 0%, transparent 80%)",
+                  // Diagonal glare + soft radial green glow
+                  background: "linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 50%), radial-gradient(circle at 40% 35%, rgba(135, 185, 64, 0.12) 0%, transparent 70%)",
                   borderRadius: "21px",
                   pointerEvents: "none",
                   zIndex: 1,
