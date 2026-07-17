@@ -1,3 +1,4 @@
+import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { randomBytes } from "node:crypto";
@@ -176,6 +177,92 @@ function upsertCountry(existing, payload) {
 
   return nextCountry;
 }
+
+// ─── WalletWallet pass endpoints ────────────────────────────────────────────
+//
+// POST /api/wallet        — create a new pass, returns { shareUrl, serialNumber, googleSaveUrl }
+// PUT  /api/wallet/:serial — update an existing pass (live push to all devices)
+//
+// The WalletWallet API key stays server-side; it is never sent to the browser.
+
+const WALLETWALLET_BASE = "https://api.walletwallet.dev";
+
+function getWalletKey() {
+  const key = process.env.WALLETWALLET_KEY || "";
+  if (!key || key === "ww_live_placeholder_replace_me") return null;
+  return key;
+}
+
+app.post("/api/wallet", async (req, res) => {
+  const key = getWalletKey();
+  if (!key) {
+    return res.status(503).json({
+      error: "WalletWallet API key not configured. Set WALLETWALLET_KEY in .env."
+    });
+  }
+
+  try {
+    const response = await fetch(`${WALLETWALLET_BASE}/api/passes?format=json`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`,
+      },
+      body: JSON.stringify(req.body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.error || "WalletWallet error" });
+    }
+
+    // Normalise: /api/passes?format=json returns { serialNumber, googleSaveUrl, applePass, shareUrl }
+    return res.status(201).json({
+      serialNumber: data.serialNumber,
+      shareUrl: data.shareUrl,
+      googleSaveUrl: data.googleSaveUrl,
+    });
+  } catch (err) {
+    console.error("[wallet] create error:", err);
+    return res.status(500).json({ error: "Failed to create wallet pass." });
+  }
+});
+
+app.put("/api/wallet/:serial", async (req, res) => {
+  const key = getWalletKey();
+  if (!key) {
+    return res.status(503).json({
+      error: "WalletWallet API key not configured."
+    });
+  }
+
+  const { serial } = req.params;
+
+  try {
+    const response = await fetch(`${WALLETWALLET_BASE}/api/passes/${serial}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`,
+      },
+      body: JSON.stringify(req.body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.error || "WalletWallet error" });
+    }
+
+    return res.json(data);
+  } catch (err) {
+    console.error("[wallet] update error:", err);
+    return res.status(500).json({ error: "Failed to update wallet pass." });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────────────
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });

@@ -1,14 +1,43 @@
 import { BADGE_COLORS, BADGE_ICONS, FAMILYSEARCH_COLORS } from "./badges";
 
+// Detect platform for wallet button label
+function getWalletLabel() {
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod/i.test(ua)) return "Add to Apple Wallet";
+  if (/Android/i.test(ua)) return "Save to Google Wallet";
+  return "Add to Wallet";
+}
+
+// Minimal wallet card icon
+function WalletCardIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <rect x="1" y="5" width="22" height="14" rx="3" fill="white" fillOpacity="0.15" stroke="white" strokeWidth="1.5"/>
+      <rect x="1" y="9" width="22" height="3" fill="white" fillOpacity="0.2"/>
+      <circle cx="17.5" cy="15" r="2.3" fill="#60C37B"/>
+      <circle cx="20.5" cy="15" r="2.3" fill="#F5A623" fillOpacity="0.85"/>
+    </svg>
+  );
+}
+
 // Phase 1 — Achievement overlay.
 // Museum-quality, calm celebration. Badge is the visual focus; everything
 // else (motion, color, copy) stays quiet and confident.
-export default function AchievementModal({ unlocked, onClose, onViewCertificate }) {
+export default function AchievementModal({
+  unlocked,
+  onClose,
+  onViewCertificate,
+  onAddToWallet,
+  isWalletLoading = false,
+  walletError = null,
+  hasWalletPass = false,
+}) {
   if (!unlocked) return null;
 
   const { badgeLevel, levelName } = unlocked;
   const icon = BADGE_ICONS[badgeLevel];
   const accent = BADGE_COLORS[badgeLevel] || { primary: FAMILYSEARCH_COLORS.primary, glow: "rgba(135, 185, 64, 0.42)" };
+  const walletLabel = getWalletLabel();
 
   return (
     <div
@@ -44,6 +73,7 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes ww-spin { to { transform: rotate(360deg); } }
       `}</style>
 
       <div
@@ -101,32 +131,17 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
             justifyContent: "center",
           }}
         >
-          <div
-            style={{
-              position: "absolute",
-              inset: "-18px",
-              borderRadius: "50%",
-              background: `radial-gradient(circle, ${accent.glow} 0%, rgba(0,0,0,0) 70%)`,
-              animation: "cert-glowPulse 3.6s ease-in-out infinite",
-              pointerEvents: "none",
-            }}
-          />
+
           <div
             style={{
               position: "relative",
-              width: "140px",
-              height: "140px",
+              width: "160px",
+              height: "160px",
               boxSizing: "border-box",
-              borderRadius: "50%",
-              padding: "9px",
-              background: "radial-gradient(circle at 35% 30%, #FFFFFF, #EDF4E6)",
-              border: `1px solid ${accent.primary}`,
-              boxShadow: `0 18px 40px rgba(51,51,49,0.22), 0 0 0 4px ${accent.glow}, inset 0 1px 0 rgba(255,255,255,0.9)`,
               animation: "cert-badgeIn 620ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              overflow: "hidden",
             }}
           >
             <div style={{ width: "100%", height: "100%", aspectRatio: "1 / 1", display: "flex", flex: "0 0 auto" }}>
@@ -184,6 +199,7 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
             animation: "cert-riseIn 460ms ease-out 400ms both",
           }}
         >
+          {/* Primary CTA — View Certificate */}
           <button
             onClick={onViewCertificate}
             style={{
@@ -205,6 +221,74 @@ export default function AchievementModal({ unlocked, onClose, onViewCertificate 
           >
             View Certificate
           </button>
+
+          {/* Secondary CTA — Add to Wallet (only rendered when callback is provided) */}
+          {onAddToWallet && (
+            <button
+              onClick={isWalletLoading ? undefined : onAddToWallet}
+              disabled={isWalletLoading}
+              aria-label={hasWalletPass ? `Open ${walletLabel.replace("Add to ", "")}` : walletLabel}
+              style={{
+                width: "100%",
+                padding: "0.85rem 1.5rem",
+                borderRadius: "999px",
+                border: "1.5px solid rgba(0,0,0,0.14)",
+                background: "linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%)",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: "0.95rem",
+                letterSpacing: "0.01em",
+                cursor: isWalletLoading ? "wait" : "pointer",
+                transition: "transform 200ms ease, opacity 200ms ease",
+                opacity: isWalletLoading ? 0.65 : 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                boxShadow: "0 8px 20px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08)",
+              }}
+              onMouseEnter={(e) => { if (!isWalletLoading) e.currentTarget.style.transform = "translateY(-1px)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
+            >
+              {isWalletLoading ? (
+                <>
+                  <span style={{
+                    width: "14px", height: "14px", borderRadius: "50%",
+                    border: "2px solid rgba(255,255,255,0.28)",
+                    borderTopColor: "#fff", flexShrink: 0,
+                    display: "inline-block",
+                    animation: "ww-spin 0.7s linear infinite",
+                  }} />
+                  Adding to Wallet…
+                </>
+              ) : hasWalletPass ? (
+                <>
+                  <WalletCardIcon />
+                  Open in Wallet
+                </>
+              ) : (
+                <>
+                  <WalletCardIcon />
+                  {walletLabel}
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Error state */}
+          {walletError && (
+            <div style={{
+              fontSize: "0.78rem",
+              color: "#c0392b",
+              padding: "0.5rem 0.75rem",
+              background: "rgba(192,57,43,0.07)",
+              borderRadius: "8px",
+              textAlign: "center",
+              marginTop: "0.1rem",
+            }}>
+              {walletError}
+            </div>
+          )}
         </div>
       </div>
     </div>

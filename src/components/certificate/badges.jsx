@@ -4,6 +4,7 @@
 // visitor's phone) all render an identical badge.
 
 import familysearchLogo from '../../assets/familysearch-tree.svg';
+import { CuriousExplorerSVG, CommonwealthTravellerSVG, GlobalNavigatorSVG, WorldVoyagerSVG, GoldenExplorerSVG } from './BadgeSVGs';
 
 export const BADGE_LEVELS = [5, 10, 25, 40, 56];
 
@@ -30,36 +31,28 @@ export const LEVEL_NAMES = {
   56: "Golden Commonwealth Explorer",
 };
 
+
+
 export const BADGE_COLORS = {
-  5: { primary: "#87B940", glow: "rgba(135, 185, 64, 0.6)" },
+  5: { primary: "#F2C94C", glow: "rgba(242, 201, 76, 0.6)" },
   10: { primary: "#BFD730", glow: "rgba(191, 215, 48, 0.56)" },
   25: { primary: "#27C4F4", glow: "rgba(39, 196, 244, 0.58)" },
   40: { primary: "#F16458", glow: "rgba(241, 100, 88, 0.58)" },
   56: { primary: "#996799", glow: "rgba(153, 103, 153, 0.64)" },
 };
-
-const BADGE_ICON_PATHS = {
-  5: "/badges/curious-explorer.svg",
-  10: "/badges/commonwealth-traveller.svg",
-  25: "/badges/global-navigator.svg",
-  40: "/badges/world-voyager.svg",
-  56: "/badges/golden-commonwealth-explorer.svg",
-};
-
 const BADGE_ICON_STYLE = {
   width: "100%",
   height: "100%",
   display: "block",
-  objectFit: "contain",
 };
 
-export const BADGE_ICONS = Object.fromEntries(
-  Object.entries(BADGE_ICON_PATHS).map(([level, src]) => [
-    level,
-    <img src={src} alt="" aria-hidden="true" style={BADGE_ICON_STYLE} />,
-  ])
-);
-
+export const BADGE_ICONS = {
+  5: <CuriousExplorerSVG style={BADGE_ICON_STYLE} />,
+  10: <CommonwealthTravellerSVG style={BADGE_ICON_STYLE} />,
+  25: <GlobalNavigatorSVG style={BADGE_ICON_STYLE} />,
+  40: <WorldVoyagerSVG style={BADGE_ICON_STYLE} />,
+  56: <GoldenExplorerSVG style={BADGE_ICON_STYLE} />
+};
 export function getBadgeLevelForCount(count) {
   let level = null;
   BADGE_LEVELS.forEach((l) => {

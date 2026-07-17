@@ -8,6 +8,7 @@ import AchievementModal from './components/certificate/AchievementModal';
 import CertificateNameDialog from './components/certificate/CertificateNameDialog';
 import CertificateQRCode from './components/certificate/CertificateQRCode';
 import FamilySearchQrModal from './components/FamilySearchQrModal';
+import { useWalletPass } from './hooks/useWalletPass';
 import { LEVEL_NAMES, BADGE_ICONS } from './components/certificate/badges';
 import { buildCertificateUrl } from './components/certificate/payload';
 import countries from "./data/countries.json";
@@ -15,10 +16,22 @@ import countryResearchLinks from "./data/countryResearchLinks.json";
 import commonwealthMetadata from "./data/commonwealthMetadata.json";
 import countryDataBundle from "./data/country_data.json";
 import countryStats from "./data/countryStats.json";
+import countryMedia from "./data/media_data.json";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 import familysearchLogo from './assets/familysearch-tree.svg';
 import ukBoundaries from './data/uk_boundaries.json';
+
+// Generate or retrieve stable explorer ID for wallet passes
+function getOrCreateExplorerId() {
+  const key = "ce_explorer_id";
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
 
 // Format population number (e.g., 5771000 → "5.8 million")
 function formatPopulation(pop) {
@@ -119,14 +132,7 @@ const FAMILYSEARCH_FETCH_MIRROR_BASE_URL = "https://r.jina.ai/http://www.familys
 const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v8";
 const FAMILYSEARCH_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const FAMILYSEARCH_GENEALOGY_KEYWORD_REGEX = /\b(genealog(?:y|ies)|family\s*tree|lineage)\b/i;
-const DEFAULT_GALLERY_VIDEO_ID = "aqz-KE-bpKQ";
-const COUNTRY_GALLERY_VIDEO_ID_BY_NAME = {
-  australia: "mWl65Qriw6A",
-  canada: "9Auq9mYxFEE",
-  india: "35npVaFGHMY",
-  "new zealand": "fHCemviY06Y",
-  "south africa": "4N5vBf2M6fQ",
-};
+const COUNTRY_MEDIA_BY_NAME = countryMedia;
 const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   "antigua and barbuda": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/antigua-and-barbuda",
   australia: "https://www.familysearch.org/en/search/location/australia-&-new-zealand/australia",
@@ -1957,6 +1963,9 @@ function WorldGeoLayer({
 }
 
 export default function App() {
+  const [explorerId] = useState(getOrCreateExplorerId);
+  const { createPass, updateAllPasses, hasPass, getSerial, isLoading: isWalletLoading, error: walletError } = useWalletPass();
+
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMenuClosing, setIsMenuClosing] = useState(false);
@@ -1978,6 +1987,7 @@ export default function App() {
   const [familySearchCollections, setFamilySearchCollections] = useState([]);
   const [familySearchQrDestination, setFamilySearchQrDestination] = useState(null);
   const [lightboxItem, setLightboxItem] = useState(null);
+  const [viewedVideoIds, setViewedVideoIds] = useState(new Set());
   const [showGalleryNavigation, setShowGalleryNavigation] = useState(false);
   const [galleryActiveIndex, setGalleryActiveIndex] = useState(0);
   const [isFamilySearchCacheReady, setIsFamilySearchCacheReady] = useState(false);
@@ -1986,7 +1996,11 @@ export default function App() {
   const [recordCollectionsDisplayLimit, setRecordCollectionsDisplayLimit] = useState(3);
   const [validatedHeroImage, setValidatedHeroImage] = useState(null);
   // Use a ref (not state) for scroll-driven morph so onScroll never triggers a React re-render
-  const isPanelScrolledRef = useRef(false);
+  const heroScrollRafRef = useRef(null);
+  const heroOuterRef = useRef(null);
+  const heroGlassRef = useRef(null);
+  const panelScrolledRef = useRef(false);
+  const [isPanelScrolled, setIsPanelScrolled] = useState(false);
   const [isIdleAttractMode, setIsIdleAttractMode] = useState(true);
   const [isButtonTransitioning, setIsButtonTransitioning] = useState(false);
   const [mapOnlyStartTime, setMapOnlyStartTime] = useState(null);
@@ -2044,6 +2058,39 @@ export default function App() {
   const achievementUnlockTimeoutRef = useRef(null);
   const voyagerAuraIntervalRef = useRef(null);
   const voyagerAuraTimeoutRef = useRef(null);
+
+  const thumbnailsTrackRef = useRef(null);
+  const updateScrollFades = (track) => {
+    if (!track) return;
+    const { scrollLeft, scrollWidth, clientWidth } = track;
+    const isAtStart = scrollLeft <= 5;
+    const isAtEnd = scrollLeft + clientWidth >= scrollWidth - 5;
+    const isScrollable = scrollWidth > clientWidth;
+
+    if (!isScrollable) {
+      track.classList.remove("fade-left", "fade-right");
+    } else {
+      if (isAtStart) {
+        track.classList.remove("fade-left");
+        track.classList.add("fade-right");
+      } else if (isAtEnd) {
+        track.classList.add("fade-left");
+        track.classList.remove("fade-right");
+      } else {
+        track.classList.add("fade-left");
+        track.classList.add("fade-right");
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (thumbnailsTrackRef.current) {
+      const timer = setTimeout(() => {
+        updateScrollFades(thumbnailsTrackRef.current);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [lightboxItem]);
 
   const commonwealthCountries = [...countries].sort((a, b) => a.name.localeCompare(b.name));
   const filteredCountries = commonwealthCountries.filter((country) =>
@@ -2280,6 +2327,11 @@ export default function App() {
       const nextVisitedCountries = [...visitedVoyagerCountriesRef.current, voyagerCountryKey];
       visitedVoyagerCountriesRef.current = nextVisitedCountries;
       setVisitedVoyagerCountries(nextVisitedCountries);
+      updateAllPasses({
+        totalVisited: nextVisitedCountries.length,
+        visitedNames: nextVisitedCountries,
+        userId: explorerId,
+      });
 
       clearVoyagerProgressTimers();
 
@@ -2343,7 +2395,7 @@ export default function App() {
     setIsOverlayVisible(false);
     setIsContentVisible(false);
     // Reset scroll-morph state imperatively — no re-render needed
-    isPanelScrolledRef.current = false;
+    panelScrolledRef.current = false;
     setActivatedCountryName(null);
 
     const hasCachedCollections = Object.prototype.hasOwnProperty.call(
@@ -3805,35 +3857,49 @@ export default function App() {
   const selectedCountryNormalizedName = selectedCountry
     ? normalizeName(selectedCountry.name)
     : "";
-  const galleryVideoId = selectedCountry
-    ? COUNTRY_GALLERY_VIDEO_ID_BY_NAME[selectedCountryNormalizedName] || DEFAULT_GALLERY_VIDEO_ID
-    : null;
-  const galleryItems = selectedCountry
-    ? [
-      {
-        id: `${selectedCountry.name}-photo-main`,
-        type: "photo",
-        title: `${selectedCountry.name} Photo`,
-        thumbnailUrl: validatedHeroImage || selectedCountryHeroImage,
-        sourceUrl: validatedHeroImage || selectedCountryHeroImage,
-      },
-      ...(selectedCountry.countryCode ? [{
-        id: `${selectedCountry.name}-photo-flag`,
-        type: "photo",
-        title: `${selectedCountry.name} Flag`,
-        thumbnailUrl: `https://flagcdn.com/w640/${selectedCountry.countryCode}.png`,
-        sourceUrl: `https://flagcdn.com/w1280/${selectedCountry.countryCode}.png`,
-      }] : []),
-      {
-        id: `${selectedCountry.name}-video`,
-        type: "video",
-        title: `${selectedCountry.name} Video`,
-        thumbnailUrl: `https://img.youtube.com/vi/${galleryVideoId}/hqdefault.jpg`,
-        sourceUrl: `https://www.youtube.com/watch?v=${galleryVideoId}`,
-        videoId: galleryVideoId,
-      },
-    ]
+  const extractYoutubeId = (url = '') => {
+    if (!url) return null;
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/);
+    return match ? match[1] : null;
+  };
+
+  const countryMediaItems = selectedCountry
+    ? (COUNTRY_MEDIA_BY_NAME[selectedCountry.name] || [])
     : [];
+  const galleryItems = countryMediaItems.reduce((acc, item, index) => {
+    const baseId = `${selectedCountry.name}-media-${index}`;
+    const youtubeId = item.videoId || extractYoutubeId(item.url);
+
+    if (item.type === 'video' && youtubeId) {
+      acc.push({
+        id: baseId,
+        type: 'video',
+        title: item.title || `${selectedCountry.name} Video`,
+        description: item.description || '',
+        credit: item.credit || '',
+        thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
+        sourceUrl: item.url,
+        videoId: youtubeId,
+      });
+      return acc;
+    }
+
+    if (item.type === 'photo' && item.imageUrl) {
+      acc.push({
+        id: baseId,
+        type: 'photo',
+        title: item.title || `${selectedCountry.name} Photo`,
+        description: item.description || '',
+        credit: item.credit || '',
+        thumbnailUrl: item.imageUrl,
+        sourceUrl: item.imageUrl || item.url,
+      });
+      return acc;
+    }
+
+    // Skip items that are neither valid videos nor valid photos
+    return acc;
+  }, []);
   const lightboxIndex = lightboxItem
     ? galleryItems.findIndex((item) => item.id === lightboxItem.id)
     : -1;
@@ -4696,11 +4762,11 @@ export default function App() {
                 gap: (isAttractMode || isPanelOpen) ? "0px" : "4px",
                 padding: "6px", // Larger outer padding
                 borderRadius: "999px",
-                border: "1px solid rgba(255,255,255,0.5)",
-                background: "rgba(255, 255, 255, 0.4)",
-                backdropFilter: "blur(32px) saturate(200%)",
-                WebkitBackdropFilter: "blur(32px) saturate(200%)",
-                boxShadow: "0 18px 40px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.35)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(25, 25, 30, 0.65)",
+                backdropFilter: "blur(40px) saturate(220%)",
+                WebkitBackdropFilter: "blur(40px) saturate(220%)",
+                boxShadow: "0 20px 50px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15)",
                 pointerEvents: isExploreButtonVisible ? "auto" : "none",
                 transition: `opacity ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}, filter ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}`,
                 opacity: isExploreButtonVisible ? 1 : 0,
@@ -4728,19 +4794,20 @@ export default function App() {
                   padding: (isAttractMode || hideRecentre) ? "10px 20px" : "10px 22px 10px 18px", // Symmetric when recentre is hidden
                   borderRadius: "999px",
                   border: "none",
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.2) 100%)",
-                  color: "rgba(15,23,42,0.95)",
+                  background: "linear-gradient(180deg, rgba(135, 185, 64, 0.85) 0%, rgba(115, 160, 50, 0.85) 100%)",
+                  color: "#ffffff",
                   fontSize: "1.12rem", // Larger font size
                   fontWeight: 700, // Stronger weight
                   cursor: "pointer",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.4)",
+                  boxShadow: "0 4px 14px rgba(135, 185, 64, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
+                  textShadow: "0 1px 2px rgba(0, 0, 0, 0.2)",
                   transition: "all 200ms ease"
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.35) 100%)";
+                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(145, 195, 74, 0.95) 0%, rgba(125, 170, 60, 0.95) 100%)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.2) 100%)";
+                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(135, 185, 64, 0.85) 0%, rgba(115, 160, 50, 0.85) 100%)";
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -4785,11 +4852,11 @@ export default function App() {
                       borderRadius: "50%",
                       border: "none",
                       background: "transparent",
-                      color: "rgba(15,23,42,0.85)",
+                      color: "rgba(255,255,255,0.95)",
                       cursor: "pointer",
                       transition: "background 200ms ease"
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.3)"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.15)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                   >
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -4851,47 +4918,63 @@ export default function App() {
           </div>
         </div>
 
-        {/* HOVERED COUNTRY HUD OVERLAY (Floating cursor tooltip) */}
-        {hoveredCountryPos && (
-          <div
-            style={{
-              position: "fixed",
-              left: `${hoveredCountryPos.x}px`,
-              top: `${hoveredCountryPos.y - 28}px`,
-              transform: hoveredCountry && !isAttractMode
-                ? "translateX(-50%) translateY(-50%) scale(1)"
-                : "translateX(-50%) translateY(-50%) scale(0.85)",
-              opacity: hoveredCountry && !isAttractMode ? 1 : 0,
-              pointerEvents: "none",
-              zIndex: 920,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "5px 14px",
-              borderRadius: "999px",
-              border: "1px solid rgba(255,255,255,0.5)",
-              background: "rgba(255, 255, 255, 0.45)",
-              backdropFilter: "blur(32px) saturate(200%)",
-              WebkitBackdropFilter: "blur(32px) saturate(200%)",
-              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.35)",
-              transition: "left 120ms cubic-bezier(0.22, 1, 0.36, 1), top 120ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1)",
-            }}
-          >
-            <span
+        {hoveredCountryPos && (() => {
+          const countryObj = countries.find(c => c.name.toLowerCase() === (hoveredCountry || "").toLowerCase());
+          const flagCode = countryObj?.countryCode?.toLowerCase();
+          return (
+            <div
               style={{
-                fontFamily: "'Roboto Slab', Georgia, serif",
-                fontSize: "0.85rem",
-                fontWeight: 600,
-                letterSpacing: "0.02em",
-                color: "#0f172a", // High contrast slate
-                textAlign: "center",
-                whiteSpace: "nowrap",
+                position: "fixed",
+                left: `${hoveredCountryPos.x}px`,
+                top: `${hoveredCountryPos.y - 28}px`,
+                transform: hoveredCountry && !isAttractMode
+                  ? "translateX(-50%) translateY(-50%) scale(1)"
+                  : "translateX(-50%) translateY(-50%) scale(0.85)",
+                opacity: hoveredCountry && !isAttractMode ? 1 : 0,
+                pointerEvents: "none",
+                zIndex: 920,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "6px 14px",
+                borderRadius: "999px",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                background: "rgba(20, 20, 25, 0.75)",
+                backdropFilter: "blur(20px) saturate(180%)",
+                WebkitBackdropFilter: "blur(20px) saturate(180%)",
+                boxShadow: "0 10px 25px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
+                transition: "left 120ms cubic-bezier(0.22, 1, 0.36, 1), top 120ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1)",
               }}
             >
-              {hoveredCountry}
-            </span>
-          </div>
-        )}
+              {flagCode && (
+                <img
+                  src={`https://flagcdn.com/w40/${flagCode}.png`}
+                  alt=""
+                  style={{
+                    width: "16px",
+                    height: "11px",
+                    borderRadius: "2px",
+                    objectFit: "cover",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  }}
+                />
+              )}
+              <span
+                style={{
+                  fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'SF Pro', 'Inter', sans-serif",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  letterSpacing: "0.01em",
+                  color: "rgba(255, 255, 255, 0.96)",
+                  textAlign: "center",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {hoveredCountry}
+              </span>
+            </div>
+          );
+        })()}
 
         {/* VOYAGER PROGRESS - Top right corner */}
         {!isAttractMode ? (
@@ -5464,15 +5547,137 @@ export default function App() {
             </button>
           ) : null}
 
+          {/* ── HERO ── Outside the scroll container so its height change never
+              affects scrollTop. The scroll handler drives height + glass opacity
+              via direct DOM refs — zero React re-render, zero jitter. */}
+          {selectedCountry ? (
+            <div
+              key={`hero-${selectedCountry.name}-${heroMotionSeed}`}
+              ref={heroOuterRef}
+              style={{
+                flexShrink: 0,
+                height: "348px",
+                position: "relative",
+                overflow: "hidden",
+                borderRadius: "32px 32px 0 0",
+                ...getRevealStyle(0),
+              }}
+            >
+              {/* Background image */}
+              <img
+                className="country-hero-image"
+                src={validatedHeroImage || selectedCountryHeroImage}
+                alt=""
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center 30%",
+                  display: "block",
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: 0,
+                  willChange: "transform",
+                }}
+              />
+              {/* Gradient overlay */}
+              <div style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.78) 100%)",
+                zIndex: 1,
+              }} />
+              {/* Glass blur — fades in as user scrolls */}
+              <div
+                ref={heroGlassRef}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(15, 23, 42, 0.45)",
+                  backdropFilter: "blur(16px)",
+                  WebkitBackdropFilter: "blur(16px)",
+                  opacity: 0,
+                  zIndex: 2,
+                  pointerEvents: "none",
+                }}
+              />
+              {/* Flag + Title + Member since — pinned to bottom */}
+              <div style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                zIndex: 4,
+                padding: `1.4rem ${STORY_CARD_SIDE_PADDING}`,
+              }}>
+                {selectedCountry.countryCode && (
+                  <img
+                    src={`https://flagcdn.com/w40/${selectedCountry.countryCode}.png`}
+                    alt=""
+                    style={{
+                      width: "26px", height: "17px", borderRadius: "4px",
+                      objectFit: "cover", border: "1px solid rgba(255,255,255,0.4)",
+                      boxShadow: "0 2px 12px rgba(0,0,0,0.3)", opacity: 0.92,
+                    }}
+                  />
+                )}
+                <h2 style={{
+                  margin: "0.4rem 0 0",
+                  fontSize: "2.8rem",
+                  lineHeight: 1.02,
+                  fontWeight: 700,
+                  color: "#fff",
+                  textShadow: "0 2px 8px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.25)",
+                  letterSpacing: "-0.02em",
+                  opacity: isContentVisible ? 1 : 0,
+                  transform: isContentVisible ? "translateY(0)" : "translateY(24px)",
+                  transition: `opacity 550ms ${springEase}, transform 550ms ${springEase}`,
+                  transitionDelay: isContentVisible ? "100ms" : "0ms",
+                }}>
+                  {selectedCountry.name}
+                </h2>
+                {selectedCountryMetadata?.memberSince ? (
+                  <div style={{
+                    fontSize: "0.65rem", fontWeight: 600, color: "#97d749",
+                    letterSpacing: "0.12em", textTransform: "uppercase",
+                    textShadow: "0 1px 4px rgba(0,0,0,0.5)",
+                    pointerEvents: "none", marginTop: "0.35rem", lineHeight: 1.4,
+                  }}>
+                    Member since {selectedCountryMetadata.memberSince}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
           <div
             className="floating-story-card-scroll"
             onScroll={(e) => {
-              const scrollTop = e.currentTarget.scrollTop;
-              e.currentTarget.style.setProperty('--scroll-y', Math.max(0, scrollTop));
-              const scrolled = scrollTop > 20;
-              if (scrolled !== isPanelScrolledRef.current) {
-                isPanelScrolledRef.current = scrolled;
+              const node = e.currentTarget;
+              const scrollTop = node.scrollTop;
+
+              if (heroScrollRafRef.current) {
+                cancelAnimationFrame(heroScrollRafRef.current);
               }
+
+              heroScrollRafRef.current = requestAnimationFrame(() => {
+                // Animate hero height via DOM ref — no React re-render, no jitter
+                if (heroOuterRef.current) {
+                  const newHeight = Math.max(130, 348 - scrollTop);
+                  heroOuterRef.current.style.height = `${newHeight}px`;
+                }
+                // Fade in glass blur as hero compresses
+                if (heroGlassRef.current) {
+                  heroGlassRef.current.style.opacity = Math.min(1, scrollTop / 128).toFixed(3);
+                }
+
+                const scrolled = scrollTop > 20;
+                if (panelScrolledRef.current !== scrolled) {
+                  panelScrolledRef.current = scrolled;
+                  setIsPanelScrolled(scrolled);
+                }
+
+                heroScrollRafRef.current = null;
+              });
             }}
             style={{
               width: "100%",
@@ -5483,122 +5688,7 @@ export default function App() {
               boxSizing: "border-box",
             }}
           >
-            {/* --- DYNAMIC STICKY HERO HEADER --- */}
-            {selectedCountry ? (
-              <div
-                key={`hero-${selectedCountry.name}-${heroMotionSeed}`}
-                style={{
-                  borderRadius: "32px 32px 0 0",
-                  overflow: "hidden",
-                  height: "300px", // Taller height to allow scrolling before sticking
-                  flexShrink: 0,
-                  display: "flex",
-                  flexDirection: "row", // Side-by-side flex flow to eliminate overlaps
-                  justifyContent: "space-between",
-                  alignItems: "flex-end",
-                  padding: `1.4rem ${STORY_CARD_SIDE_PADDING}`,
-                  position: "sticky",
-                  top: "-200px", // Scrolls up 200px then sticks, leaving 100px at the top
-                  gap: "1.5rem",
-                  zIndex: 10,
-                  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.1)",
-                  ...getRevealStyle(0),
-                }}
-              >
-                {/* 1. Parallax Background Image */}
-                <div style={{
-                  position: "absolute",
-                  inset: 0,
-                  backgroundImage: `url(${validatedHeroImage || selectedCountryHeroImage})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center 30%",
-                  zIndex: 0,
-                  transform: "translateY(calc(var(--scroll-y, 0) * 0.4px))",
-                }} />
-
-                {/* 2. Base Gradient Overlay for Text Contrast */}
-                <div style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.75) 100%)",
-                  zIndex: 1,
-                }} />
-
-                {/* 3. Apple-Style Glass Blur (Fades in seamlessly as it becomes sticky) */}
-                <div style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "rgba(15, 23, 42, 0.35)",
-                  backdropFilter: "blur(16px)",
-                  WebkitBackdropFilter: "blur(16px)",
-                  opacity: "clamp(0, calc(var(--scroll-y, 0) / 200), 1)",
-                  zIndex: 2,
-                  pointerEvents: "none",
-                  transition: "opacity 0.1s linear",
-                }} />
-
-                {/* Left-side: Flag, Title, and Member since text */}
-                <div style={{ 
-                  position: "relative", 
-                  zIndex: 4, 
-                  flex: 1, 
-                  minWidth: 0,
-                  transform: "scale(clamp(0.85, 1 - (var(--scroll-y, 0) / 1333), 1))",
-                  transformOrigin: "left bottom",
-                }}>
-                  {selectedCountry.countryCode && (
-                    <img
-                      src={`https://flagcdn.com/w40/${selectedCountry.countryCode}.png`}
-                      alt=""
-                      style={{
-                        width: "26px",
-                        height: "17px",
-                        borderRadius: "4px",
-                        objectFit: "cover",
-                        border: "1px solid rgba(255,255,255,0.4)",
-                        boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-                        opacity: 0.92,
-                      }}
-                    />
-                  )}
-                  <h2
-                    style={{
-                      margin: "0.4rem 0 0",
-                      fontSize: "2.8rem",
-                      lineHeight: 1.02,
-                      fontWeight: 700,
-                      color: "#fff",
-                      textShadow: "0 2px 8px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.25)",
-                      letterSpacing: "-0.02em",
-                      opacity: isContentVisible ? 1 : 0,
-                      transform: isContentVisible ? "translateY(0)" : "translateY(24px)",
-                      transition: `opacity 550ms ${springEase}, transform 550ms ${springEase}`,
-                      transitionDelay: isContentVisible ? "100ms" : "0ms",
-                    }}
-                  >
-                    {selectedCountry.name}
-                  </h2>
-                  {selectedCountryMetadata?.memberSince ? (
-                    <div
-                      style={{
-                        fontSize: "0.65rem",
-                        fontWeight: 600,
-                        color: "#97d749",
-                        letterSpacing: "0.12em",
-                        textTransform: "uppercase",
-                        textShadow: "0 1px 4px rgba(0,0,0,0.5)",
-                        pointerEvents: "none",
-                        marginTop: "0.35rem",
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      Member since {selectedCountryMetadata.memberSince}
-                    </div>
-                  ) : null}
-                </div>
-
-              </div>
-            ) : null}
+            {/* Hero is now above the scroll container — see sibling div */}
 
             {selectedCountry ? (
               <div
@@ -5724,7 +5814,8 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Gallery before reading content */}
+                {/* Gallery — only show when the country has media items */}
+                {galleryItems.length > 0 ? (
                 <div
                   style={{
                     display: "flex",
@@ -5787,51 +5878,75 @@ export default function App() {
                             border: "none",
                             background: "transparent",
                             padding: 0,
-                            borderRadius: "14px",
-                            overflow: "hidden",
+                            borderRadius: "16px",
+                            overflow: "visible",
                             cursor: "pointer",
                             position: "relative",
-                            flex: "0 0 76%",
+                            flex: "0 0 72%",
                             minWidth: "0",
-                            height: "182px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "0.55rem",
                             transform: "translateY(0)",
-                            transition: "transform 240ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, filter 240ms ease",
-                            boxShadow: index === galleryActiveIndex
-                              ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
-                              : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)",
+                            transition: "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)",
                             scrollSnapAlign: "center",
                             opacity: index === galleryActiveIndex ? 1 : 0.72,
                             filter: index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)",
                           }}
                           onMouseEnter={(event) => {
                             event.currentTarget.style.transform = "translateY(-2px)";
-                            event.currentTarget.style.boxShadow = "0 20px 38px rgba(15,23,42,0.42), inset 0 0 0 1px rgba(255,255,255,0.26)";
                             event.currentTarget.style.opacity = "1";
                             event.currentTarget.style.filter = "saturate(1.12)";
                           }}
                           onMouseLeave={(event) => {
                             event.currentTarget.style.transform = "translateY(0)";
-                            event.currentTarget.style.boxShadow = index === galleryActiveIndex
-                              ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
-                              : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)";
                             event.currentTarget.style.opacity = index === galleryActiveIndex ? "1" : "0.72";
                             event.currentTarget.style.filter = index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)";
                           }}
                         >
-                          <img
-                            src={item.thumbnailUrl}
-                            alt={item.title}
-                            style={{ width: "100%", height: "100%", objectFit: "cover", background: "#1a1a1a", display: "block" }}
-                          />
-                          {item.type === "video" ? (
-                            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(255,255,255,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="#c4302b">
-                                  <path d="M8 5v14l11-7z" />
-                                </svg>
+                          <div style={{
+                            borderRadius: "14px",
+                            overflow: "hidden",
+                            aspectRatio: "32 / 9",
+                            position: "relative",
+                            transform: "translate3d(0, 0, 0)",
+                            WebkitTransform: "translate3d(0, 0, 0)",
+                            isolation: "isolate",
+                            boxShadow: index === galleryActiveIndex
+                              ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
+                              : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)",
+                            transition: "box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1)",
+                          }}>
+                            <img
+                              src={item.thumbnailUrl}
+                              alt={item.title}
+                              style={{ width: "100%", height: "100%", objectFit: "cover", background: "#1a1a1a", display: "block", borderRadius: "inherit" }}
+                            />
+                            {item.type === "video" ? (
+                              <div style={{ position: "absolute", inset: 0, borderRadius: "inherit", background: "linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(255,255,255,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="#c4302b">
+                                    <path d="M8 5v14l11-7z" />
+                                  </svg>
+                                </div>
                               </div>
-                            </div>
-                          ) : null}
+                            ) : null}
+                          </div>
+                          <div style={{
+                            fontSize: "0.8rem",
+                            fontWeight: 600,
+                            color: index === galleryActiveIndex ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.6)",
+                            lineHeight: 1.3,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            textAlign: "left",
+                            paddingLeft: "4px",
+                            transition: "color 240ms ease",
+                          }}>
+                            {item.title}
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -5938,6 +6053,7 @@ export default function App() {
                     </div>
                   ) : null}
                 </div>
+                ) : null}
 
                 {/* Overview + Statistics in editorial two-column */}
                 <div style={{ padding: `0 ${STORY_CARD_SIDE_PADDING} 2rem`, ...getRevealStyle(4) }}>
@@ -6025,6 +6141,18 @@ export default function App() {
             unlocked={achievementUnlocked}
             onClose={() => setAchievementUnlocked(null)}
             onViewCertificate={openCertificateFlow}
+            onAddToWallet={() => {
+              createPass({
+                milestone: achievementUnlocked.count,
+                totalVisited: visitedVoyagerCountries.length,
+                visitedNames: visitedVoyagerCountries,
+                heroImageUrl: null,
+                userId: explorerId
+              });
+            }}
+            isWalletLoading={isWalletLoading}
+            walletError={walletError}
+            hasWalletPass={hasPass(achievementUnlocked.count)}
           />
         ) : null}
 
@@ -6071,71 +6199,245 @@ export default function App() {
             style={{
               position: "fixed",
               inset: 0,
-              background: "rgba(0, 0, 0, 0.82)",
+              background: "rgba(0, 0, 0, 0.88)",
               zIndex: 9999,
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              padding: "1.25rem",
+              padding: "2rem",
+              backdropFilter: "blur(40px)",
+              WebkitBackdropFilter: "blur(40px)",
             }}
           >
             <div
               onClick={(event) => event.stopPropagation()}
-              style={{
-                width: "min(1000px, 96vw)",
-                maxHeight: "92vh",
-                background: "#111",
-                borderRadius: "14px",
-                overflow: "hidden",
-                boxShadow: "0 18px 45px rgba(0,0,0,0.4)",
-                position: "relative",
-              }}
+              className="lightbox-outer-row"
+              style={{ position: "relative" }}
             >
-              {hasGalleryNavigation ? (
-                <>
-                  <button
-                    onClick={showPreviousLightboxItem}
-                    style={{ position: "absolute", left: "0.55rem", top: "50%", transform: "translateY(-50%)", width: "38px", height: "38px", borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: "1.3rem", cursor: "pointer", zIndex: 2 }}
-                    aria-label="Previous media"
-                  >
-                    ‹
-                  </button>
-                  <button
-                    onClick={showNextLightboxItem}
-                    style={{ position: "absolute", right: "0.55rem", top: "50%", transform: "translateY(-50%)", width: "38px", height: "38px", borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: "1.3rem", cursor: "pointer", zIndex: 2 }}
-                    aria-label="Next media"
-                  >
-                    ›
-                  </button>
-                </>
-              ) : null}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 0.9rem", color: "#e8ece8", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
-                <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>{lightboxItem.title}</div>
-                <button
-                  onClick={() => setLightboxItem(null)}
-                  style={{ border: "none", background: "transparent", color: "#e8ece8", fontSize: "1.25rem", cursor: "pointer", lineHeight: 1 }}
-                  aria-label="Close media"
-                >
-                  ×
-                </button>
+              {/* Glass Close Button (positioned absolute at top-right of the whole lightbox modal) */}
+              <button
+                onClick={() => setLightboxItem(null)}
+                style={{
+                  position: "absolute",
+                  top: "1.15rem",
+                  right: "1.15rem",
+                  width: "30px",
+                  height: "30px",
+                  borderRadius: "50%",
+                  border: "none",
+                  background: "rgba(255, 255, 255, 0.15)",
+                  color: "#fff",
+                  fontSize: "1.2rem",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 200ms ease",
+                  backdropFilter: "blur(10px)",
+                  WebkitBackdropFilter: "blur(10px)",
+                  boxShadow: "0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 12px rgba(0,0,0,0.2)",
+                  zIndex: 99,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.25)";
+                  e.currentTarget.style.transform = "scale(1.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              {/* Main Content Row: Left Column (Media + Thumbnails) + Right Sidebar (Details) */}
+              <div className="lightbox-content-row" style={{ display: "flex", flexDirection: "row", flex: 1, minHeight: 0 }}>
+                {/* Left Column (Video/Photo Player + Thumbnails Carousel) */}
+                <div className="lightbox-left-column">
+                  {/* Player wrapper */}
+                  <div style={{
+                    position: "relative",
+                    borderRadius: "16px",
+                    overflow: "hidden",
+                    boxShadow: "0 20px 50px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.12)",
+                    background: "#000",
+                    width: "100%",
+                    flexShrink: 0,
+                  }}>
+                    {lightboxItem.type === "video" ? (
+                      <div style={{ position: "relative", paddingTop: "56.25%" }}>
+                        <iframe
+                          src={`https://www.youtube.com/embed/${lightboxItem.videoId}?autoplay=1&rel=0&modestbranding=1&controls=0&showinfo=0&iv_load_policy=3&cc_load_policy=0`}
+                          title={lightboxItem.title}
+                          allow="autoplay; encrypted-media; picture-in-picture"
+                          allowFullScreen
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            width: "100%",
+                            height: "100%",
+                            border: "none",
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <img
+                        src={lightboxItem.sourceUrl}
+                        alt={lightboxItem.title}
+                        style={{ width: "100%", maxHeight: "50vh", objectFit: "contain", display: "block" }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Horizontal Playlist Thumbnails Dock underneath player */}
+                  {galleryItems.length > 1 ? (
+                    <div className="lightbox-thumbnails-row" style={{ flexShrink: 0 }}>
+                      <div
+                        ref={thumbnailsTrackRef}
+                        className="lightbox-thumbnails-track fade-right"
+                        onScroll={(e) => updateScrollFades(e.currentTarget)}
+                      >
+                        {(() => {
+                          const sortedGalleryItems = [...galleryItems].sort((a, b) => {
+                            if (a.id === lightboxItem.id) return -1;
+                            if (b.id === lightboxItem.id) return 1;
+                            return 0;
+                          });
+                          return sortedGalleryItems.map((item) => {
+                            const isActive = item.id === lightboxItem.id;
+                            const isViewed = viewedVideoIds.has(item.id);
+                            return (
+                              <button
+                                key={item.id}
+                                onClick={() => {
+                                  setViewedVideoIds(prev => {
+                                    const next = new Set(prev);
+                                    next.add(item.id);
+                                    return next;
+                                  });
+                                  setLightboxItem(item);
+                                }}
+                                className={`lightbox-thumbnail-btn ${isActive ? 'active' : ''}`}
+                                title={item.title}
+                              >
+                                <img
+                                  src={item.thumbnailUrl}
+                                  alt=""
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    filter: (!isActive && isViewed) ? "grayscale(100%) opacity(0.65)" : "none",
+                                    transition: "filter 300ms ease",
+                                  }}
+                                />
+                                {item.type === 'video' ? (
+                                  <div style={{
+                                    position: "absolute",
+                                    inset: 0,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    background: "rgba(0,0,0,0.3)",
+                                  }}>
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style={{ color: "#fff", margin: "auto" }}>
+                                      <path d="M8 5v14l11-7z"/>
+                                    </svg>
+                                  </div>
+                                ) : null}
+                              </button>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Right Sidebar (Header: flag; Body: title + description scroll + credit) */}
+                <div className="lightbox-sidebar">
+                  {/* Sidebar Header */}
+                  <div className="lightbox-sidebar-header">
+                    {/* Flag Badge Pill */}
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.45rem",
+                      padding: "0.35rem 0.65rem",
+                      borderRadius: "999px",
+                      background: "rgba(255, 255, 255, 0.06)",
+                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                    }}>
+                      {selectedCountry.countryCode && (
+                        <img
+                          src={`https://flagcdn.com/w40/${selectedCountry.countryCode}.png`}
+                          alt=""
+                          style={{
+                            width: "18px",
+                            height: "12px",
+                            borderRadius: "2px",
+                            objectFit: "cover",
+                          }}
+                        />
+                      )}
+                      <span style={{
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        color: "rgba(255, 255, 255, 0.85)",
+                        letterSpacing: "0.02em",
+                      }}>
+                        {selectedCountry.name}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Sidebar Body */}
+                  <div className="lightbox-sidebar-body" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+                    <h2 style={{
+                      fontSize: "1.15rem",
+                      fontWeight: 700,
+                      color: "#fff",
+                      margin: "0 0 0.5rem 0",
+                      lineHeight: 1.35,
+                      flexShrink: 0,
+                    }}>
+                      {lightboxItem.title}
+                    </h2>
+
+                    {/* Apple-like scrolling description wrapper with vertical fade effect */}
+                    <div className="lightbox-desc-wrapper lightbox-desc-fade-scroll">
+                      <div className="lightbox-desc-container">
+                        <div style={{
+                          fontSize: "0.88rem",
+                          color: "rgba(255, 255, 255, 0.72)",
+                          lineHeight: 1.55,
+                          whiteSpace: "pre-wrap",
+                          paddingBottom: "1.5rem",
+                        }}>
+                          {lightboxItem.description}
+                        </div>
+                      </div>
+                    </div>
+
+                    {lightboxItem.credit ? (
+                      <div style={{
+                        fontSize: "0.75rem",
+                        color: "rgba(255, 255, 255, 0.38)",
+                        fontStyle: "italic",
+                        marginTop: "auto",
+                        paddingTop: "0.85rem",
+                        borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+                        flexShrink: 0,
+                      }}>
+                        {lightboxItem.credit}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-              <div style={{ background: "#000" }}>
-                {lightboxItem.type === "video" ? (
-                  <iframe
-                    src={`https://www.youtube.com/embed/${lightboxItem.videoId}?autoplay=1&rel=0`}
-                    title={lightboxItem.title}
-                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                    allowFullScreen
-                    style={{ width: "100%", aspectRatio: "16 / 9", border: "none", display: "block" }}
-                  />
-                ) : (
-                  <img
-                    src={lightboxItem.sourceUrl}
-                    alt={lightboxItem.title}
-                    style={{ width: "100%", maxHeight: "80vh", objectFit: "contain", display: "block" }}
-                  />
-                )}
-              </div>
+
             </div>
           </div>
         ) : null}

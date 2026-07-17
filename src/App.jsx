@@ -12,6 +12,7 @@ import familysearchLogo from './assets/familysearch-tree.svg';
 import FamilySearchQrModal from './components/FamilySearchQrModal';
 import ukBoundaries from './data/uk_boundaries.json';
 import { BADGE_ICONS } from './components/certificate/badges';
+import countryMedia from './data/media_data.json';
 
 // Format population number (e.g., 5771000 → "5.8 million")
 function formatPopulation(pop) {
@@ -112,14 +113,8 @@ const FAMILYSEARCH_FETCH_MIRROR_BASE_URL = "https://r.jina.ai/http://www.familys
 const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v8";
 const FAMILYSEARCH_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const FAMILYSEARCH_GENEALOGY_KEYWORD_REGEX = /\b(genealog(?:y|ies)|family\s*tree|lineage)\b/i;
-const DEFAULT_GALLERY_VIDEO_ID = "aqz-KE-bpKQ";
-const COUNTRY_GALLERY_VIDEO_ID_BY_NAME = {
-  australia: "mWl65Qriw6A",
-  canada: "9Auq9mYxFEE",
-  india: "35npVaFGHMY",
-  "new zealand": "fHCemviY06Y",
-  "south africa": "4N5vBf2M6fQ",
-};
+
+const COUNTRY_MEDIA_BY_NAME = countryMedia;
 const FAMILYSEARCH_LOCATION_URL_BY_COUNTRY = {
   "antigua and barbuda": "https://www.familysearch.org/en/search/location/caribbean-and-central-america/antigua-and-barbuda",
   australia: "https://www.familysearch.org/en/search/location/australia-&-new-zealand/australia",
@@ -1886,13 +1881,21 @@ export default function App() {
   const [familySearchCollections, setFamilySearchCollections] = useState([]);
   const [familySearchQrDestination, setFamilySearchQrDestination] = useState(null);
   const [lightboxItem, setLightboxItem] = useState(null);
+  const [viewedVideoIds, setViewedVideoIds] = useState(new Set());
   const [showGalleryNavigation, setShowGalleryNavigation] = useState(false);
   const [galleryActiveIndex, setGalleryActiveIndex] = useState(0);
   const [isFamilySearchCacheReady, setIsFamilySearchCacheReady] = useState(false);
   const [isOverviewExpanded, setIsOverviewExpanded] = useState(false);
   const [hasOverviewOverflow, setHasOverviewOverflow] = useState(false);
+  const [heroHeight, setHeroHeight] = useState(348);
+  const heroSpacerRef = useRef(null);
+  const [isCompactHeader, setIsCompactHeader] = useState(false);
+  const isCompactHeaderRef = useRef(false);
+  const heroOuterRef = useRef(null);
+  const heroGlassRef = useRef(null);
+  const heroScrollRafRef = useRef(null);
+  const storyCardScrollRef = useRef(null);
   const [recordCollectionsDisplayLimit, setRecordCollectionsDisplayLimit] = useState(3);
-  const [validatedHeroImage, setValidatedHeroImage] = useState(null);
   const [isIdleAttractMode, setIsIdleAttractMode] = useState(true);
   const [isButtonTransitioning, setIsButtonTransitioning] = useState(false);
   const [mapOnlyStartTime, setMapOnlyStartTime] = useState(null);
@@ -1943,6 +1946,39 @@ export default function App() {
   const achievementUnlockTimeoutRef = useRef(null);
   const voyagerAuraIntervalRef = useRef(null);
   const voyagerAuraTimeoutRef = useRef(null);
+
+  const thumbnailsTrackRef = useRef(null);
+  const updateScrollFades = (track) => {
+    if (!track) return;
+    const { scrollLeft, scrollWidth, clientWidth } = track;
+    const isAtStart = scrollLeft <= 5;
+    const isAtEnd = scrollLeft + clientWidth >= scrollWidth - 5;
+    const isScrollable = scrollWidth > clientWidth;
+
+    if (!isScrollable) {
+      track.classList.remove("fade-left", "fade-right");
+    } else {
+      if (isAtStart) {
+        track.classList.remove("fade-left");
+        track.classList.add("fade-right");
+      } else if (isAtEnd) {
+        track.classList.add("fade-left");
+        track.classList.remove("fade-right");
+      } else {
+        track.classList.add("fade-left");
+        track.classList.add("fade-right");
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (thumbnailsTrackRef.current) {
+      const timer = setTimeout(() => {
+        updateScrollFades(thumbnailsTrackRef.current);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [lightboxItem]);
 
   const commonwealthCountries = [...countries].sort((a, b) => a.name.localeCompare(b.name));
   const filteredCountries = commonwealthCountries.filter((country) =>
@@ -2122,6 +2158,12 @@ export default function App() {
     setIsPanelVisible(false);
     setIsOverlayVisible(false);
     setIsContentVisible(false);
+    setIsCompactHeader(false);
+    isCompactHeaderRef.current = false;
+    // Reset scroll + hero height so panel always opens in expanded state
+    if (storyCardScrollRef.current) storyCardScrollRef.current.scrollTop = 0;
+    if (heroOuterRef.current) heroOuterRef.current.style.height = "348px";
+    if (heroGlassRef.current) heroGlassRef.current.style.opacity = "0";
     setActivatedCountryName(null);
     setIsDockExpanding(false);
 
@@ -2275,6 +2317,12 @@ export default function App() {
     setIsPanelVisible(false);
     setIsOverlayVisible(false);
     setIsContentVisible(false);
+    setIsCompactHeader(false);
+    isCompactHeaderRef.current = false;
+    // Reset scroll + hero height so panel always opens in expanded state
+    if (storyCardScrollRef.current) storyCardScrollRef.current.scrollTop = 0;
+    if (heroOuterRef.current) heroOuterRef.current.style.height = "348px";
+    if (heroGlassRef.current) heroGlassRef.current.style.opacity = "0";
     setActivatedCountryName(null);
 
     const hasCachedCollections = Object.prototype.hasOwnProperty.call(
@@ -3109,39 +3157,6 @@ export default function App() {
   };
 
   const selectedCountryHeroImage = selectedCountry?.image || DEFAULT_HERO_IMAGE_URL;
-
-  useEffect(() => {
-    if (!selectedCountry) {
-      setValidatedHeroImage(null);
-      return;
-    }
-
-    let isActive = true;
-    // Use curated image from countries.json and only fall back if it fails to load.
-    const candidateUrl = selectedCountry.image || null;
-
-    setValidatedHeroImage(candidateUrl || DEFAULT_HERO_IMAGE_URL);
-
-    const validate = async () => {
-      if (candidateUrl) {
-        const candidateValid = await testImageUrl(candidateUrl);
-        if (!isActive) return;
-
-        if (candidateValid) {
-          return;
-        }
-      }
-
-      setValidatedHeroImage(DEFAULT_HERO_IMAGE_URL);
-    };
-
-    validate();
-
-    return () => {
-      isActive = false;
-    };
-  }, [selectedCountry?.name, selectedCountry?.image]);
-
   const getRevealStyle = (order, baseDelay = 0) => ({
     opacity: isContentVisible ? 1 : 0,
     transform: isContentVisible ? "translateY(0)" : "translateY(15px)",
@@ -3575,35 +3590,33 @@ export default function App() {
   const selectedCountryNormalizedName = selectedCountry
     ? normalizeName(selectedCountry.name)
     : "";
-  const galleryVideoId = selectedCountry
-    ? COUNTRY_GALLERY_VIDEO_ID_BY_NAME[selectedCountryNormalizedName] || DEFAULT_GALLERY_VIDEO_ID
-    : null;
-  const galleryItems = selectedCountry
-    ? [
-      {
-        id: `${selectedCountry.name}-photo-main`,
-        type: "photo",
-        title: `${selectedCountry.name} Photo`,
-        thumbnailUrl: validatedHeroImage || selectedCountryHeroImage,
-        sourceUrl: validatedHeroImage || selectedCountryHeroImage,
-      },
-      ...(selectedCountry.countryCode ? [{
-        id: `${selectedCountry.name}-photo-flag`,
-        type: "photo",
-        title: `${selectedCountry.name} Flag`,
-        thumbnailUrl: `https://flagcdn.com/w640/${selectedCountry.countryCode}.png`,
-        sourceUrl: `https://flagcdn.com/w1280/${selectedCountry.countryCode}.png`,
-      }] : []),
-      {
-        id: `${selectedCountry.name}-video`,
-        type: "video",
-        title: `${selectedCountry.name} Video`,
-        thumbnailUrl: `https://img.youtube.com/vi/${galleryVideoId}/hqdefault.jpg`,
-        sourceUrl: `https://www.youtube.com/watch?v=${galleryVideoId}`,
-        videoId: galleryVideoId,
-      },
-    ]
+  const countryMediaItems = selectedCountry
+    ? (COUNTRY_MEDIA_BY_NAME[selectedCountry.name] || [])
     : [];
+  const galleryItems = countryMediaItems.map((item, index) => {
+    const baseId = `${selectedCountry.name}-media-${index}`;
+    if (item.type === 'video' && item.videoId) {
+      return {
+        id: baseId,
+        type: 'video',
+        title: item.title || `${selectedCountry.name} Video`,
+        description: item.description || '',
+        credit: item.credit || '',
+        thumbnailUrl: `https://img.youtube.com/vi/${item.videoId}/hqdefault.jpg`,
+        sourceUrl: item.url,
+        videoId: item.videoId,
+      };
+    }
+    return {
+      id: baseId,
+      type: 'photo',
+      title: item.title || `${selectedCountry.name} Photo`,
+      description: item.description || '',
+      credit: item.credit || '',
+      thumbnailUrl: item.imageUrl || selectedCountryHeroImage,
+      sourceUrl: item.imageUrl || item.url,
+    };
+  });
   const lightboxIndex = lightboxItem
     ? galleryItems.findIndex((item) => item.id === lightboxItem.id)
     : -1;
@@ -4455,13 +4468,13 @@ export default function App() {
               display: "flex",
               alignItems: "center",
               gap: (isAttractMode || isPanelOpen) ? "0px" : "4px",
-              padding: "5px",
+              padding: "6px", // Larger outer padding
               borderRadius: "999px",
-              border: "1px solid rgba(255,255,255,0.5)",
-              background: "rgba(255, 255, 255, 0.4)",
-              backdropFilter: "blur(32px) saturate(200%)",
-              WebkitBackdropFilter: "blur(32px) saturate(200%)",
-              boxShadow: "0 18px 40px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.35)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(25, 25, 30, 0.65)",
+              backdropFilter: "blur(40px) saturate(220%)",
+              WebkitBackdropFilter: "blur(40px) saturate(220%)",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15)",
               pointerEvents: isExploreButtonVisible ? "auto" : "none",
               transition: `opacity ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}, filter ${EXHIBIT_TRANSITION_MS}ms ${EXHIBIT_TRANSITION_EASE}`,
               opacity: isExploreButtonVisible ? 1 : 0,
@@ -4486,26 +4499,27 @@ export default function App() {
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
-                padding: (isAttractMode || isPanelOpen) ? "8px 12px" : "8px 16px 8px 12px", // Symmetric when recentre is hidden
+                padding: (isAttractMode || isPanelOpen) ? "10px 20px" : "10px 22px 10px 18px", // Symmetric when recentre is hidden
                 borderRadius: "999px",
                 border: "none",
-                background: "linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.2) 100%)",
-                color: "rgba(15,23,42,0.95)",
-                fontSize: "1.02rem",
-                fontWeight: 650,
+                background: "linear-gradient(180deg, rgba(135, 185, 64, 0.85) 0%, rgba(115, 160, 50, 0.85) 100%)",
+                color: "#ffffff",
+                fontSize: "1.12rem", // Larger font size
+                fontWeight: 700, // Stronger weight
                 cursor: "pointer",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.4)",
+                boxShadow: "0 4px 14px rgba(135, 185, 64, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
+                textShadow: "0 1px 2px rgba(0, 0, 0, 0.2)",
                 transition: "all 200ms ease"
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.35) 100%)";
+                e.currentTarget.style.background = "linear-gradient(180deg, rgba(145, 195, 74, 0.95) 0%, rgba(125, 170, 60, 0.95) 100%)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.2) 100%)";
+                e.currentTarget.style.background = "linear-gradient(180deg, rgba(135, 185, 64, 0.85) 0%, rgba(115, 160, 50, 0.85) 100%)";
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {renderGlobeIcon(isAttractMode ? 18 : 20)}
+                {renderGlobeIcon(isAttractMode ? 20 : 22)}
               </div>
               {!isAttractMode && <span>Explore</span>}
               {isAttractMode && <span>{exploreButtonLabel}</span>}
@@ -4546,12 +4560,12 @@ export default function App() {
                     borderRadius: "50%",
                     border: "none",
                     background: "transparent",
-                    color: "rgba(15,23,42,0.85)",
+                    color: "rgba(255,255,255,0.95)",
                     cursor: "pointer",
                     transition: "background 200ms ease"
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "rgba(255,255,255,0.3)";
+                    e.currentTarget.style.background = "rgba(255,255,255,0.15)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "transparent";
@@ -5206,19 +5220,19 @@ export default function App() {
                     }}
                   >
                     {country.countryCode && (
-                       <img
-                         src={`https://flagcdn.com/w80/${country.countryCode}.png`}
-                         alt=""
-                         style={{
-                           width: "42px",
-                           height: "26px",
-                           borderRadius: "5px",
-                           objectFit: "cover",
-                           border: "1px solid rgba(255,255,255,0.55)",
-                           boxShadow: "0 2px 8px rgba(15,23,42,0.24)",
-                         }}
-                       />
-                     )}
+                      <img
+                        src={`https://flagcdn.com/w80/${country.countryCode}.png`}
+                        alt=""
+                        style={{
+                          width: "42px",
+                          height: "26px",
+                          borderRadius: "5px",
+                          objectFit: "cover",
+                          border: "1px solid rgba(255,255,255,0.55)",
+                          boxShadow: "0 2px 8px rgba(15,23,42,0.24)",
+                        }}
+                      />
+                    )}
                     <span
                       style={{
                         fontSize: "0.79rem",
@@ -5433,8 +5447,9 @@ export default function App() {
         />
       </div>
 
-      {/* FLOATING STORY CARD - Replaces side panel */}
+      {/* FLOATING STORY CARD - Sticky hero that compresses on scroll */}
       <div
+        ref={storyCardScrollRef}
         className="floating-story-card-scroll"
         onClick={(event) => event.stopPropagation()}
         style={{
@@ -5454,125 +5469,241 @@ export default function App() {
           opacity: isPanelVisible ? 1 : 0,
           transition: "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1)",
           pointerEvents: isPanelVisible ? "auto" : "none",
-          overflowY: "auto",
+          overflowY: "hidden",
           overflowX: "hidden",
           zIndex: 1000,
           color: "#fff",
           border: "1px solid rgba(203, 213, 225, 0.44)",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
+        {/* Close button */}
+        <button
+          onClick={handleClosePanel}
+          style={{
+            position: "absolute",
+            top: "1rem",
+            right: "1rem",
+            width: "48px",
+            height: "48px",
+            borderRadius: "50%",
+            border: "1px solid rgba(148, 163, 184, 0.42)",
+            background: "rgba(15, 23, 42, 0.92)",
+            color: "#fff",
+            fontSize: "1.5rem",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 200ms ease",
+            zIndex: 1010,
+            boxShadow: "0 6px 14px rgba(2,6,23,0.45)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(30, 41, 59, 0.98)";
+            e.currentTarget.style.transform = "scale(1.1)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(15, 23, 42, 0.92)";
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+          aria-label="Close"
+        >
+          ×
+        </button>
+
+        {/* ── HERO ── Outside scroll container so height change never affects scrollTop */}
         {selectedCountry ? (
           <div
+            key={`hero-${selectedCountry.name}-${heroMotionSeed}`}
+            ref={heroOuterRef}
             style={{
-              padding: "0",
+              flexShrink: 0,
+              height: "348px",
               position: "relative",
-              display: "flex",
-              flexDirection: "column",
-              minHeight: 0,
+              overflow: "hidden",
+              borderRadius: "32px 32px 0 0",
             }}
           >
-            {/* Close button */}
-            <button
-              onClick={handleClosePanel}
+            <img
+              src={selectedCountryHeroImage}
+              alt={selectedCountry.name}
               style={{
-                position: "absolute",
-                top: "1rem",
-                right: "1rem",
-                width: "48px",
-                height: "48px",
-                borderRadius: "50%",
-                border: "1px solid rgba(148, 163, 184, 0.42)",
-                background: "rgba(15, 23, 42, 0.92)",
-                color: "#fff",
-                fontSize: "1.5rem",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all 200ms ease",
-                zIndex: 10,
-                boxShadow: "0 6px 14px rgba(2,6,23,0.45)",
+                width: "100%", height: "100%", objectFit: "cover",
+                objectPosition: "center 30%", display: "block",
+                position: "absolute", inset: 0, zIndex: 0,
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(30, 41, 59, 0.98)";
-                e.currentTarget.style.transform = "scale(1.1)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(15, 23, 42, 0.92)";
-                e.currentTarget.style.transform = "scale(1)";
-              }}
-              aria-label="Close"
-            >
-              ×
-            </button>
+            />
+            <div style={{
+              position: "absolute", inset: 0, zIndex: 1,
+              background: "linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.78) 100%)",
+            }} />
             <div
-              key={`hero-${selectedCountry.name}-${heroMotionSeed}`}
+              ref={heroGlassRef}
               style={{
-                borderRadius: "32px 32px 0 0",
-                overflow: "hidden",
-                minHeight: "220px",
-                backgroundImage: `linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.65) 100%), url(${validatedHeroImage || selectedCountryHeroImage})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center 30%",
-                display: "flex",
-                alignItems: "flex-end",
-                padding: `1.4rem ${STORY_CARD_SIDE_PADDING}`,
-                position: "relative",
-                ...getRevealStyle(0),
+                position: "absolute", inset: 0, zIndex: 2,
+                background: "rgba(15, 23, 42, 0.45)",
+                backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+                opacity: 0, pointerEvents: "none",
               }}
-            >
-              <div style={{ position: "relative", zIndex: 2 }}>
-                {selectedCountry.countryCode && (
-                   <img
-                     src={`https://flagcdn.com/w40/${selectedCountry.countryCode}.png`}
-                     alt=""
-                     style={{
-                       width: "26px",
-                       height: "17px",
-                       borderRadius: "4px",
-                       objectFit: "cover",
-                       border: "1px solid rgba(255,255,255,0.4)",
-                       boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-                       opacity: 0.92,
-                     }}
-                   />
-                 )}
-                <h2
+            />
+
+            {/* ── EXPANDED LAYOUT: flag stacked above large title. Fades out as hero collapses. */}
+            <div style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              zIndex: 4,
+              padding: `1.4rem ${STORY_CARD_SIDE_PADDING}`,
+              opacity: isCompactHeader ? 0 : (isContentVisible ? 1 : 0),
+              transform: isCompactHeader ? "translateY(8px)" : (isContentVisible ? "translateY(0)" : "translateY(24px)"),
+              transition: `opacity 260ms ease, transform 260ms ease`,
+              pointerEvents: isCompactHeader ? "none" : "auto",
+            }}>
+              {selectedCountry.countryCode && (
+                <img
+                  src={`https://flagcdn.com/w40/${selectedCountry.countryCode}.png`}
+                  alt={selectedCountry.name}
                   style={{
-                    margin: "0.4rem 0 0",
-                    fontSize: "2.8rem",
-                    lineHeight: 1.02,
-                    fontWeight: 700,
-                    color: "#fff",
-                    textShadow: "0 2px 8px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.25)",
-                    letterSpacing: "-0.02em",
-                    opacity: isContentVisible ? 1 : 0,
-                    transform: isContentVisible ? "translateY(0)" : "translateY(24px)",
-                    transition: `opacity 550ms ${springEase}, transform 550ms ${springEase}`,
-                    transitionDelay: isContentVisible ? "100ms" : "0ms",
+                    width: "26px", height: "17px", borderRadius: "4px",
+                    objectFit: "cover", border: "1px solid rgba(255,255,255,0.4)",
+                    boxShadow: "0 2px 12px rgba(0,0,0,0.3)", display: "block",
                   }}
-                >
-                  {selectedCountry.name}
-                </h2>
-              </div>
+                />
+              )}
+              <h2 style={{
+                margin: "0.45rem 0 0",
+                fontSize: "2.8rem",
+                lineHeight: 1.02,
+                fontWeight: 700,
+                color: "#fff",
+                textShadow: "0 2px 8px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.25)",
+                letterSpacing: "-0.02em",
+              }}>
+                {selectedCountry.name}
+              </h2>
               {selectedCountryMetadata?.memberSince ? (
-                <div
-                  style={{
-                    position: "absolute",
-                    right: "15%",
-                    top: "42%",
-                    width: "160px",
-                    transform: "translateY(-50%) rotate(-8deg)",
-                    zIndex: 4,
-                    opacity: isContentVisible ? 1 : 0,
-                    transition: `opacity 520ms ${springEase}, transform 520ms ${springEase}`,
-                    transitionDelay: isContentVisible ? "180ms" : "0ms",
-                  }}
-                >
-                  {renderCommonwealthStamp(String(selectedCountryMetadata.memberSince))}
+                <div style={{
+                  marginTop: "0.35rem",
+                  fontSize: "0.65rem", fontWeight: 600,
+                  color: "#97d749", letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                }}>
+                  Member since {selectedCountryMetadata.memberSince}
                 </div>
               ) : null}
             </div>
+
+            {/* ── COMPACT NAV-BAR LAYOUT: horizontal flex row, Apple HIG density. Fades in as hero collapses. */}
+            <div style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              zIndex: 4,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.55rem",
+              padding: `0.75rem ${STORY_CARD_SIDE_PADDING}`,
+              opacity: isCompactHeader ? 1 : 0,
+              transform: isCompactHeader ? "translateY(0)" : "translateY(6px)",
+              transition: `opacity 260ms ease, transform 260ms ease`,
+              pointerEvents: isCompactHeader ? "auto" : "none",
+            }}>
+              {/* Flag */}
+              {selectedCountry.countryCode && (
+                <img
+                  src={`https://flagcdn.com/w40/${selectedCountry.countryCode}.png`}
+                  alt={selectedCountry.name}
+                  style={{
+                    width: "22px", height: "15px",
+                    borderRadius: "3px",
+                    objectFit: "cover",
+                    border: "1px solid rgba(255,255,255,0.35)",
+                    boxShadow: "0 1px 6px rgba(0,0,0,0.35)",
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+
+              {/* Title + subtitle stacked */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  color: "#fff",
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1.2,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}>
+                  {selectedCountry.name}
+                </div>
+                {selectedCountryMetadata?.memberSince ? (
+                  <div style={{
+                    fontSize: "0.58rem",
+                    fontWeight: 500,
+                    color: "rgba(151, 215, 73, 0.85)",
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    lineHeight: 1.4,
+                    marginTop: "0.1rem",
+                  }}>
+                    Member since {selectedCountryMetadata.memberSince}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Member stamp — expanded state only */}
+            {selectedCountryMetadata?.memberSince && !isCompactHeader ? (
+              <div style={{
+                position: "absolute", right: "15%", top: "42%", width: "160px",
+                transform: "translateY(-50%) rotate(-8deg)", zIndex: 4,
+                opacity: isContentVisible ? 1 : 0,
+                transition: `opacity 520ms ${springEase}, transform 520ms ${springEase}`,
+                transitionDelay: isContentVisible ? "180ms" : "0ms",
+              }}>
+                {renderCommonwealthStamp(String(selectedCountryMetadata.memberSince))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* ── SCROLLABLE CONTENT ── Separate from hero; onScroll animates hero via ref */}
+        <div
+          ref={storyCardScrollRef}
+          style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}
+          onScroll={() => {
+            const el = storyCardScrollRef.current;
+            if (!el) return;
+            const scrollTop = el.scrollTop;
+            if (heroScrollRafRef.current) cancelAnimationFrame(heroScrollRafRef.current);
+            heroScrollRafRef.current = requestAnimationFrame(() => {
+              const newHeight = Math.max(130, 348 - scrollTop);
+              if (heroOuterRef.current) {
+                heroOuterRef.current.style.height = `${newHeight}px`;
+              }
+              if (heroGlassRef.current) {
+                heroGlassRef.current.style.opacity = Math.min(1, scrollTop / 128).toFixed(3);
+              }
+              // Switch to compact nav-bar layout when the hero has compressed enough
+              // (> 128px scrolled = hero ≤ 220px). Triggers early enough that the
+              // large expanded title never gets squished inside a small box.
+              const compact = scrollTop >= 128;
+              if (compact !== isCompactHeaderRef.current) {
+                isCompactHeaderRef.current = compact;
+                setIsCompactHeader(compact);
+              }
+              heroScrollRafRef.current = null;
+            });
+          }}
+        >
+          {/* Hero is now a flex sibling above this scroll area — see parent card div */}
+          <div style={{ padding: "0", position: "relative", display: "flex", flexDirection: "column" }}>
 
             {/* FamilySearch Collections and Research Helps */}
             <div style={{ padding: `1.5rem ${STORY_CARD_SIDE_PADDING} 1.4rem` }}>
@@ -5753,12 +5884,13 @@ export default function App() {
                         padding: 0,
                         borderRadius: "14px",
                         overflow: "hidden",
+                        transform: "translateY(0) translate3d(0, 0, 0)",
+                        isolation: "isolate",
                         cursor: "pointer",
                         position: "relative",
                         flex: "0 0 76%",
                         minWidth: "0",
                         height: "182px",
-                        transform: "translateY(0)",
                         transition: "transform 240ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease, filter 240ms ease",
                         boxShadow: index === galleryActiveIndex
                           ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
@@ -5768,13 +5900,13 @@ export default function App() {
                         filter: index === galleryActiveIndex ? "saturate(1.08)" : "saturate(0.88)",
                       }}
                       onMouseEnter={(event) => {
-                        event.currentTarget.style.transform = "translateY(-2px)";
+                        event.currentTarget.style.transform = "translateY(-2px) translate3d(0, 0, 0)";
                         event.currentTarget.style.boxShadow = "0 20px 38px rgba(15,23,42,0.42), inset 0 0 0 1px rgba(255,255,255,0.26)";
                         event.currentTarget.style.opacity = "1";
                         event.currentTarget.style.filter = "saturate(1.12)";
                       }}
                       onMouseLeave={(event) => {
-                        event.currentTarget.style.transform = "translateY(0)";
+                        event.currentTarget.style.transform = "translateY(0) translate3d(0, 0, 0)";
                         event.currentTarget.style.boxShadow = index === galleryActiveIndex
                           ? "0 18px 38px rgba(15,23,42,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)"
                           : "0 8px 18px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(255,255,255,0.1)";
@@ -5785,10 +5917,10 @@ export default function App() {
                       <img
                         src={item.thumbnailUrl}
                         alt={item.title}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", background: "#1a1a1a", display: "block" }}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", background: "#1a1a1a", display: "block", borderRadius: "inherit" }}
                       />
                       {item.type === "video" ? (
-                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ position: "absolute", inset: 0, borderRadius: "inherit", background: "linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(255,255,255,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="#c4302b">
                               <path d="M8 5v14l11-7z" />
@@ -5979,8 +6111,8 @@ export default function App() {
               </div>
             </div>
           </div>
-        ) : null}
-      </div>
+        </div>{/* end inner scroll div */}
+      </div>{/* end card wrapper */}
 
       {/* ACHIEVEMENT UNLOCK OVERLAY */}
       {achievementUnlocked ? (
@@ -6064,71 +6196,245 @@ export default function App() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0, 0, 0, 0.82)",
+            background: "rgba(0, 0, 0, 0.88)",
             zIndex: 9999,
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            padding: "1.25rem",
+            padding: "2rem",
+            backdropFilter: "blur(40px)",
+            WebkitBackdropFilter: "blur(40px)",
           }}
         >
           <div
             onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "min(1000px, 96vw)",
-              maxHeight: "92vh",
-              background: "#111",
-              borderRadius: "14px",
-              overflow: "hidden",
-              boxShadow: "0 18px 45px rgba(0,0,0,0.4)",
-              position: "relative",
-            }}
+            className="lightbox-outer-row"
+            style={{ position: "relative" }}
           >
-            {hasGalleryNavigation ? (
-              <>
-                <button
-                  onClick={showPreviousLightboxItem}
-                  style={{ position: "absolute", left: "0.55rem", top: "50%", transform: "translateY(-50%)", width: "38px", height: "38px", borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: "1.3rem", cursor: "pointer", zIndex: 2 }}
-                  aria-label="Previous media"
-                >
-                  ‹
-                </button>
-                <button
-                  onClick={showNextLightboxItem}
-                  style={{ position: "absolute", right: "0.55rem", top: "50%", transform: "translateY(-50%)", width: "38px", height: "38px", borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: "1.3rem", cursor: "pointer", zIndex: 2 }}
-                  aria-label="Next media"
-                >
-                  ›
-                </button>
-              </>
-            ) : null}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 0.9rem", color: "#e8ece8", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
-              <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>{lightboxItem.title}</div>
-              <button
-                onClick={() => setLightboxItem(null)}
-                style={{ border: "none", background: "transparent", color: "#e8ece8", fontSize: "1.25rem", cursor: "pointer", lineHeight: 1 }}
-                aria-label="Close media"
-              >
-                ×
-              </button>
+            {/* Glass Close Button (positioned absolute at top-right of the whole lightbox modal) */}
+            <button
+              onClick={() => setLightboxItem(null)}
+              style={{
+                position: "absolute",
+                top: "1.15rem",
+                right: "1.15rem",
+                width: "30px",
+                height: "30px",
+                borderRadius: "50%",
+                border: "none",
+                background: "rgba(255, 255, 255, 0.15)",
+                color: "#fff",
+                fontSize: "1.2rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 200ms ease",
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+                boxShadow: "0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 12px rgba(0,0,0,0.2)",
+                zIndex: 99,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.25)";
+                e.currentTarget.style.transform = "scale(1.05)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
+                e.currentTarget.style.transform = "scale(1)";
+              }}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            {/* Main Content Row: Left Column (Media + Thumbnails) + Right Sidebar (Details) */}
+            <div className="lightbox-content-row" style={{ display: "flex", flexDirection: "row", flex: 1, minHeight: 0 }}>
+              {/* Left Column (Video/Photo Player + Thumbnails Carousel) */}
+              <div className="lightbox-left-column">
+                {/* Player wrapper */}
+                <div style={{
+                  position: "relative",
+                  borderRadius: "16px",
+                  overflow: "hidden",
+                  boxShadow: "0 20px 50px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.12)",
+                  background: "#000",
+                  width: "100%",
+                  flexShrink: 0,
+                }}>
+                  {lightboxItem.type === "video" ? (
+                    <div style={{ position: "relative", paddingTop: "56.25%" }}>
+                      <iframe
+                        src={`https://www.youtube.com/embed/${lightboxItem.videoId}?autoplay=1&rel=0&modestbranding=1&controls=0&showinfo=0&iv_load_policy=3&cc_load_policy=0`}
+                        title={lightboxItem.title}
+                        allow="autoplay; encrypted-media; picture-in-picture"
+                        allowFullScreen
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          width: "100%",
+                          height: "100%",
+                          border: "none",
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={lightboxItem.sourceUrl}
+                      alt={lightboxItem.title}
+                      style={{ width: "100%", maxHeight: "50vh", objectFit: "contain", display: "block" }}
+                    />
+                  )}
+                </div>
+
+                {/* Horizontal Playlist Thumbnails Dock underneath player */}
+                {galleryItems.length > 1 ? (
+                  <div className="lightbox-thumbnails-row" style={{ flexShrink: 0 }}>
+                    <div
+                      ref={thumbnailsTrackRef}
+                      className="lightbox-thumbnails-track fade-right"
+                      onScroll={(e) => updateScrollFades(e.currentTarget)}
+                    >
+                      {(() => {
+                        const sortedGalleryItems = [...galleryItems].sort((a, b) => {
+                          if (a.id === lightboxItem.id) return -1;
+                          if (b.id === lightboxItem.id) return 1;
+                          return 0;
+                        });
+                        return sortedGalleryItems.map((item) => {
+                          const isActive = item.id === lightboxItem.id;
+                          const isViewed = viewedVideoIds.has(item.id);
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => {
+                                setViewedVideoIds(prev => {
+                                  const next = new Set(prev);
+                                  next.add(item.id);
+                                  return next;
+                                });
+                                setLightboxItem(item);
+                              }}
+                              className={`lightbox-thumbnail-btn ${isActive ? 'active' : ''}`}
+                              title={item.title}
+                            >
+                              <img
+                                src={item.thumbnailUrl}
+                                alt=""
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                  filter: (!isActive && isViewed) ? "grayscale(100%) opacity(0.65)" : "none",
+                                  transition: "filter 300ms ease",
+                                }}
+                              />
+                              {item.type === 'video' ? (
+                                <div style={{
+                                  position: "absolute",
+                                  inset: 0,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  background: "rgba(0,0,0,0.3)",
+                                }}>
+                                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style={{ color: "#fff", margin: "auto" }}>
+                                    <path d="M8 5v14l11-7z" />
+                                  </svg>
+                                </div>
+                              ) : null}
+                            </button>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Right Sidebar (Header: flag; Body: title + description scroll + credit) */}
+              <div className="lightbox-sidebar">
+                {/* Sidebar Header */}
+                <div className="lightbox-sidebar-header">
+                  {/* Flag Badge Pill */}
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.45rem",
+                    padding: "0.35rem 0.65rem",
+                    borderRadius: "999px",
+                    background: "rgba(255, 255, 255, 0.06)",
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  }}>
+                    {selectedCountry.countryCode && (
+                      <img
+                        src={`https://flagcdn.com/w40/${selectedCountry.countryCode}.png`}
+                        alt=""
+                        style={{
+                          width: "18px",
+                          height: "12px",
+                          borderRadius: "2px",
+                          objectFit: "cover",
+                        }}
+                      />
+                    )}
+                    <span style={{
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      color: "rgba(255, 255, 255, 0.85)",
+                      letterSpacing: "0.02em",
+                    }}>
+                      {selectedCountry.name}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Sidebar Body */}
+                <div className="lightbox-sidebar-body" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+                  <h2 style={{
+                    fontSize: "1.15rem",
+                    fontWeight: 700,
+                    color: "#fff",
+                    margin: "0 0 0.5rem 0",
+                    lineHeight: 1.35,
+                    flexShrink: 0,
+                  }}>
+                    {lightboxItem.title}
+                  </h2>
+
+                  {/* Apple-like scrolling description wrapper with vertical fade effect */}
+                  <div className="lightbox-desc-wrapper lightbox-desc-fade-scroll">
+                    <div className="lightbox-desc-container">
+                      <div style={{
+                        fontSize: "0.88rem",
+                        color: "rgba(255, 255, 255, 0.72)",
+                        lineHeight: 1.55,
+                        whiteSpace: "pre-wrap",
+                        paddingBottom: "1.5rem",
+                      }}>
+                        {lightboxItem.description}
+                      </div>
+                    </div>
+                  </div>
+
+                  {lightboxItem.credit ? (
+                    <div style={{
+                      fontSize: "0.75rem",
+                      color: "rgba(255, 255, 255, 0.38)",
+                      fontStyle: "italic",
+                      marginTop: "auto",
+                      paddingTop: "0.85rem",
+                      borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+                      flexShrink: 0,
+                    }}>
+                      {lightboxItem.credit}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </div>
-            <div style={{ background: "#000" }}>
-              {lightboxItem.type === "video" ? (
-                <iframe
-                  src={`https://www.youtube.com/embed/${lightboxItem.videoId}?autoplay=1&rel=0`}
-                  title={lightboxItem.title}
-                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                  allowFullScreen
-                  style={{ width: "100%", aspectRatio: "16 / 9", border: "none", display: "block" }}
-                />
-              ) : (
-                <img
-                  src={lightboxItem.sourceUrl}
-                  alt={lightboxItem.title}
-                  style={{ width: "100%", maxHeight: "80vh", objectFit: "contain", display: "block" }}
-                />
-              )}
-            </div>
+
           </div>
         </div>
       ) : null}
