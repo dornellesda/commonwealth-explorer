@@ -4983,7 +4983,7 @@ export default function App() {
                 ? (voyagerProgressCount >= 5 ? "400px" : (visitedVoyagerCountries.length === 0 ? "224px" : "252px"))
                 : "44px",
               borderRadius: "22px",
-              padding: "1.5px",
+              padding: "3px",
               background: "rgba(135, 185, 64, 0.28)", // Premium FamilySearch Green border outline
               pointerEvents: "auto",
               overflow: "hidden",
@@ -5009,7 +5009,7 @@ export default function App() {
                 zIndex: 1,
                 animation: "beamPulse 12s ease-in-out infinite",
                 overflow: "hidden",
-                padding: "1.5px",
+                padding: "3px",
                 boxSizing: "border-box",
               }}
             >
@@ -5030,7 +5030,7 @@ export default function App() {
             <div style={{
               position: "relative",
               zIndex: 2,
-              borderRadius: "21px",
+              borderRadius: "19px",
               background: "rgba(255, 255, 255, 0.58)", // Highly translucent, glossy liquid glass base
               backdropFilter: "blur(40px) saturate(160%)",
               WebkitBackdropFilter: "blur(40px) saturate(160%)",
@@ -5054,7 +5054,7 @@ export default function App() {
                   inset: 0,
                   // Diagonal glare + soft radial green glow
                   background: "linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 50%), radial-gradient(circle at 40% 35%, rgba(135, 185, 64, 0.12) 0%, transparent 70%)",
-                  borderRadius: "21px",
+                  borderRadius: "19px",
                   pointerEvents: "none",
                   zIndex: 1,
                 }}
