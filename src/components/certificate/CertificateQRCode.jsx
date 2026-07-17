@@ -55,15 +55,12 @@ export default function CertificateQRCode({ name, badgeLevel, levelName, certifi
       >
         <div
           style={{
-            width: "56px",
-            height: "56px",
-            boxSizing: "border-box",
-            borderRadius: "50%",
-            padding: "8px",
+            width: "80px",
+            height: "80px",
             marginBottom: "1rem",
-            background: "radial-gradient(circle at 35% 30%, #FFFFFF, #EDF4E6)",
-            border: `1px solid ${colors.primary}55`,
             display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
           {icon}
