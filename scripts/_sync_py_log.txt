@@ -1,0 +1,14 @@
+Reading xlsx as zip...
+Shared strings count: 20
+Total rows parsed: 13
+Header: ['Country', 'Title', 'Description', ' Link', 'Credit']
+Column mapping -> Country: 0, Title: 1, Description: 2, Link: 3, Credit: 4
+Data rows with country+url: 12
+Loaded baseline metadata from src/data/media_data.json
+Countries: 2
+Total items: 12
+Written to public/data/media_data.json
+Written to src/data/media_data.json
+  India: 5 items
+  Pakistan: 7 items
+SUCCESS

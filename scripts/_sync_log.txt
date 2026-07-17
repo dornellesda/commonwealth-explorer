@@ -1,0 +1,33 @@
+Sheets: ["Sheet1"]
+Total rows: 13
+Header: ["Country","Title","Description"," Link","Credit"]
+Column mapping -> Country: 0, Title: 1, Description: 2, Link: 3, Credit: 4
+Data rows: 12
+Loaded baseline metadata from src/data/media_data.json
+Fetching YouTube description for video ID: teUtBOeaVto
+  ✓ Description fetched: "Told in his own words, this is the story of Bashir Maan who ..."
+Fetching YouTube description for video ID: 8F8t4lrouss
+  ✓ Description fetched: "Told in her own words, this is the story of Shaheen Unis and..."
+Fetching YouTube description for video ID: _mD8EX5ZAJI
+  ✓ Description fetched: "Told in his own words, Mr Ashaque Ali begins with the story ..."
+Fetching YouTube description for video ID: 9dZt-cH-dvU
+  ✓ Description fetched: "Not many people boast the achievement for being the first So..."
+Fetching YouTube description for video ID: hEc_is0QfKw
+  ✓ Description fetched (meta fallback): "Enjoy the videos and music you love, upload original content..."
+Fetching YouTube description for video ID: yvm1-GJX7zM
+  ✓ Description fetched: "Mrs Perveen Sarwar reflects on what life was like growing up..."
+Fetching YouTube description for video ID: uVuoobNV55A
+  ✓ Description fetched: "World War 2 Veteran Darbara Singh Bhullar describes the brot..."
+Fetching YouTube description for video ID: yhqLG_mO8MM
+  ✓ Description fetched: "Daljit Kaur Dilber came by ship when she was a year and a ha..."
+Fetching YouTube description for video ID: x0szVB4KNPU
+  ✓ Description fetched: "Born in India and moving to Glasgow at the age of five, Sawa..."
+Fetching YouTube description for video ID: 9wcUi7wL8OI
+  ✓ Description fetched: "Watch Sawarnjit's full interview: https://youtu.be/x0szVB4KN..."
+Fetching YouTube description for video ID: _3iy4IaDXzI
+  ✓ Description fetched: "Prof Sinha ventured to the UK for a Postgraduate Diploma, wh..."
+Countries: 2
+Total items: 12
+Written to public/data/media_data.json
+Written to src/data/media_data.json
+SUCCESS
