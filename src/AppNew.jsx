@@ -3626,29 +3626,20 @@ export default function App() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: "999px",
-        border: `1px solid ${colors.primary}66`,
-        background: `radial-gradient(circle at 35% 30%, ${colors.primary}26 0%, rgba(9, 14, 24, 0.2) 58%, rgba(9, 14, 24, 0.05) 100%)`,
-        boxShadow: `0 0 0 1px ${colors.primary}26 inset, 0 0 16px ${colors.glow}`,
-        filter: `drop-shadow(0 4px 12px ${colors.glow})`,
         animation: shouldBounce
           ? "badgeScale 700ms cubic-bezier(0.34, 1.56, 0.64, 1)"
           : isSmall
             ? "none"
             : "badgePulse 3s ease-in-out infinite",
-        transform: isSmall ? "scale(1)" : "scale(1)",
         transition: "transform 600ms cubic-bezier(0.22, 1, 0.36, 1)",
       }}>
         <div style={{
-          width: "64px",
-          height: "64px",
+          width: "100%",
+          height: "100%",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           lineHeight: 0,
-          transform: isSmall ? "scale(0.78)" : "scale(1.15)",
-          transformOrigin: "center center",
-          transition: "transform 600ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}>
           {badge.icon}
         </div>
