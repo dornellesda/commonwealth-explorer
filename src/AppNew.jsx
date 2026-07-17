@@ -5005,23 +5005,35 @@ export default function App() {
               contain: "layout",
             }}
           >
-            {/* Elegant static gradient border outline (FamilySearch brand colors) */}
+            {/* Conic-gradient rotating border beam (FamilySearch brand colors) that fades in/out occasionally */}
             <div
               className="voyager-border-beam-mask"
               style={{
                 position: "absolute",
                 inset: 0,
                 borderRadius: "22px",
-                opacity: isVoyagerExpanded ? 0 : 1,
+                opacity: isVoyagerExpanded ? 0 : 1, // Fade out when expanded for an elegant look
                 transition: "opacity 400ms cubic-bezier(0.22, 1, 0.36, 1)",
                 pointerEvents: "none",
                 zIndex: 1,
+                animation: "beamPulse 12s ease-in-out infinite",
                 overflow: "hidden",
                 padding: "1.5px",
                 boxSizing: "border-box",
-                background: "linear-gradient(135deg, rgba(135, 185, 64, 0.6) 0%, rgba(39, 196, 244, 0.4) 100%)",
               }}
-            />
+            >
+              <div style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                width: "100vh", // Perfect square prevents gradient distortion
+                height: "100vh",
+                marginLeft: "-50vh",
+                marginTop: "-50vh",
+                background: "conic-gradient(from 0deg, transparent 50%, rgba(135, 185, 64, 0.8) 75%, #1ba9e6 95%, transparent 100%)",
+                animation: "spin 4.5s linear infinite",
+              }} />
+            </div>
 
             {/* Inner Dark Glass Container */}
             {/* Inner Premium Warm Glass Container (FamilySearch Brand) */}
