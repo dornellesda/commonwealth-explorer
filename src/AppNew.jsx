@@ -3646,7 +3646,7 @@ export default function App() {
           alignItems: "center",
           justifyContent: "center",
           lineHeight: 0,
-          transform: isSmall ? "scale(0.5)" : "scale(1)",
+          transform: isSmall ? "scale(0.78)" : "scale(1.15)",
           transformOrigin: "center center",
           transition: "transform 600ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}>
@@ -5313,7 +5313,7 @@ export default function App() {
                   <>
                     <div
                       key={`voyager-badge-minimal-${voyagerBadgeAnimToken}`}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, width: "24px", height: "24px" }}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, width: "32px", height: "32px" }}
                     >
                       {renderVoyagerBadge(voyagerProgressCount, "small", true)}
                     </div>
