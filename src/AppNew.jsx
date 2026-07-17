@@ -4985,7 +4985,6 @@ export default function App() {
               top: "clamp(0.75rem, 3vw, 1.5rem)",
               right: "clamp(0.75rem, 3vw, 1.5rem)",
               zIndex: 820,
-              // Smooth morphing dimensions — larger dark-glass card layout
               width: isVoyagerExpanded
                 ? "min(340px, calc(100vw - 1.5rem))"
                 : `min(${voyagerCollapsedWidth}px, calc(100vw - 1.5rem))`,
@@ -4993,58 +4992,47 @@ export default function App() {
                 ? (voyagerProgressCount >= 5 ? "400px" : (visitedVoyagerCountries.length === 0 ? "224px" : "252px"))
                 : "44px",
               borderRadius: "22px",
-              padding: "1.5px", // Thickness of the glowing border
-              background: "rgba(15, 23, 42, 0.22)", // Subtle backdrop boundary
+              padding: "1.5px",
+              background: "rgba(135, 185, 64, 0.28)", // Premium FamilySearch Green border outline
               pointerEvents: "auto",
               overflow: "hidden",
               isolation: "isolate",
               cursor: "pointer",
               transition: "all 400ms cubic-bezier(0.22, 1, 0.36, 1)",
               boxSizing: "border-box",
-              willChange: "width, height, border-radius", // Promote layout changes to GPU
-              transform: "translateZ(0)", // Create a stacking context to isolate child repaints
-              contain: "layout", // Prevent internal layout changes from affecting the page
+              willChange: "width, height, border-radius",
+              transform: "translateZ(0)",
+              contain: "layout",
             }}
           >
-            {/* Conic-gradient rotating border beam (FamilySearch brand colors) that fades in/out occasionally */}
+            {/* Elegant static gradient border outline (FamilySearch brand colors) */}
             <div
               className="voyager-border-beam-mask"
               style={{
                 position: "absolute",
                 inset: 0,
                 borderRadius: "22px",
-                opacity: isVoyagerExpanded ? 0 : 1, // Fade out when expanded for an elegant look
+                opacity: isVoyagerExpanded ? 0 : 1,
                 transition: "opacity 400ms cubic-bezier(0.22, 1, 0.36, 1)",
                 pointerEvents: "none",
                 zIndex: 1,
-                animation: "beamPulse 12s ease-in-out infinite",
                 overflow: "hidden",
                 padding: "1.5px",
                 boxSizing: "border-box",
+                background: "linear-gradient(135deg, rgba(135, 185, 64, 0.6) 0%, rgba(39, 196, 244, 0.4) 100%)",
               }}
-            >
-              <div style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                width: "100vh", // Perfect square prevents gradient distortion
-                height: "100vh",
-                marginLeft: "-50vh",
-                marginTop: "-50vh",
-                background: "conic-gradient(from 0deg, transparent 50%, rgba(135, 185, 64, 0.8) 75%, #1ba9e6 95%, transparent 100%)",
-                animation: "spin 4.5s linear infinite",
-              }} />
-            </div>
+            />
 
             {/* Inner Dark Glass Container */}
+            {/* Inner Premium Warm Glass Container (FamilySearch Brand) */}
             <div style={{
               position: "relative",
               zIndex: 2,
               borderRadius: "21px",
-              background: "rgba(15, 23, 42, 0.78)", // Dark slate glass
-              backdropFilter: "blur(36px) saturate(180%)",
-              WebkitBackdropFilter: "blur(36px) saturate(180%)",
-              boxShadow: "0 18px 40px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.12)",
+              background: "rgba(255, 255, 255, 0.94)", // Warm light white glass
+              backdropFilter: "blur(24px) saturate(140%)",
+              WebkitBackdropFilter: "blur(24px) saturate(140%)",
+              boxShadow: "0 12px 36px rgba(51, 51, 49, 0.15), inset 0 1px 0 rgba(255,255,255,0.6)",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -5053,7 +5041,7 @@ export default function App() {
               padding: isVoyagerExpanded ? "1.1rem 1.2rem" : "6px 16px 6px 12px",
               boxSizing: "border-box",
               justifyContent: "space-between",
-              color: "#ffffff",
+              color: "#333331", // Brand charcoal text
             }}>
 
               {/* Subtle internal overlay for depth */}
@@ -5061,7 +5049,7 @@ export default function App() {
                 style={{
                   position: "absolute",
                   inset: 0,
-                  background: "radial-gradient(circle at 40% 30%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 58%, transparent 100%)",
+                  background: "radial-gradient(circle at 40% 30%, rgba(135, 185, 64, 0.06) 0%, transparent 80%)",
                   borderRadius: "21px",
                   pointerEvents: "none",
                   zIndex: 1,
@@ -5111,10 +5099,10 @@ export default function App() {
 
                 {/* Title */}
                 <div style={{
-                  fontSize: "0.7rem",
+                  fontSize: "0.75rem",
                   letterSpacing: "0.12em",
                   textTransform: "uppercase",
-                  color: hoveredMilestone ? "#97d749" : "rgba(255, 255, 255, 0.85)", // Highlight FamilySearch Green on hover
+                  color: hoveredMilestone ? "#87B940" : "#333331", // FamilySearch Green / Charcoal
                   fontWeight: 800,
                   textAlign: "center",
                   transition: "color 150ms ease",
@@ -5137,7 +5125,7 @@ export default function App() {
                   fontSize: "1.2rem",
                   fontWeight: 700,
                   letterSpacing: "-0.02em",
-                  color: "#ffffff",
+                  color: "#333331",
                 }}>
                   {voyagerProgressCount} / {VOYAGER_TOTAL_COUNTRIES}
                 </div>
@@ -5146,8 +5134,8 @@ export default function App() {
                 <div style={{ width: "100%" }}>
                   {/* Progress track */}
                   <div style={{
-                    height: "3px",
-                    background: "rgba(255,255,255,0.15)",
+                    height: "4px",
+                    background: "rgba(51, 51, 49, 0.12)",
                     borderRadius: "2px",
                     position: "relative",
                     overflow: "hidden"
@@ -5156,7 +5144,7 @@ export default function App() {
                     <div style={{
                       height: "100%",
                       width: `${voyagerProgressPercent}%`,
-                      background: `linear-gradient(90deg, ${getVoyagerBrandColor(voyagerProgressCount)} 0%, ${getVoyagerBrandColor(voyagerProgressCount)} 100%)`,
+                      background: "linear-gradient(90deg, #87B940 0%, #A2D853 100%)", // FamilySearch Green gradient
                       borderRadius: "2px",
                       transition: "width 600ms cubic-bezier(0.22, 1, 0.36, 1)",
                     }} />
@@ -5199,17 +5187,15 @@ export default function App() {
                             width: "6px",
                             height: "6px",
                             borderRadius: "50%",
-                            background: isMh
-                              ? "#97d749"
-                              : isReached
-                                ? getVoyagerBrandColor(milestone.count)
-                                : "rgba(255,255,255,0.3)",
-                            boxShadow: isMh || isReached ? `0 0 8px ${getVoyagerBrandColor(milestone.count)}` : "none",
+                            background: isMh || isReached
+                              ? "#87B940"
+                              : "rgba(51, 51, 49, 0.25)",
+                            boxShadow: isMh || isReached ? "0 0 6px rgba(135, 185, 64, 0.6)" : "none",
                             transition: "all 150ms ease",
                           }} />
                           <div style={{
                             fontSize: "0.72rem",
-                            color: isMh ? "#97d749" : isReached ? "#ffffff" : "rgba(255,255,255,0.45)",
+                            color: isMh ? "#87B940" : isReached ? "#333331" : "rgba(51, 51, 49, 0.45)",
                             fontWeight: isReached || isMh ? 800 : 600,
                             letterSpacing: "0.02em",
                             transition: "all 150ms ease",
@@ -5227,7 +5213,7 @@ export default function App() {
                     style={{
                       marginTop: "0.85rem",
                       fontSize: "0.75rem",
-                      color: "rgba(255,255,255,0.4)",
+                      color: "rgba(51, 51, 49, 0.45)",
                       textAlign: "center",
                       lineHeight: 1.45,
                       maxWidth: "240px",
@@ -5256,10 +5242,11 @@ export default function App() {
                   {visitedVoyagerCountries.map(countryKey => (
                     <span key={countryKey} style={{
                       fontSize: "0.65rem",
-                      background: "rgba(255,255,255,0.08)",
+                      background: "rgba(135, 185, 64, 0.08)",
+                      border: "1px solid rgba(135, 185, 64, 0.18)",
                       padding: "3px 8px",
                       borderRadius: "12px",
-                      color: "rgba(255,255,255,0.85)",
+                      color: "#333331",
                       whiteSpace: "nowrap"
                     }}>
                       {getVoyagerCountryLabel(countryKey)}
@@ -5278,15 +5265,16 @@ export default function App() {
                   style={{
                     background: "none",
                     border: "none",
-                    color: "rgba(255, 255, 255, 0.5)",
+                    color: "#87B940",
                     textDecoration: "underline",
                     fontSize: "0.7rem",
+                    fontWeight: "bold",
                     cursor: "pointer",
                     padding: "4px",
                     transition: "color 150ms ease"
                   }}
-                  onMouseEnter={(e) => e.target.style.color = "rgba(255, 255, 255, 0.9)"}
-                  onMouseLeave={(e) => e.target.style.color = "rgba(255, 255, 255, 0.5)"}
+                  onMouseEnter={(e) => e.target.style.color = "#5E8E3E"}
+                  onMouseLeave={(e) => e.target.style.color = "#87B940"}
                 >
                   Download your certificate
                 </button>
@@ -5320,7 +5308,7 @@ export default function App() {
                       fontSize: "0.74rem",
                       fontWeight: 700,
                       letterSpacing: "0.02em",
-                      color: "#ffffff",
+                      color: "#333331",
                       whiteSpace: "nowrap",
                       flexShrink: 0,
                     }}>
@@ -5330,7 +5318,7 @@ export default function App() {
                       fontSize: "0.74rem",
                       fontWeight: 800,
                       letterSpacing: "0.01em",
-                      color: "#97d749", // FamilySearch Green
+                      color: "#87B940",
                       marginLeft: "auto",
                       flexShrink: 0,
                     }}>
@@ -5345,10 +5333,10 @@ export default function App() {
                     fontSize: "0.74rem",
                     fontWeight: 700,
                     letterSpacing: "0.02em",
-                    color: "#ffffff",
+                    color: "#333331",
                     width: "100%",
                   }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", color: "#97d749" }}>{renderGiftIcon(14)}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", color: "#87B940" }}>{renderGiftIcon(14)}</span>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
                       {voyagerCountriesUntilSurprise} {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} to go!
                     </span>
