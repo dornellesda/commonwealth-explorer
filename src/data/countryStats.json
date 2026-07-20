@@ -40,13 +40,13 @@
     "source": "Wikidata"
   },
   "Cameroon": {
-    "capital": "Yaound\u00e9",
+    "capital": "Yaoundé",
     "population": 28372687,
     "source": "Wikidata"
   },
   "Canada": {
     "capital": "Ottawa",
-    "population": 36991981,
+    "population": 40000000,
     "source": "Wikidata"
   },
   "Cyprus": {
@@ -71,7 +71,7 @@
   },
   "Gabon": {
     "capital": "Libreville",
-    "population": 2025137,
+    "population": 2300000,
     "source": "Wikidata"
   },
   "The Gambia": {
@@ -101,12 +101,12 @@
   },
   "Jamaica": {
     "capital": "Kingston",
-    "population": 2697983,
+    "population": 2734093,
     "source": "Wikidata"
   },
   "Kenya": {
     "capital": "Nairobi",
-    "population": 48468138,
+    "population": 47564296,
     "source": "Wikidata"
   },
   "Kiribati": {
@@ -116,7 +116,7 @@
   },
   "Lesotho": {
     "capital": "Maseru",
-    "population": 2007201,
+    "population": 2233339,
     "source": "Wikidata"
   },
   "Malawi": {
@@ -126,11 +126,11 @@
   },
   "Malaysia": {
     "capital": "Kuala Lumpur",
-    "population": 32447385,
+    "population": 34231700,
     "source": "Wikidata"
   },
   "Maldives": {
-    "capital": "Mal\u00e9",
+    "capital": "Malé",
     "population": 436330,
     "source": "Wikidata"
   },
@@ -151,8 +151,8 @@
   },
   "Namibia": {
     "capital": "Windhoek",
-    "population": 2533794,
-    "source": "Wikidata"
+    "population": 3022401,
+    "source": "2023 Census"
   },
   "Nauru": {
     "capital": "Yaren District",
@@ -196,7 +196,7 @@
   },
   "St Vincent and The Grenadines": {
     "capital": "Kingstown",
-    "population": 109897,
+    "population": 104332,
     "source": "Wikidata"
   },
   "Samoa": {
@@ -231,17 +231,17 @@
   },
   "Sri Lanka": {
     "capital": "Colombo",
-    "population": 21444000,
+    "population": 22037000,
     "source": "Wikidata"
   },
   "Tonga": {
-    "capital": "Nuku\u02bbalofa",
-    "population": 108020,
+    "capital": "Nukuʻalofa",
+    "population": 105697,
     "source": "Wikidata"
   },
   "Togo": {
-    "capital": "Lom\u00e9",
-    "population": 7797694,
+    "capital": "Lomé",
+    "population": 9515240,
     "source": "Wikidata"
   },
   "Trinidad and Tobago": {
@@ -261,22 +261,22 @@
   },
   "England": {
     "capital": "London",
-    "population": 57000000,
-    "source": "Wikidata"
+    "population": 56489800,
+    "source": "ONS (2021 Census)"
   },
   "Scotland": {
     "capital": "Edinburgh",
-    "population": 5500000,
-    "source": "Wikidata"
+    "population": 5436600,
+    "source": "NRS (2021 Census)"
   },
   "Wales": {
     "capital": "Cardiff",
-    "population": 3100000,
-    "source": "Wikidata"
+    "population": 3107500,
+    "source": "ONS (2021 Census)"
   },
   "United Republic of Tanzania": {
     "capital": "Dodoma",
-    "population": 57310019,
+    "population": 61741120,
     "source": "Wikidata"
   },
   "Vanuatu": {

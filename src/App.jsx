@@ -2478,6 +2478,7 @@ export default function App() {
       return {
         capital: cached.capital || country.capital || "Not available",
         population: cached.population || country.population || null,
+        source: cached.source || "Wikidata",
       };
     }
 
@@ -2489,6 +2490,7 @@ export default function App() {
     return {
       capital: country.capital || "Not available",
       population: country.population || null,
+      source: null,
     };
   };
 
@@ -6119,6 +6121,11 @@ export default function App() {
                       <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#f8fafc", textShadow: "0 1px 0 rgba(2,6,23,0.55)" }}>{item.value}</div>
                     </div>
                   ))}
+                  {selectedCountry && getCountryData(selectedCountry)?.source && (
+                    <div style={{ fontSize: "0.62rem", color: "rgba(226, 232, 240, 0.45)", textAlign: "right", marginTop: "-0.2rem", paddingRight: "0.2rem", fontStyle: "italic" }}>
+                      Source: {getCountryData(selectedCountry).source}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

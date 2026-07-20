@@ -15,6 +15,7 @@
  */
 
 import { useState, useCallback } from "react";
+import { API_BASE_URL } from "../config";
 
 // ─── Milestone metadata ───────────────────────────────────────────────────────
 
@@ -142,7 +143,7 @@ export function useWalletPass() {
     try {
       const passBody = buildPassBody({ milestone, totalVisited, visitedNames, heroImageUrl, userId });
 
-      const response = await fetch("/api/wallet", {
+      const response = await fetch(`${API_BASE_URL}/api/wallet`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(passBody),
@@ -197,7 +198,7 @@ export function useWalletPass() {
         });
 
         try {
-          await fetch(`/api/wallet/${serialNumber}`, {
+          await fetch(`${API_BASE_URL}/api/wallet/${serialNumber}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(passBody),

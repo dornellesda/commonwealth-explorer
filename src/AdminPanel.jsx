@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { API_BASE_URL } from "./config";
 
 const ADMIN_TOKEN_STORAGE_KEY = "commonwealth_admin_token";
 
@@ -68,7 +69,7 @@ export default function AdminPanel() {
       ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
     };
 
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE_URL}${url}`, {
       ...init,
       headers,
     });
@@ -226,7 +227,7 @@ export default function AdminPanel() {
     setError("");
 
     try {
-      const response = await fetch("/api/admin/login", {
+      const response = await fetch(`${API_BASE_URL}/api/admin/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
