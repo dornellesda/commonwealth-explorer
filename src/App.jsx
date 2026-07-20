@@ -1879,6 +1879,7 @@ export default function App() {
   const [hoveredCountry, setHoveredCountry] = useState(null);
   const [countryDataCache] = useState(countryStatsByLookup);
   const [familySearchCollections, setFamilySearchCollections] = useState([]);
+  const [isFamilySearchCollectionsLoading, setIsFamilySearchCollectionsLoading] = useState(false);
   const [familySearchQrDestination, setFamilySearchQrDestination] = useState(null);
   const [lightboxItem, setLightboxItem] = useState(null);
   const [viewedVideoIds, setViewedVideoIds] = useState(new Set());
@@ -2325,18 +2326,7 @@ export default function App() {
     if (heroGlassRef.current) heroGlassRef.current.style.opacity = "0";
     setActivatedCountryName(null);
 
-    const hasCachedCollections = Object.prototype.hasOwnProperty.call(
-      familySearchCollectionsCacheRef.current,
-      countryKey
-    );
-
-    if (!hasCachedCollections) {
-      loadFamilySearchCollectionsForCountry(country.name).then((collections) => {
-        if (selectedCountryKeyRef.current === countryKey) {
-          setFamilySearchCollections(collections || []);
-        }
-      });
-    }
+    // Background fetch will be handled by the selectedCountry useEffect.
 
     const activationTimeout = window.setTimeout(() => {
       setActivatedCountryName(country.name);
@@ -2901,6 +2891,7 @@ export default function App() {
 
     if (!selectedCountry) {
       setFamilySearchCollections([]);
+      setIsFamilySearchCollectionsLoading(false);
       return;
     }
 
@@ -2914,11 +2905,16 @@ export default function App() {
     if (hasCachedCollections) {
       const cachedCollections = familySearchCollectionsCacheRef.current[cacheKey];
       setFamilySearchCollections(cachedCollections || []);
+      setIsFamilySearchCollectionsLoading(false);
 
       if (Array.isArray(cachedCollections) && cachedCollections.length === 0) {
+        setIsFamilySearchCollectionsLoading(true);
         loadFamilySearchCollectionsForCountry(selectedCountry.name).then((collections) => {
           if (isActive && Array.isArray(collections) && collections.length > 0) {
             setFamilySearchCollections(collections);
+          }
+          if (isActive) {
+            setIsFamilySearchCollectionsLoading(false);
           }
         });
       }
@@ -2928,11 +2924,21 @@ export default function App() {
       };
     }
 
-    setFamilySearchCollections([]);
+    // Try loading static bundled data immediately to show something to the user instantly
+    const bundledData = countryDataBundle[selectedCountry.name]?.familySearch;
+    const initialCollections = bundledData && Array.isArray(bundledData)
+      ? bundledData
+      : [];
+
+    setFamilySearchCollections(initialCollections);
+    setIsFamilySearchCollectionsLoading(true);
 
     loadFamilySearchCollectionsForCountry(selectedCountry.name).then((collections) => {
       if (isActive) {
-        setFamilySearchCollections(collections || []);
+        if (collections && collections.length > 0) {
+          setFamilySearchCollections(collections);
+        }
+        setIsFamilySearchCollectionsLoading(false);
       }
     });
 
@@ -5758,7 +5764,13 @@ export default function App() {
                     ) : null}
 
                     {!hasFamilySearchRecordCollections && !hasFamilySearchGenealogyCollections ? (
-                      <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No FamilySearch collections available.</div>
+                      isFamilySearchCollectionsLoading ? (
+                        <div className="fs-loading-pulse" style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>
+                          Loading collections...
+                        </div>
+                      ) : (
+                        <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No FamilySearch collections available.</div>
+                      )
                     ) : null}
                   </div>
                   {familySearchLocationUrl ? (

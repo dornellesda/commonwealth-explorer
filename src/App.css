@@ -1055,5 +1055,15 @@
   }
 }
 
+.fs-loading-pulse {
+  animation: fsPulse 1.5s ease-in-out infinite;
+}
 
-
+@keyframes fsPulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
