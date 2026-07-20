@@ -80,23 +80,19 @@ export default function CertificatePage() {
       ]);
       const sourceNode = certificateRef.current;
       const { width, height } = sourceNode.getBoundingClientRect();
-      const exportNode = sourceNode.cloneNode(true);
-      const badgeForPdf = exportNode.querySelector('[data-cert-badge="true"]');
+      const badgeForPdf = sourceNode.querySelector('[data-cert-badge="true"]');
+      
+      const originalShadow = badgeForPdf ? badgeForPdf.style.boxShadow : "";
+      const originalAnimation = sourceNode.style.animation;
+
       if (badgeForPdf) {
         badgeForPdf.style.boxShadow = "none";
       }
-      exportNode.style.position = "fixed";
-      exportNode.style.left = "-10000px";
-      exportNode.style.top = "0";
-      exportNode.style.width = `${Math.ceil(width)}px`;
-      exportNode.style.maxWidth = "none";
-      exportNode.style.margin = "0";
-      exportNode.style.animation = "none";
-      document.body.appendChild(exportNode);
+      sourceNode.style.animation = "none";
 
       let dataUrl = "";
       try {
-        dataUrl = await toPng(exportNode, {
+        dataUrl = await toPng(sourceNode, {
           pixelRatio: 2,
           cacheBust: true,
           styleSheetFilter: (styleSheet) => {
@@ -105,7 +101,10 @@ export default function CertificatePage() {
           }
         });
       } finally {
-        exportNode.remove();
+        if (badgeForPdf) {
+          badgeForPdf.style.boxShadow = originalShadow;
+        }
+        sourceNode.style.animation = originalAnimation;
       }
 
       const orientation = width >= height ? "landscape" : "portrait";
