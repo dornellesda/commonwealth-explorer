@@ -129,7 +129,8 @@ const FAMILYSEARCH_LOGO_URL = familysearchLogo;
 const MAP_BACKGROUND_ART_URL = "https://plus.unsplash.com/premium_photo-1779463020508-7cd254b1d37f?auto=format&fit=crop&w=2400&q=80";
 const FAMILYSEARCH_COLLECTIONS_BASE_URL = "https://www.familysearch.org/search/collection/list";
 const FAMILYSEARCH_FETCH_MIRROR_BASE_URL = "https://r.jina.ai/http://www.familysearch.org";
-const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v8";
+const FAMILYSEARCH_CACHE_STORAGE_KEY = "familySearchCollectionsCache:v9";
+const FAMILYSEARCH_BROKEN_URLS_STORAGE_KEY = "familySearchBrokenUrls:v1";
 const FAMILYSEARCH_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const FAMILYSEARCH_GENEALOGY_KEYWORD_REGEX = /\b(genealog(?:y|ies)|family\s*tree|lineage)\b/i;
 const COUNTRY_MEDIA_BY_NAME = countryMedia;
@@ -686,8 +687,10 @@ function buildFamilySearchGenealogyFallback(countryName = "") {
 
 function parseFamilySearchCollectionsFromLocationPage(pageText = "") {
   const seenRecordLinks = new Set();
+  const seenImageOnlyLinks = new Set();
   const seenGenealogyLinks = new Set();
   const records = [];
+  const imageOnly = [];
   const genealogies = [];
   let activeSection = "";
 
@@ -697,8 +700,13 @@ function parseFamilySearchCollectionsFromLocationPage(pageText = "") {
       return;
     }
 
-    if (/^##\s+Indexed Historical Records$/i.test(trimmedLine) || /^##\s+Image-Only Historical Records$/i.test(trimmedLine)) {
+    if (/^##\s+Indexed Historical Records$/i.test(trimmedLine)) {
       activeSection = "records";
+      return;
+    }
+
+    if (/^##\s+Image-Only Historical Records$/i.test(trimmedLine)) {
+      activeSection = "image-only";
       return;
     }
 
@@ -739,6 +747,22 @@ function parseFamilySearchCollectionsFromLocationPage(pageText = "") {
       return;
     }
 
+    if (activeSection === "image-only" && /(?:\/en)?\/search\/collection\/\d+/i.test(link)) {
+      if (seenImageOnlyLinks.has(link)) {
+        return;
+      }
+
+      seenImageOnlyLinks.add(link);
+      imageOnly.push({
+        title,
+        link,
+        updated: "",
+        updatedAt: new Date(0),
+        category: "image-only",
+      });
+      return;
+    }
+
     if (activeSection === "genealogies" && /(?:\/en)?\/search\/genealogies\/submission\//i.test(link)) {
       if (seenGenealogyLinks.has(link)) {
         return;
@@ -757,6 +781,7 @@ function parseFamilySearchCollectionsFromLocationPage(pageText = "") {
 
   return {
     records: records.slice(0, 8),
+    imageOnly: imageOnly.slice(0, 8),
     genealogies: genealogies.slice(0, 8),
   };
 }
@@ -872,7 +897,11 @@ function getFamilySearchCollectionCategory(title = "") {
 }
 
 function isValidFamilySearchRecordCollectionLink(link = "") {
-  return /https?:\/\/(www\.)?familysearch\.org(?:\/en)?\/search\/collection\/\d+(?:[/?#].*)?$/i.test(link);
+  return /https?:\/\/(www\.)?familysearch\.org(?:\/en)?\/search\/collection\/\?*(?:\d+|[\w-]+)(?:[/?#].*)?$/i.test(link);
+}
+
+function isValidFamilySearchGenealogyLink(link = "") {
+  return /https?:\/\/(www\.)?familysearch\.org(?:\/en)?\/search\/genealogies\/submission\/\S+/i.test(link);
 }
 
 function sanitizeFamilySearchCollections(collections = []) {
@@ -893,7 +922,10 @@ function sanitizeFamilySearchCollections(collections = []) {
       .replace(/^http:/i, "https:")
       .replace("/en/search/", "/search/");
 
-    if (!isValidFamilySearchRecordCollectionLink(normalizedLink)) {
+    const isRecord = isValidFamilySearchRecordCollectionLink(normalizedLink);
+    const isGenealogy = isValidFamilySearchGenealogyLink(normalizedLink);
+
+    if (!isRecord && !isGenealogy) {
       return;
     }
 
@@ -902,10 +934,20 @@ function sanitizeFamilySearchCollections(collections = []) {
     }
 
     seen.add(normalizedLink);
+
+    let category = collection.category;
+    if (category !== "record" && category !== "genealogy" && category !== "image-only") {
+      if (isGenealogy || FAMILYSEARCH_GENEALOGY_KEYWORD_REGEX.test(collection.title) || /genealogy/i.test(normalizedLink)) {
+        category = "genealogy";
+      } else {
+        category = "record";
+      }
+    }
+
     sanitized.push({
       ...collection,
       link: normalizedLink,
-      category: "record",
+      category,
     });
   });
 
@@ -922,10 +964,16 @@ function sanitizeCollectionsByCountryMap(collectionsByCountry = {}) {
 
 function splitFamilySearchCollectionsByCategory(collections = []) {
   const records = [];
+  const imageOnly = [];
   const genealogies = [];
 
   collections.forEach((collection) => {
     if (!collection?.title || !collection?.link) {
+      return;
+    }
+
+    if (collection.category === "image-only") {
+      imageOnly.push(collection);
       return;
     }
 
@@ -947,17 +995,18 @@ function splitFamilySearchCollectionsByCategory(collections = []) {
     records.push(collection);
   });
 
-  return { records, genealogies };
+  return { records, imageOnly, genealogies };
 }
 
 function getFamilySearchCollectionsForFallback(collections = []) {
-  const { records, genealogies } = splitFamilySearchCollectionsByCategory(collections);
+  const { records, imageOnly, genealogies } = splitFamilySearchCollectionsByCategory(collections);
 
   if (records.length > 0) {
     return {
       categoryLabel: "Records Available",
       collections: records,
       hasRecords: true,
+      hasImageOnly: imageOnly.length > 0,
       hasGenealogies: genealogies.length > 0,
     };
   }
@@ -967,7 +1016,18 @@ function getFamilySearchCollectionsForFallback(collections = []) {
       categoryLabel: "Genealogies Available",
       collections: genealogies,
       hasRecords: false,
+      hasImageOnly: imageOnly.length > 0,
       hasGenealogies: true,
+    };
+  }
+
+  if (imageOnly.length > 0) {
+    return {
+      categoryLabel: "Image-Only Records Available",
+      collections: imageOnly,
+      hasRecords: false,
+      hasImageOnly: true,
+      hasGenealogies: false,
     };
   }
 
@@ -975,6 +1035,7 @@ function getFamilySearchCollectionsForFallback(collections = []) {
     categoryLabel: "",
     collections: [],
     hasRecords: false,
+    hasImageOnly: false,
     hasGenealogies: false,
   };
 }
@@ -1985,6 +2046,19 @@ export default function App() {
   const [hoveredMilestone, setHoveredMilestone] = useState(null);
   const [countryDataCache] = useState(countryStatsByLookup);
   const [familySearchCollections, setFamilySearchCollections] = useState([]);
+  const [brokenLocationUrls, setBrokenLocationUrls] = useState(() => {
+    try {
+      const raw = localStorage.getItem(FAMILYSEARCH_BROKEN_URLS_STORAGE_KEY);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch (_) {
+      return new Set();
+    }
+  });
+  const persistBrokenLocationUrls = (updatedSet) => {
+    try {
+      localStorage.setItem(FAMILYSEARCH_BROKEN_URLS_STORAGE_KEY, JSON.stringify([...updatedSet]));
+    } catch (_) {}
+  };
   const [isFamilySearchCollectionsLoading, setIsFamilySearchCollectionsLoading] = useState(false);
   const [familySearchQrDestination, setFamilySearchQrDestination] = useState(null);
   const [lightboxItem, setLightboxItem] = useState(null);
@@ -2648,15 +2722,43 @@ export default function App() {
           if (response.ok) {
             const pageText = await response.text();
             if (pageText && pageText.length > 50) {
-              const parsed = parseFamilySearchCollectionsFromLocationPage(pageText);
-              const liveRecordCollections = sanitizeFamilySearchCollections(parsed.records);
+              if (
+                pageText.includes("404 Not Found") ||
+                pageText.includes("StandardError") ||
+                pageText.includes("Something Went Wrong") ||
+                pageText.includes("UnknownError") ||
+                /failed to fetch/i.test(pageText) ||
+                /could not be retrieved/i.test(pageText)
+              ) {
+                setBrokenLocationUrls((prev) => {
+                  const next = new Set(prev);
+                  next.add(locationUrl);
+                  persistBrokenLocationUrls(next);
+                  return next;
+                });
+              } else {
+                const parsed = parseFamilySearchCollectionsFromLocationPage(pageText);
+                const allCollections = [
+                  ...(parsed.records || []),
+                  ...(parsed.imageOnly || []),
+                  ...(parsed.genealogies || []),
+                ];
+                const liveCollections = sanitizeFamilySearchCollections(allCollections);
 
-              if (liveRecordCollections.length > 0) {
-                familySearchCollectionsCacheRef.current[cacheKey] = liveRecordCollections;
-                persistFamilySearchCache();
-                return liveRecordCollections;
+                if (liveCollections.length > 0) {
+                  familySearchCollectionsCacheRef.current[cacheKey] = liveCollections;
+                  persistFamilySearchCache();
+                  return liveCollections;
+                }
               }
             }
+          } else if (response.status === 404 || response.status === 422) {
+            setBrokenLocationUrls((prev) => {
+              const next = new Set(prev);
+              next.add(locationUrl);
+              persistBrokenLocationUrls(next);
+              return next;
+            });
           }
         } catch (err) {
           console.log("Failed to fetch FamilySearch data for:", countryName, err.message);
@@ -2668,23 +2770,15 @@ export default function App() {
     // Fall back to static bundled data if live fetch failed
     const bundledData = countryDataBundle[countryName]?.familySearch;
     if (bundledData && Array.isArray(bundledData) && bundledData.length > 0) {
-      const recordCollections = sanitizeFamilySearchCollections(bundledData);
+      const sanitizedCollections = sanitizeFamilySearchCollections(bundledData);
 
-      if (recordCollections.length > 0) {
-        familySearchCollectionsCacheRef.current[cacheKey] = recordCollections;
+      if (sanitizedCollections.length > 0) {
+        familySearchCollectionsCacheRef.current[cacheKey] = sanitizedCollections;
         try {
           persistFamilySearchCache();
         } catch (_) {}
-        return recordCollections;
+        return sanitizedCollections;
       }
-
-      // If no record collections exist in the bundle, do not expose genealogy-only
-      // fallbacks as primary collections to avoid showing misleading 'slug' links.
-      familySearchCollectionsCacheRef.current[cacheKey] = [];
-      try {
-        persistFamilySearchCache();
-      } catch (_) {}
-      return [];
     }
 
     familySearchCollectionsCacheRef.current[cacheKey] = [];
@@ -3180,6 +3274,10 @@ export default function App() {
   const familySearchLocationUrl = selectedCountry
     ? appendFamilySearchCampaignId(getFamilySearchLocationUrl(selectedCountry.name))
     : null;
+  const showFamilySearchLocationUrl =
+    familySearchLocationUrl &&
+    selectedCountry &&
+    !brokenLocationUrls.has(getFamilySearchLocationUrl(selectedCountry.name));
   const visibleFamilySearchCollections = sanitizeFamilySearchCollections(familySearchCollections).filter(
     (collection) => !/no collections found/i.test(collection.title)
   );
@@ -3187,9 +3285,11 @@ export default function App() {
     categoryLabel: familySearchCollectionsCategoryLabel,
     collections: visibleFamilySearchPreferredCollections,
     hasRecords: hasFamilySearchRecordCollections,
+    hasImageOnly: hasFamilySearchImageOnlyCollections,
     hasGenealogies: hasFamilySearchGenealogyCollections,
   } = getFamilySearchCollectionsForFallback(visibleFamilySearchCollections);
   const isGenealogyCollectionsView = familySearchCollectionsCategoryLabel === "Genealogies Available";
+  const isImageOnlyCollectionsView = familySearchCollectionsCategoryLabel === "Image-Only Records Available";
 
   const voyagerProgressCount = visitedVoyagerCountries.length;
   const voyagerCountriesUntilSurprise = Math.max(5 - voyagerProgressCount, 0);
@@ -3207,6 +3307,7 @@ export default function App() {
     0,
     recordCollectionsDisplayLimit
   );
+  const hasCollections = displayedFamilySearchPreferredCollections.length > 0;
   const selectedCountryResearchLinks = selectedCountry
     ? getLookupValue(countryResearchLinksByLookup, selectedCountry.name)
     : null;
@@ -5704,120 +5805,178 @@ export default function App() {
 
                 {/* FamilySearch Collections and Research Helps */}
                 <div style={{ padding: `1.5rem ${STORY_CARD_SIDE_PADDING} 1.4rem` }}>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 0.8fr)",
-                      gap: "1.5rem",
-                      alignItems: "start",
-                    }}
-                  >
-                    <div style={{ minWidth: 0, ...getRevealStyle(1) }}>
-                      <div style={{ display: "grid", gap: "0.38rem" }}>
-                        {displayedFamilySearchPreferredCollections.length ? (
-                          <>
-                            <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginTop: "0.12rem" }}>
-                              {isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}
-                            </div>
-                            {displayedFamilySearchPreferredCollections.map((collection, index) => (
-                              <button
-                                key={`${isGenealogyCollectionsView ? "FamilySearch Genealogies" : "FamilySearch Records"}-${collection.title}-${collection.link}`}
-                                type="button"
-                                onClick={() => setFamilySearchQrDestination({ title: collection.title, url: appendFamilySearchCampaignId(collection.link) })}
-                                style={{ ...familySearchRecordLinkStyle, padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
-                                onMouseEnter={handleFamilySearchRecordMouseEnter}
-                                onMouseLeave={handleFamilySearchRecordMouseLeave}
-                              >
-                                <span
-                                  ref={(element) => {
-                                    recordTitleRefs.current[index] = element;
-                                  }}
-                                  style={
-                                    isGenealogyCollectionsView
-                                      ? {
-                                        minWidth: 0,
-                                        display: "-webkit-box",
-                                        WebkitLineClamp: 2,
-                                        WebkitBoxOrient: "vertical",
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        wordBreak: "break-word",
-                                        overflowWrap: "anywhere",
-                                      }
-                                      : { minWidth: 0, whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere", display: "block" }
-                                  }
+                  {isFamilySearchCollectionsLoading || hasCollections ? (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 0.8fr)",
+                        gap: "1.5rem",
+                        alignItems: "start",
+                      }}
+                    >
+                      <div style={{ minWidth: 0, ...getRevealStyle(1) }}>
+                        <div style={{ display: "grid", gap: "0.38rem" }}>
+                          {hasCollections ? (
+                            <>
+                              <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginTop: "0.12rem" }}>
+                                {isGenealogyCollectionsView ? "FamilySearch Genealogies" : isImageOnlyCollectionsView ? "Image-Only Historical Records" : "FamilySearch Records"}
+                              </div>
+                              {displayedFamilySearchPreferredCollections.map((collection, index) => (
+                                <button
+                                  key={`${isGenealogyCollectionsView ? "Genealogies" : isImageOnlyCollectionsView ? "ImageOnly" : "Records"}-${collection.title}-${collection.link}`}
+                                  type="button"
+                                  onClick={() => setFamilySearchQrDestination({ title: collection.title, url: appendFamilySearchCampaignId(collection.link) })}
+                                  style={{ ...familySearchRecordLinkStyle, padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
+                                  onMouseEnter={handleFamilySearchRecordMouseEnter}
+                                  onMouseLeave={handleFamilySearchRecordMouseLeave}
                                 >
-                                  {collection.title}
-                                </span>
-                              </button>
-                            ))}
-                          </>
-                        ) : null}
-
-                        {!hasFamilySearchRecordCollections && !hasFamilySearchGenealogyCollections ? (
-                          isFamilySearchCollectionsLoading ? (
+                                  <span
+                                    ref={(element) => {
+                                      recordTitleRefs.current[index] = element;
+                                    }}
+                                    style={
+                                      isGenealogyCollectionsView
+                                        ? {
+                                          minWidth: 0,
+                                          display: "-webkit-box",
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: "vertical",
+                                          overflow: "hidden",
+                                          textOverflow: "ellipsis",
+                                          wordBreak: "break-word",
+                                          overflowWrap: "anywhere",
+                                        }
+                                        : { minWidth: 0, whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere", display: "block" }
+                                    }
+                                  >
+                                    {collection.title}
+                                  </span>
+                                </button>
+                              ))}
+                            </>
+                          ) : (
                             <div className="fs-loading-pulse" style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>
                               Loading collections...
                             </div>
-                          ) : (
-                            <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No FamilySearch collections available.</div>
-                          )
-                        ) : null}
-                      </div>
-                      {familySearchLocationUrl ? (
-                        <button
-                          type="button"
-                          onClick={() => setFamilySearchQrDestination({ title: `${selectedCountry.name} FamilySearch research`, url: familySearchLocationUrl })}
-                          style={{
-                            marginTop: "0.72rem",
-                            ...seeMoreLikeLinkStyle,
-                            border: "none",
-                            background: "transparent",
-                            cursor: "pointer",
-                          }}
-                          onMouseEnter={handleSeeMoreLikeLinkMouseEnter}
-                          onMouseLeave={handleSeeMoreLikeLinkMouseLeave}
-                        >
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}>
-                            {renderLinkArrowIcon()}
-                            <span>See more</span>
-                          </span>
-                        </button>
-                      ) : (
-                        <div style={{ marginTop: "0.72rem", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.9rem", textAlign: "left" }}>
-                          Country research page not available.
+                          )}
                         </div>
-                      )}
-                    </div>
-
-                    <div style={{ minWidth: 0, ...getRevealStyle(2) }}>
-                      <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontWeight: 700 }}>
-                        Research Help
-                      </h3>
-                      <div style={{ display: "grid", gap: "0.38rem" }}>
-                        {researchHelpEntries.length ? (
-                          researchHelpEntries.map((entry) => (
-                            <button
-                              key={`${entry.key}-${entry.value.url}`}
-                              type="button"
-                              onClick={() => setFamilySearchQrDestination({ title: entry.value.title || entry.label, url: entry.value.url })}
-                              style={{ ...researchHelpLinkStyle, padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
-                              onMouseEnter={handleResearchHelpMouseEnter}
-                              onMouseLeave={handleResearchHelpMouseLeave}
-                              title={entry.value.title || entry.label}
-                            >
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", minWidth: 0, maxWidth: "100%" }}>
-                                {renderLinkArrowIcon()}
-                                <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{entry.label}</span>
-                              </span>
-                            </button>
-                          ))
+                        {showFamilySearchLocationUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setFamilySearchQrDestination({ title: `${selectedCountry.name} FamilySearch research`, url: familySearchLocationUrl })}
+                            style={{
+                              marginTop: "0.72rem",
+                              ...seeMoreLikeLinkStyle,
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                            }}
+                            onMouseEnter={handleSeeMoreLikeLinkMouseEnter}
+                            onMouseLeave={handleSeeMoreLikeLinkMouseLeave}
+                          >
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}>
+                              {renderLinkArrowIcon()}
+                              <span>See more</span>
+                            </span>
+                          </button>
                         ) : (
-                          <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No research help links available.</div>
+                          <div style={{ marginTop: "0.72rem", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.9rem", textAlign: "left" }}>
+                            Country research page not available.
+                          </div>
                         )}
                       </div>
+
+                      <div style={{ minWidth: 0, ...getRevealStyle(2) }}>
+                        <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontWeight: 700 }}>
+                          Research Help
+                        </h3>
+                        <div style={{ display: "grid", gap: "0.38rem" }}>
+                          {researchHelpEntries.length ? (
+                            researchHelpEntries.map((entry) => (
+                              <button
+                                key={`${entry.key}-${entry.value.url}`}
+                                type="button"
+                                onClick={() => setFamilySearchQrDestination({ title: entry.value.title || entry.label, url: entry.value.url })}
+                                style={{ ...researchHelpLinkStyle, padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
+                                onMouseEnter={handleResearchHelpMouseEnter}
+                                onMouseLeave={handleResearchHelpMouseLeave}
+                                title={entry.value.title || entry.label}
+                              >
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", minWidth: 0, maxWidth: "100%" }}>
+                                  {renderLinkArrowIcon()}
+                                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{entry.label}</span>
+                                </span>
+                              </button>
+                            ))
+                          ) : (
+                            <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No research help links available.</div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 0.8fr)",
+                        gap: "1.5rem",
+                        alignItems: "start",
+                      }}
+                    >
+                      <div style={{ minWidth: 0, ...getRevealStyle(1) }}>
+                        <h3 style={{ margin: "0 0 0.65rem", fontSize: "0.85rem", color: "#f8fafc", fontWeight: 600, letterSpacing: "0.01em", lineHeight: 1.4 }}>
+                          We don't have collections yet. Get started with our help!
+                        </h3>
+                        <div style={{ display: "grid", gap: "0.38rem" }}>
+                          {researchHelpEntries.length ? (
+                            researchHelpEntries.map((entry) => (
+                              <button
+                                key={`${entry.key}-${entry.value.url}`}
+                                type="button"
+                                onClick={() => setFamilySearchQrDestination({ title: entry.value.title || entry.label, url: entry.value.url })}
+                                style={{ ...researchHelpLinkStyle, padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
+                                onMouseEnter={handleResearchHelpMouseEnter}
+                                onMouseLeave={handleResearchHelpMouseLeave}
+                                title={entry.value.title || entry.label}
+                              >
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", minWidth: 0, maxWidth: "100%" }}>
+                                  {renderLinkArrowIcon()}
+                                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{entry.label}</span>
+                                </span>
+                              </button>
+                            ))
+                          ) : (
+                            <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.95rem", textAlign: "left" }}>No research help links available.</div>
+                          )}
+                        </div>
+                        {showFamilySearchLocationUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setFamilySearchQrDestination({ title: `${selectedCountry.name} FamilySearch research`, url: familySearchLocationUrl })}
+                            style={{
+                              marginTop: "0.85rem",
+                              ...seeMoreLikeLinkStyle,
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                            }}
+                            onMouseEnter={handleSeeMoreLikeLinkMouseEnter}
+                            onMouseLeave={handleSeeMoreLikeLinkMouseLeave}
+                          >
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem" }}>
+                              {renderLinkArrowIcon()}
+                              <span>See more</span>
+                            </span>
+                          </button>
+                        ) : (
+                          <div style={{ marginTop: "0.85rem", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.9rem", textAlign: "left" }}>
+                            Country research page not available.
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ minWidth: 0 }} />
+                    </div>
+                  )}
                 </div>
 
                 {/* Gallery — only show when the country has media items */}
