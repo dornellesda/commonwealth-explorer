@@ -19,9 +19,23 @@ import countryStats from "./data/countryStats.json";
 import countryMedia from "./data/media_data.json";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
+import PlyrVideoPlayer from './components/PlyrVideoPlayer';
 import { oceanAmbientSynth } from './utils/oceanAudioSynth';
 import familysearchLogo from './assets/familysearch-tree.svg';
 import ukBoundaries from './data/uk_boundaries.json';
+
+const DEFAULT_HERO_IMAGE_URL = "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1600&q=80";
+const HERO_IMAGE_ALLOWED_TERMS = /(landscape|cityscape|skyline|mountain|coast|nature|panorama|aerial|harbor|waterfront|architecture|scenic)/i;
+const HERO_IMAGE_BLOCKED_TERMS = /(people|person|portrait|selfie|face|crowd|group|wedding|fashion|product|object|still\s?life|abstract|illustration|graphic|pattern)/i;
+const HERO_IMAGE_NON_COUNTRY_TERMS = /(flag|coat\s*of\s*arms|logo|seal|locator\s*map|map\s*of)/i;
+const WIKIPEDIA_TITLE_OVERRIDES = {
+  "the bahamas": "Bahamas",
+  "the gambia": "Gambia",
+  "brunei darussalam": "Brunei",
+  "united republic of tanzania": "Tanzania",
+  "st kitts and nevis": "Saint Kitts and Nevis",
+  "st vincent and the grenadines": "Saint Vincent and the Grenadines",
+};
 
 // Generate or retrieve stable explorer ID for wallet passes
 function getOrCreateExplorerId() {
@@ -3413,18 +3427,6 @@ export default function App() {
   const SUBTLE_DARK_CARD_TEXT_COLOR = "rgba(255,255,255,0.65)";
   const STORY_CARD_SIDE_PADDING = "2rem";
   const springEase = "cubic-bezier(0.22, 1, 0.36, 1)";
-  const DEFAULT_HERO_IMAGE_URL = "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1600&q=80";
-  const HERO_IMAGE_ALLOWED_TERMS = /(landscape|cityscape|skyline|mountain|coast|nature|panorama|aerial|harbor|waterfront|architecture|scenic)/i;
-  const HERO_IMAGE_BLOCKED_TERMS = /(people|person|portrait|selfie|face|crowd|group|wedding|fashion|product|object|still\s?life|abstract|illustration|graphic|pattern)/i;
-  const HERO_IMAGE_NON_COUNTRY_TERMS = /(flag|coat\s*of\s*arms|logo|seal|locator\s*map|map\s*of)/i;
-  const WIKIPEDIA_TITLE_OVERRIDES = {
-    "the bahamas": "Bahamas",
-    "the gambia": "Gambia",
-    "brunei darussalam": "Brunei",
-    "united republic of tanzania": "Tanzania",
-    "st kitts and nevis": "Saint Kitts and Nevis",
-    "st vincent and the grenadines": "Saint Vincent and the Grenadines",
-  };
 
   const getCountryMatchTerms = (countryName = "") => {
     const raw = countryName.toLowerCase().trim();
@@ -4120,17 +4122,19 @@ export default function App() {
     : [];
   const galleryItems = countryMediaItems.reduce((acc, item, index) => {
     const baseId = `${selectedCountry.name}-media-${index}`;
+    const r2VideoUrl = item.r2Url || item.videoUrl || item.mp4Url || (item.url && (item.url.includes('.mp4') || item.url.includes('r2.dev') || item.url.includes('cloudflare')) ? item.url : null);
     const youtubeId = item.videoId || extractYoutubeId(item.url);
 
-    if (item.type === 'video' && youtubeId) {
+    if (item.type === 'video' && (r2VideoUrl || youtubeId)) {
       acc.push({
         id: baseId,
         type: 'video',
         title: item.title || `${selectedCountry.name} Video`,
         description: item.description || '',
         credit: item.credit || '',
-        thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
-        sourceUrl: item.url,
+        thumbnailUrl: item.thumbnailUrl || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : null),
+        sourceUrl: r2VideoUrl || item.url,
+        r2Url: r2VideoUrl,
         videoId: youtubeId,
       });
       return acc;
@@ -6744,21 +6748,7 @@ export default function App() {
                   flexShrink: 0,
                 }}>
                   {lightboxItem.type === "video" ? (
-                    <div style={{ position: "relative", paddingTop: "56.25%" }}>
-                      <iframe
-                        src={`https://www.youtube.com/embed/${lightboxItem.videoId}?autoplay=1&rel=0&modestbranding=1&controls=0&showinfo=0&iv_load_policy=3&cc_load_policy=0`}
-                        title={lightboxItem.title}
-                        allow="autoplay; encrypted-media; picture-in-picture"
-                        allowFullScreen
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          width: "100%",
-                          height: "100%",
-                          border: "none",
-                        }}
-                      />
-                    </div>
+                    <PlyrVideoPlayer videoItem={lightboxItem} autoplay={true} />
                   ) : (
                     <img
                       src={lightboxItem.sourceUrl}
