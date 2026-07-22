@@ -4974,8 +4974,8 @@ export default function App() {
         </div>
 
         {(() => {
-          const shouldShowExploreButton = !isMenuOpen && !isMenuOpening && !isMenuClosing;
-          const isExploreButtonVisible = shouldShowExploreButton && !isButtonTransitioning && !isAttractMode;
+          const shouldShowExploreButton = !selectedCountry && !isMenuOpen;
+          const isExploreButtonVisible = shouldShowExploreButton && !isAttractMode;
           const hiddenExploreTransform = isAttractMode
             ? "translateY(16px) scale(0.97)"
             : "translateY(14px) scale(0.97)";
@@ -5008,7 +5008,7 @@ export default function App() {
               },
             });
           };
-          if (!isExploreButtonVisible && !isMenuOpening && !isMenuClosing && !isButtonTransitioning) {
+          if (selectedCountry) {
             return null;
           }
 

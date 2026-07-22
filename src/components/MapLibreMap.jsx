@@ -55,7 +55,7 @@ const VINTAGE_MAP_STYLE = {
   ]
 };
 
-const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, isPanelOpen, isAttractMode, hoveredCountry, onCountrySelect, onCountryHover, onMapClick }, ref) => {
+const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, isPanelOpen, isAttractMode, hoveredCountry, onCountrySelect, onCountryHover, onMapClick, onMapDragStart }, ref) => {
 
   const mapRef = useRef(null);
   const [geojson, setGeojson] = useState(null);
@@ -393,6 +393,11 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         onMouseMove={onHover}
         onClick={onClick}
         onZoomEnd={onZoom}
+        onMoveStart={(e) => {
+          if (e.originalEvent && onMapDragStart) {
+            onMapDragStart();
+          }
+        }}
         renderWorldCopies={false}
       >
         {/* Latitude/Longitude Grid — warm ink lines on parchment */}
