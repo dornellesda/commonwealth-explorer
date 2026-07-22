@@ -799,7 +799,8 @@
 .dock-expand-container {
   position: fixed;
   left: 50%;
-  bottom: 2.2rem;
+  top: 5.5rem;
+  bottom: auto;
   transform: translateX(-50%);
   z-index: 900;
   opacity: 0;

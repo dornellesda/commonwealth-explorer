@@ -109,7 +109,7 @@ body {
   }
 
   /* ── Dock → raised to ergonomic zone closer to map ── */
-  .dock-expand-container { bottom: max(7.5rem, 12vh) !important; }
+  .dock-expand-container { top: 5.5rem !important; bottom: auto !important; }
 
   /* ── Voyager progress pill → right-anchored at comfortable height ── */
   /* (handled inline in AppNew.jsx via isPortraitKiosk) */

@@ -4490,8 +4490,8 @@ export default function App() {
             style={{
               position: "fixed",
               left: "50%",
-              top: isAttractMode ? "72%" : "auto",
-              bottom: isAttractMode ? "auto" : "2.2rem",
+              top: isAttractMode ? "72%" : "5rem",
+              bottom: "auto",
               transform: `translateX(-50%) ${baseExploreTransform}`,
               zIndex: 910,
               display: "flex",
@@ -4528,12 +4528,12 @@ export default function App() {
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
-                padding: (isAttractMode || isPanelOpen) ? "10px 20px" : "10px 22px 10px 18px", // Symmetric when recentre is hidden
+                padding: (isAttractMode) ? "16px 32px" : ((isPanelOpen) ? "10px 20px" : "10px 22px 10px 18px"), // Symmetric when recentre is hidden
                 borderRadius: "999px",
                 border: "none",
                 background: "linear-gradient(180deg, rgba(135, 185, 64, 0.85) 0%, rgba(115, 160, 50, 0.85) 100%)",
                 color: "#ffffff",
-                fontSize: "1.12rem", // Larger font size
+                fontSize: isAttractMode ? "1.6rem" : "1.12rem", // Larger font size for attract
                 fontWeight: 700, // Stronger weight
                 cursor: "pointer",
                 boxShadow: "0 4px 14px rgba(135, 185, 64, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
@@ -4965,10 +4965,10 @@ export default function App() {
           onPointerDown={markDockInteraction}
           style={{
             position: "absolute",
-            bottom: "1.1rem",
+            top: "1.1rem",
             left: "50%",
             transform: isDockTransitioning
-              ? "translateX(-50%) translateY(24px) scale(0.985)"
+              ? "translateX(-50%) translateY(-24px) scale(0.985)"
               : "translateX(-50%) translateY(0) scale(1)",
             width: isPortrait ? "min(520px, 94vw)" : "min(1360px, 98vw)",
             zIndex: 900,

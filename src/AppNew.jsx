@@ -4931,8 +4931,8 @@ export default function App() {
               style={{
                 position: "fixed",
                 left: "50%",
-                top: isAttractMode ? "72%" : "auto",
-                bottom: isAttractMode ? "auto" : "max(7.5rem, 12vh)",
+                top: isAttractMode ? "72%" : "5rem",
+                bottom: "auto",
                 transform: `translateX(-50%) ${baseExploreTransform}`,
                 zIndex: selectedCountry ? 995 : 910,
                 display: "flex",
@@ -4969,12 +4969,12 @@ export default function App() {
                   display: "flex",
                   alignItems: "center",
                   gap: "9px",
-                  padding: (isAttractMode || hideRecentre) ? "11px 22px" : "11px 24px 11px 20px", // 10% larger padding
+                  padding: (isAttractMode) ? "18px 36px" : (hideRecentre ? "11px 22px" : "11px 24px 11px 20px"),
                   borderRadius: "999px",
                   border: "none",
                   background: "linear-gradient(180deg, rgba(135, 185, 64, 0.85) 0%, rgba(115, 160, 50, 0.85) 100%)",
                   color: "#ffffff",
-                  fontSize: "1.24rem", // 10% larger font size (1.12rem * 1.1)
+                  fontSize: isAttractMode ? "1.6rem" : "1.24rem",
                   fontWeight: 700,
                   cursor: "pointer",
                   boxShadow: "0 4px 14px rgba(135, 185, 64, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2)",

@@ -6,9 +6,10 @@ const APPLE_SPRING_EASE = "cubic-bezier(0.34, 1.56, 0.64, 1)";
 const APPLE_GENTLE_EASE = "cubic-bezier(0.2, 0.85, 0.24, 1)";
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-// Elevated bottom margins placing dock in comfortable reach zone near active map area
-const PORTRAIT_DOCK_BOTTOM = "max(7.5rem, 12vh)";
-const LANDSCAPE_DOCK_BOTTOM = "max(3rem, 6vh)";
+// Elevated top margins placing dock in comfortable reach zone near active map area
+// Elevated top margins placing dock in comfortable reach zone below header
+const PORTRAIT_DOCK_TOP = "5.5rem";
+const LANDSCAPE_DOCK_TOP = "5rem";
 
 function buildIndex(countries) {
   const index = {};
@@ -153,10 +154,11 @@ function UniversalDock({
         onPointerDown={markDockInteraction}
         style={{
           position: "fixed",
-          bottom: PORTRAIT_DOCK_BOTTOM,
+          top: PORTRAIT_DOCK_TOP,
+          bottom: "auto",
           left: "50%",
           transform: isDockTransitioning
-            ? "translateX(-50%) translateY(40px) scale(0.94)"
+            ? "translateX(-50%) translateY(-40px) scale(0.94)"
             : "translateX(-50%) translateY(0) scale(1)",
           width: "min(640px, 92vw)",
           zIndex: 900,
@@ -410,10 +412,11 @@ function UniversalDock({
       onPointerDown={markDockInteraction}
       style={{
         position: "fixed",
-        bottom: LANDSCAPE_DOCK_BOTTOM,
+        top: LANDSCAPE_DOCK_TOP,
+        bottom: "auto",
         left: "50%",
         transform: isDockTransitioning
-          ? "translateX(-50%) translateY(36px) scale(0.95)"
+          ? "translateX(-50%) translateY(-40px) scale(0.94)"
           : "translateX(-50%) translateY(0) scale(1)",
         width: "min(1200px, 94vw)",
         zIndex: 900,
