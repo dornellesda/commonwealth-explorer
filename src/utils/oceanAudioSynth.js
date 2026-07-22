@@ -79,10 +79,14 @@ class OceanAmbientSynthesizer {
 
   applyPlayGain() {
     if (!this.ctx || !this.masterGain) return;
+    if (this.ctx.state === "suspended") {
+      this.ctx.resume().then(() => this.applyPlayGain()).catch(() => {});
+      return;
+    }
     const now = this.ctx.currentTime;
     this.masterGain.gain.cancelScheduledValues(now);
-    this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
-    this.masterGain.gain.linearRampToValueAtTime(0.56, now + 1.5); // Loud ambient master gain
+    this.masterGain.gain.setValueAtTime(0.56, now); // Set gain directly on live context time
+    this.isPlaying = true;
 
     this.scheduleShipCreak();
     this.scheduleShipBell();
@@ -174,14 +178,15 @@ class OceanAmbientSynthesizer {
   }
 
   unlockAudioContext() {
-    if (this.ctx) {
-      if (this.ctx.state === "suspended") {
-        this.ctx.resume().then(() => {
-          if (this.isPlaying) {
-            this.applyPlayGain();
-          }
-        }).catch(() => {});
-      }
+    if (!this.ctx) {
+      this.init();
+    }
+    if (this.ctx && this.ctx.state === "suspended") {
+      this.ctx.resume().then(() => {
+        if (this.isPlaying) {
+          this.applyPlayGain();
+        }
+      }).catch(() => {});
     }
   }
 }
