@@ -27,7 +27,7 @@ class OceanAmbientSynthesizer {
     let lastOut = 0.0;
     for (let i = 0; i < bufferSize; i++) {
       const white = Math.random() * 2 - 1;
-      output[i] = (lastOut + 0.025 * white) / 1.02; // Rich pink noise formula
+      output[i] = (lastOut + 0.03 * white) / 1.02; // Rich pink noise formula
       lastOut = output[i];
     }
 
@@ -38,7 +38,7 @@ class OceanAmbientSynthesizer {
     // Lowpass filter modulating wave swell
     this.waveFilter = this.ctx.createBiquadFilter();
     this.waveFilter.type = "lowpass";
-    this.waveFilter.frequency.setValueAtTime(260, this.ctx.currentTime);
+    this.waveFilter.frequency.setValueAtTime(280, this.ctx.currentTime);
     this.waveFilter.Q.setValueAtTime(1.4, this.ctx.currentTime);
 
     // LFO for periodic wave motion (~8 second cycle)
@@ -47,13 +47,13 @@ class OceanAmbientSynthesizer {
     this.waveLfo.frequency.setValueAtTime(0.12, this.ctx.currentTime);
 
     const lfoGain = this.ctx.createGain();
-    lfoGain.gain.setValueAtTime(240, this.ctx.currentTime);
+    lfoGain.gain.setValueAtTime(260, this.ctx.currentTime);
 
     this.waveLfo.connect(lfoGain);
     lfoGain.connect(this.waveFilter.frequency);
 
     const oceanGain = this.ctx.createGain();
-    oceanGain.gain.setValueAtTime(0.85, this.ctx.currentTime); // 300% louder ocean waves
+    oceanGain.gain.setValueAtTime(1.6, this.ctx.currentTime); // Boosted ocean waves
 
     noiseSource.connect(this.waveFilter);
     this.waveFilter.connect(oceanGain);
@@ -72,7 +72,7 @@ class OceanAmbientSynthesizer {
     const now = this.ctx.currentTime;
     this.masterGain.gain.cancelScheduledValues(now);
     this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
-    this.masterGain.gain.linearRampToValueAtTime(0.28, now + 2.0); // 300% louder master ambient volume
+    this.masterGain.gain.linearRampToValueAtTime(0.56, now + 2.0); // Boosted master volume (+100%)
     this.isPlaying = true;
 
     this.scheduleShipCreak();
@@ -93,7 +93,7 @@ class OceanAmbientSynthesizer {
 
   scheduleShipCreak() {
     if (!this.isPlaying) return;
-    const delay = 8000 + Math.random() * 14000;
+    const delay = 7000 + Math.random() * 12000;
     this.shipCreakTimer = setTimeout(() => {
       if (this.isPlaying) {
         this.triggerShipCreakSound();
@@ -104,7 +104,7 @@ class OceanAmbientSynthesizer {
 
   scheduleShipBell() {
     if (!this.isPlaying) return;
-    const delay = 18000 + Math.random() * 25000;
+    const delay = 15000 + Math.random() * 22000;
     this.bellTimer = setTimeout(() => {
       if (this.isPlaying) {
         this.triggerDistantBell();
@@ -130,7 +130,7 @@ class OceanAmbientSynthesizer {
 
       const now = this.ctx.currentTime;
       gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.040, now + 0.3); // 300% louder ship creaks
+      gain.gain.linearRampToValueAtTime(0.080, now + 0.3); // Boosted ship creaks (+100%)
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.3);
 
       osc.connect(filter);
@@ -153,7 +153,7 @@ class OceanAmbientSynthesizer {
 
       const now = this.ctx.currentTime;
       gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.022, now + 0.04); // 300% louder ship bell
+      gain.gain.linearRampToValueAtTime(0.045, now + 0.04); // Boosted ship bell (+100%)
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
 
       osc.connect(gain);
