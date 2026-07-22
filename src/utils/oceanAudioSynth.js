@@ -53,7 +53,7 @@ class OceanAmbientSynthesizer {
     lfoGain.connect(this.waveFilter.frequency);
 
     const oceanGain = this.ctx.createGain();
-    oceanGain.gain.setValueAtTime(1.6, this.ctx.currentTime); // Boosted ocean waves
+    oceanGain.gain.setValueAtTime(1.6, this.ctx.currentTime); // Rich ocean wave amplitude
 
     noiseSource.connect(this.waveFilter);
     this.waveFilter.connect(oceanGain);
@@ -66,14 +66,23 @@ class OceanAmbientSynthesizer {
   play() {
     this.init();
     if (!this.ctx) return;
+    this.isPlaying = true;
+
     if (this.ctx.state === "suspended") {
-      this.ctx.resume().catch(() => {});
+      this.ctx.resume().then(() => {
+        this.applyPlayGain();
+      }).catch(() => {});
+    } else {
+      this.applyPlayGain();
     }
+  }
+
+  applyPlayGain() {
+    if (!this.ctx || !this.masterGain) return;
     const now = this.ctx.currentTime;
     this.masterGain.gain.cancelScheduledValues(now);
     this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
-    this.masterGain.gain.linearRampToValueAtTime(0.56, now + 2.0); // Boosted master volume (+100%)
-    this.isPlaying = true;
+    this.masterGain.gain.linearRampToValueAtTime(0.56, now + 1.5); // Loud ambient master gain
 
     this.scheduleShipCreak();
     this.scheduleShipBell();
@@ -130,7 +139,7 @@ class OceanAmbientSynthesizer {
 
       const now = this.ctx.currentTime;
       gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.080, now + 0.3); // Boosted ship creaks (+100%)
+      gain.gain.linearRampToValueAtTime(0.080, now + 0.3);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.3);
 
       osc.connect(filter);
@@ -149,11 +158,11 @@ class OceanAmbientSynthesizer {
       const gain = this.ctx.createGain();
 
       osc.type = "sine";
-      osc.frequency.setValueAtTime(880, this.ctx.currentTime); // High resonant chime
+      osc.frequency.setValueAtTime(880, this.ctx.currentTime);
 
       const now = this.ctx.currentTime;
       gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.045, now + 0.04); // Boosted ship bell (+100%)
+      gain.gain.linearRampToValueAtTime(0.045, now + 0.04);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
 
       osc.connect(gain);
@@ -165,8 +174,14 @@ class OceanAmbientSynthesizer {
   }
 
   unlockAudioContext() {
-    if (this.ctx && this.ctx.state === "suspended") {
-      this.ctx.resume().catch(() => {});
+    if (this.ctx) {
+      if (this.ctx.state === "suspended") {
+        this.ctx.resume().then(() => {
+          if (this.isPlaying) {
+            this.applyPlayGain();
+          }
+        }).catch(() => {});
+      }
     }
   }
 }

@@ -2302,22 +2302,45 @@ export default function App() {
   };
 
   useEffect(() => {
-    const unlock = () => oceanAmbientSynth.unlockAudioContext();
-    window.addEventListener("pointerdown", unlock, { passive: true });
-    window.addEventListener("touchstart", unlock, { passive: true });
-    return () => {
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("touchstart", unlock);
-    };
-  }, []);
+    let intervalId = null;
 
-  useEffect(() => {
+    const tryStartAudio = () => {
+      if (isIdleAttractMode || isAttractMode) {
+        oceanAmbientSynth.play();
+        oceanAmbientSynth.unlockAudioContext();
+      }
+    };
+
     if (isIdleAttractMode || isAttractMode) {
-      oceanAmbientSynth.play();
+      tryStartAudio();
+      // Periodically attempt to unlock AudioContext if suspended by browser autoplay policy
+      intervalId = setInterval(() => {
+        if (oceanAmbientSynth.ctx && oceanAmbientSynth.ctx.state === "suspended") {
+          oceanAmbientSynth.unlockAudioContext();
+        }
+      }, 1000);
     } else {
       oceanAmbientSynth.stop();
     }
+
+    const handleUserGesture = () => {
+      oceanAmbientSynth.unlockAudioContext();
+      if (isIdleAttractMode || isAttractMode) {
+        oceanAmbientSynth.play();
+      }
+    };
+
+    window.addEventListener("pointerdown", handleUserGesture, { passive: true });
+    window.addEventListener("touchstart", handleUserGesture, { passive: true });
+    window.addEventListener("click", handleUserGesture, { passive: true });
+    window.addEventListener("keydown", handleUserGesture, { passive: true });
+
     return () => {
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener("pointerdown", handleUserGesture);
+      window.removeEventListener("touchstart", handleUserGesture);
+      window.removeEventListener("click", handleUserGesture);
+      window.removeEventListener("keydown", handleUserGesture);
       oceanAmbientSynth.stop();
     };
   }, [isIdleAttractMode, isAttractMode]);
