@@ -2304,8 +2304,9 @@ export default function App() {
 
   useEffect(() => {
     let intervalId = null;
+    const isAttractActive = (isIdleAttractMode || isAttractMode) && isSoundEnabled;
 
-    if (isSoundEnabled) {
+    if (isAttractActive) {
       oceanAmbientSynth.play();
       oceanAmbientSynth.unlockAudioContext();
 
@@ -2319,7 +2320,7 @@ export default function App() {
     }
 
     const handleUserGesture = () => {
-      if (isSoundEnabled) {
+      if ((isIdleAttractMode || isAttractMode) && isSoundEnabled) {
         oceanAmbientSynth.unlockAudioContext();
         oceanAmbientSynth.play();
       }
@@ -2336,6 +2337,7 @@ export default function App() {
       window.removeEventListener("touchstart", handleUserGesture);
       window.removeEventListener("click", handleUserGesture);
       window.removeEventListener("keydown", handleUserGesture);
+      oceanAmbientSynth.stop();
     };
   }, [isIdleAttractMode, isAttractMode, isSoundEnabled]);
 
