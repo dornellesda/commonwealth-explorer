@@ -2052,6 +2052,7 @@ export default function App() {
   const [isPanelVisible, setIsPanelVisible] = useState(false);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const [isContentVisible, setIsContentVisible] = useState(false);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [attractAutoCountryName, setAttractAutoCountryName] = useState("");
   const [attractActiveJourney, setAttractActiveJourney] = useState(null);
   const [activatedCountryName, setActivatedCountryName] = useState(null);
@@ -2304,16 +2305,10 @@ export default function App() {
   useEffect(() => {
     let intervalId = null;
 
-    const tryStartAudio = () => {
-      if (isIdleAttractMode || isAttractMode) {
-        oceanAmbientSynth.play();
-        oceanAmbientSynth.unlockAudioContext();
-      }
-    };
+    if (isSoundEnabled) {
+      oceanAmbientSynth.play();
+      oceanAmbientSynth.unlockAudioContext();
 
-    if (isIdleAttractMode || isAttractMode) {
-      tryStartAudio();
-      // Periodically attempt to unlock AudioContext if suspended by browser autoplay policy
       intervalId = setInterval(() => {
         if (oceanAmbientSynth.ctx && oceanAmbientSynth.ctx.state === "suspended") {
           oceanAmbientSynth.unlockAudioContext();
@@ -2324,8 +2319,8 @@ export default function App() {
     }
 
     const handleUserGesture = () => {
-      oceanAmbientSynth.unlockAudioContext();
-      if (isIdleAttractMode || isAttractMode) {
+      if (isSoundEnabled) {
+        oceanAmbientSynth.unlockAudioContext();
         oceanAmbientSynth.play();
       }
     };
@@ -2341,9 +2336,8 @@ export default function App() {
       window.removeEventListener("touchstart", handleUserGesture);
       window.removeEventListener("click", handleUserGesture);
       window.removeEventListener("keydown", handleUserGesture);
-      oceanAmbientSynth.stop();
     };
-  }, [isIdleAttractMode, isAttractMode]);
+  }, [isIdleAttractMode, isAttractMode, isSoundEnabled]);
 
   useEffect(() => {
     visitedVoyagerCountriesRef.current = visitedVoyagerCountries;
@@ -5673,6 +5667,49 @@ export default function App() {
         ) : null}
 
 
+
+        {/* Floating Ambient Sound Control Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            oceanAmbientSynth.unlockAudioContext();
+            if (!isSoundEnabled) {
+              oceanAmbientSynth.play();
+            }
+            setIsSoundEnabled(prev => !prev);
+          }}
+          style={{
+            position: "fixed",
+            top: "1.4rem",
+            right: "1.4rem",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.55rem",
+            padding: "0.55rem 0.95rem",
+            borderRadius: "999px",
+            background: isSoundEnabled
+              ? "rgba(135, 185, 64, 0.25)"
+              : "rgba(18, 18, 24, 0.75)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: isSoundEnabled
+              ? "1px solid rgba(135, 185, 64, 0.5)"
+              : "1px solid rgba(255, 255, 255, 0.18)",
+            color: "#ffffff",
+            fontSize: "0.82rem",
+            fontWeight: 700,
+            cursor: "pointer",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+            transition: "all 250ms cubic-bezier(0.16, 1, 0.3, 1)",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+          }}
+          title={isSoundEnabled ? "Mute Ambient Soundscape" : "Play Ambient Soundscape"}
+        >
+          <span style={{ fontSize: "1.1rem" }}>{isSoundEnabled ? "🔊" : "🔇"}</span>
+          <span style={{ letterSpacing: "0.02em" }}>{isSoundEnabled ? "Sound On" : "Sound Off"}</span>
+        </button>
 
         <UniversalDock
           isMenuOpen={isMenuOpen}
