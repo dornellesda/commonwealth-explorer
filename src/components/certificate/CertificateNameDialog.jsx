@@ -12,6 +12,9 @@ export default function CertificateNameDialog({ onCancel, onSubmit }) {
   const handleSubmit = (event) => {
     event.preventDefault();
     if (!trimmed) return;
+    if (document.activeElement && typeof document.activeElement.blur === "function") {
+      document.activeElement.blur();
+    }
     onSubmit(trimmed);
   };
 

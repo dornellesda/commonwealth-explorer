@@ -18,6 +18,7 @@ function formatDate(isoDate) {
 export default function CertificatePage() {
   const [payload] = useState(() => readCertificatePayloadFromLocation());
   const certificateRef = useRef(null);
+  const pdfCertRef = useRef(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState("");
 
@@ -50,17 +51,44 @@ export default function CertificatePage() {
     try {
       const { toPng } = await import("html-to-image");
       const dataUrl = await toPng(certificateRef.current, {
-        pixelRatio: 2,
+        pixelRatio: 3,
         cacheBust: true,
         styleSheetFilter: (styleSheet) => {
           if (!styleSheet.href) return true;
           return styleSheet.href.startsWith(window.location.origin);
         }
       });
+
+      const fileName = `Commonwealth-Explorer-Certificate-${name.replace(/\s+/g, "-")}.png`;
+
+      // Convert dataUrl to Blob / File
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const file = new File([blob], fileName, { type: "image/png" });
+
+      // iOS Safari support: Native Web Share API with file (opens Save Image / Save to Photos)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: "Commonwealth Explorer Certificate",
+            text: `${name}'s Certificate of Achievement`,
+          });
+          return;
+        } catch (shareErr) {
+          if (shareErr && shareErr.name === "AbortError") return;
+        }
+      }
+
+      // Standard desktop / Android browser download
+      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.download = `Commonwealth-Explorer-Certificate-${name.replace(/\s+/g, "-")}.png`;
-      link.href = dataUrl;
+      link.download = fileName;
+      link.href = blobUrl;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
     } catch (error) {
       console.error("Save image failed", error);
       setExportError("Couldn't save the image. Please try again.");
@@ -70,7 +98,7 @@ export default function CertificatePage() {
   };
 
   const handleDownloadPdf = async () => {
-    if (!certificateRef.current) return;
+    if (!pdfCertRef.current) return;
     setExportError("");
     setIsExporting(true);
     try {
@@ -78,53 +106,17 @@ export default function CertificatePage() {
         import("html-to-image"),
         import("jspdf"),
       ]);
-      const sourceNode = certificateRef.current;
-      const { width, height } = sourceNode.getBoundingClientRect();
-      const badgeForPdf = sourceNode.querySelector('[data-cert-badge="true"]');
-      
-      const originalShadow = badgeForPdf ? badgeForPdf.style.boxShadow : "";
-      const originalAnimation = sourceNode.style.animation;
 
-      if (badgeForPdf) {
-        badgeForPdf.style.boxShadow = "none";
-      }
-      sourceNode.style.animation = "none";
+      const dataUrl = await toPng(pdfCertRef.current, {
+        pixelRatio: 3,
+        cacheBust: true,
+      });
 
-      let dataUrl = "";
-      try {
-        dataUrl = await toPng(sourceNode, {
-          pixelRatio: 2,
-          cacheBust: true,
-          styleSheetFilter: (styleSheet) => {
-            if (!styleSheet.href) return true;
-            return styleSheet.href.startsWith(window.location.origin);
-          }
-        });
-      } finally {
-        if (badgeForPdf) {
-          badgeForPdf.style.boxShadow = originalShadow;
-        }
-        sourceNode.style.animation = originalAnimation;
-      }
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth(); // 297 mm
+      const pageHeight = pdf.internal.pageSize.getHeight(); // 210 mm
 
-      const orientation = width >= height ? "landscape" : "portrait";
-      const pdf = new jsPDF({ orientation, unit: "pt", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const certificateRatio = width / height;
-      const pageRatio = pageWidth / pageHeight;
-      let renderWidth;
-      let renderHeight;
-      if (certificateRatio > pageRatio) {
-        renderWidth = pageWidth;
-        renderHeight = renderWidth / certificateRatio;
-      } else {
-        renderHeight = pageHeight;
-        renderWidth = renderHeight * certificateRatio;
-      }
-      const offsetX = (pageWidth - renderWidth) / 2;
-      const offsetY = (pageHeight - renderHeight) / 2;
-      pdf.addImage(dataUrl, "PNG", offsetX, offsetY, renderWidth, renderHeight);
+      pdf.addImage(dataUrl, "PNG", 0, 0, pageWidth, pageHeight);
       pdf.save(`Commonwealth-Explorer-Certificate-${name.replace(/\s+/g, "-")}.pdf`);
     } catch (error) {
       console.error("PDF export failed", error);
@@ -252,6 +244,134 @@ export default function CertificatePage() {
       </div>
 
       {exportError ? <div style={styles.exportError}>{exportError}</div> : null}
+
+      {/* Hidden high-res A4 Landscape template for PDF generation */}
+      <div
+        ref={pdfCertRef}
+        style={{
+          position: "fixed",
+          left: "-9999px",
+          top: "-9999px",
+          width: "1120px",
+          height: "792px",
+          background: "linear-gradient(145deg, #FFFFFF 0%, #FAFCF6 60%, #F2F7EB 100%)",
+          boxSizing: "border-box",
+          padding: "32px",
+          fontFamily: "'Noto Sans', 'Segoe UI', sans-serif",
+          color: "#333331",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        {/* Double Gold/Green Frame */}
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            border: "4px solid #87B940",
+            borderRadius: "16px",
+            boxSizing: "border-box",
+            padding: "8px",
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              border: "1.5px solid #D4AF37",
+              borderRadius: "10px",
+              boxSizing: "border-box",
+              padding: "24px 44px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "space-between",
+              textAlign: "center",
+              background: "rgba(255, 255, 255, 0.75)",
+            }}
+          >
+            {/* Top Logo & Header */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <img src={FAMILYSEARCH_LOGO_URL} alt="FamilySearch" style={{ width: "170px", height: "auto", marginBottom: "10px" }} />
+              <div style={{ fontFamily: SERIF, fontSize: "26px", fontWeight: 700, letterSpacing: "0.12em", color: "#2C3E14", textTransform: "uppercase" }}>
+                Certificate of Achievement
+              </div>
+              <div style={{ width: "160px", height: "2px", background: "linear-gradient(90deg, transparent, #87B940, #D4AF37, #87B940, transparent)", margin: "8px 0" }} />
+            </div>
+
+            {/* Recipient Section */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <div style={{ fontSize: "11px", letterSpacing: "0.22em", textTransform: "uppercase", color: "#6A6A67" }}>
+                This certificate is proudly presented to
+              </div>
+              <div style={{ fontFamily: SERIF, fontSize: "40px", fontWeight: 700, color: "#1C2B0B", margin: "6px 0", letterSpacing: "-0.01em" }}>
+                {name}
+              </div>
+              <div style={{ fontSize: "14px", color: "#4A4A46" }}>
+                in recognition of reaching the milestone level of
+              </div>
+              <div style={{ fontFamily: SERIF, fontSize: "24px", fontWeight: 700, color: "#87B940", marginTop: "4px" }}>
+                {levelName}
+              </div>
+            </div>
+
+            {/* Badge Medallion & Description */}
+            <div style={{ display: "flex", alignItems: "center", gap: "28px", maxWidth: "800px", margin: "8px 0" }}>
+              <div
+                style={{
+                  width: "92px",
+                  height: "92px",
+                  borderRadius: "50%",
+                  padding: "10px",
+                  background: "radial-gradient(circle at 35% 30%, #FFFFFF, #EDF4E6)",
+                  border: `2px solid ${colors.primary}`,
+                  boxShadow: `0 0 20px ${colors.glow}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {icon}
+              </div>
+              <div style={{ fontSize: "13.5px", color: "#5D5D59", lineHeight: 1.65, textAlign: "left" }}>
+                For demonstrating outstanding curiosity, exploration, and discovery of family history,
+                migration stories, and cultural heritage through the FamilySearch
+                One Commonwealth, Many Families experience.
+              </div>
+            </div>
+
+            {/* Footer / Seal / Date */}
+            <div style={{ width: "100%", display: "flex", alignItems: "flex-end", justifyContent: "space-between", borderTop: "1px solid rgba(135, 185, 64, 0.3)", paddingTop: "14px", marginTop: "4px" }}>
+              <div style={{ textAlign: "left" }}>
+                <div style={{ fontSize: "13px", fontWeight: 600, color: "#333331" }}>{displayDate}</div>
+                <div style={{ fontSize: "10px", color: "#888884", textTransform: "uppercase", letterSpacing: "0.08em" }}>Date Issued</div>
+              </div>
+
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "#87B940", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                  Official Verified Explorer Certificate
+                </div>
+                <div style={{ fontSize: "9.5px", color: "#999994", marginTop: "2px" }}>
+                  FamilySearch International • Commonwealth Explorer
+                </div>
+              </div>
+
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: SERIF, fontSize: "13.5px", fontStyle: "italic", color: "#333331" }}>FamilySearch Explorer Team</div>
+                <div style={{ fontSize: "10px", color: "#888884", textTransform: "uppercase", letterSpacing: "0.08em" }}>Authorized Issuer</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

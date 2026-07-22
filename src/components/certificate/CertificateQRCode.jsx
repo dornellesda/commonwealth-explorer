@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { BADGE_ICONS, BADGE_COLORS, FAMILYSEARCH_COLORS, FAMILYSEARCH_LOGO_URL } from "./badges";
 
@@ -8,6 +9,12 @@ import { BADGE_ICONS, BADGE_COLORS, FAMILYSEARCH_COLORS, FAMILYSEARCH_LOGO_URL }
 export default function CertificateQRCode({ name, badgeLevel, levelName, certificateUrl, onClose }) {
   const icon = BADGE_ICONS[badgeLevel];
   const colors = BADGE_COLORS[badgeLevel] || { primary: FAMILYSEARCH_COLORS.primary, glow: "rgba(135, 185, 64, 0.35)" };
+
+  useEffect(() => {
+    if (document.activeElement && typeof document.activeElement.blur === "function") {
+      document.activeElement.blur();
+    }
+  }, []);
 
   return (
     <div
@@ -27,6 +34,9 @@ export default function CertificateQRCode({ name, badgeLevel, levelName, certifi
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         animation: "cert-fadeIn 380ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        caretColor: "transparent",
       }}
     >
       <style>{`

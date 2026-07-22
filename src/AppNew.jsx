@@ -19,6 +19,7 @@ import countryStats from "./data/countryStats.json";
 import countryMedia from "./data/media_data.json";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
+import { oceanAmbientSynth } from './utils/oceanAudioSynth';
 import familysearchLogo from './assets/familysearch-tree.svg';
 import ukBoundaries from './data/uk_boundaries.json';
 
@@ -2070,6 +2071,22 @@ export default function App() {
   const [hasOverviewOverflow, setHasOverviewOverflow] = useState(false);
   const [recordCollectionsDisplayLimit, setRecordCollectionsDisplayLimit] = useState(3);
   const [validatedHeroImage, setValidatedHeroImage] = useState(null);
+  const preloadedHeroCacheRef = useRef({});
+
+  // Background preloader: fetch & cache all country hero images once on page load
+  useEffect(() => {
+    countries.forEach((c) => {
+      if (!c.name || !c.image) return;
+      const img = new Image();
+      img.onload = () => {
+        preloadedHeroCacheRef.current[c.name] = c.image;
+      };
+      img.onerror = () => {
+        preloadedHeroCacheRef.current[c.name] = DEFAULT_HERO_IMAGE_URL;
+      };
+      img.src = c.image;
+    });
+  }, []);
   // Use a ref (not state) for scroll-driven morph so onScroll never triggers a React re-render
   const heroScrollRafRef = useRef(null);
   const heroOuterRef = useRef(null);
@@ -2260,10 +2277,32 @@ export default function App() {
   };
 
   const exitIdleAttractMode = () => {
+    oceanAmbientSynth.unlockAudioContext();
     attractExitTimeRef.current = Date.now();
     setIsIdleAttractMode(false);
     clearAttractPresentation();
   };
+
+  useEffect(() => {
+    const unlock = () => oceanAmbientSynth.unlockAudioContext();
+    window.addEventListener("pointerdown", unlock, { passive: true });
+    window.addEventListener("touchstart", unlock, { passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("touchstart", unlock);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isIdleAttractMode || isAttractMode) {
+      oceanAmbientSynth.play();
+    } else {
+      oceanAmbientSynth.stop();
+    }
+    return () => {
+      oceanAmbientSynth.stop();
+    };
+  }, [isIdleAttractMode, isAttractMode]);
 
   useEffect(() => {
     visitedVoyagerCountriesRef.current = visitedVoyagerCountries;
@@ -3417,6 +3456,21 @@ export default function App() {
     });
   };
 
+  const openAchievementFlow = () => {
+    const badgeLevel = getVoyagerBadgeLevel(voyagerProgressCount);
+    if (!badgeLevel) {
+      return;
+    }
+
+    setCertificateStep(null);
+    setAchievementUnlocked({
+      count: badgeLevel,
+      badgeLevel,
+      levelName: LEVEL_NAMES[badgeLevel],
+    });
+    setIsVoyagerExpanded(false);
+  };
+
   const openCertificateFlow = () => {
     const badgeLevel = getVoyagerBadgeLevel(voyagerProgressCount);
     if (!badgeLevel) {
@@ -3537,8 +3591,15 @@ export default function App() {
     }
 
     let isActive = true;
-    // Use curated image from countries.json and only fall back if it fails to load.
+    const countryName = selectedCountry.name;
     const candidateUrl = selectedCountry.image || null;
+
+    // Fast-path: use preloaded & cached hero image instantly if available
+    const cachedUrl = preloadedHeroCacheRef.current[countryName];
+    if (cachedUrl) {
+      setValidatedHeroImage(cachedUrl);
+      return;
+    }
 
     setValidatedHeroImage(candidateUrl || DEFAULT_HERO_IMAGE_URL);
 
@@ -3548,11 +3609,15 @@ export default function App() {
         if (!isActive) return;
 
         if (candidateValid) {
+          preloadedHeroCacheRef.current[countryName] = candidateUrl;
           return;
         }
       }
 
-      setValidatedHeroImage(DEFAULT_HERO_IMAGE_URL);
+      preloadedHeroCacheRef.current[countryName] = DEFAULT_HERO_IMAGE_URL;
+      if (isActive) {
+        setValidatedHeroImage(DEFAULT_HERO_IMAGE_URL);
+      }
     };
 
     validate();
@@ -5492,7 +5557,7 @@ export default function App() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    openCertificateFlow();
+                    openAchievementFlow();
                   }}
                   style={{
                     background: "none",
