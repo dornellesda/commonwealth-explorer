@@ -2606,6 +2606,19 @@ export default function App() {
     setHoveredCountryPos(pos);
   };
 
+  const [cwgSlideIndex, setCwgSlideIndex] = useState(0);
+
+  useEffect(() => {
+    if (!isPanelVisible) {
+      setCwgSlideIndex(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setCwgSlideIndex((prev) => (prev + 1) % 2);
+    }, 3400);
+    return () => clearInterval(timer);
+  }, [isPanelVisible]);
+
   // Get country data with Wikidata cache fallback to countries.json
   const getCountryData = (country) => {
     const lookupKeys = getCountryLookupKeys(country.name);
@@ -2615,6 +2628,8 @@ export default function App() {
       return {
         capital: cached.capital || country.capital || "Not available",
         population: cached.population || country.population || null,
+        cwgMedals: cached.cwgMedals || country.cwgMedals || null,
+        cwgGames: cached.cwgGames || country.cwgGames || null,
         source: cached.source || "Wikidata",
       };
     }
@@ -2627,6 +2642,8 @@ export default function App() {
     return {
       capital: country.capital || "Not available",
       population: country.population || null,
+      cwgMedals: country.cwgMedals || null,
+      cwgGames: country.cwgGames || null,
       source: null,
     };
   };
@@ -3255,6 +3272,27 @@ export default function App() {
           { label: "Population", value: data.population ? formatPopulation(data.population) : "Not available" },
         ]
         : [];
+
+      const rawMedia = selectedCountry ? (COUNTRY_MEDIA_BY_NAME[selectedCountry.name] || []) : [];
+      const hasMedia = rawMedia.some(item => (item.type === 'video' && (item.videoId || extractYoutubeId(item.url))) || (item.type === 'photo' && item.imageUrl));
+
+      if (hasMedia) {
+        if (data?.cwgMedals || data?.cwgGames) {
+          items.push({
+            label: "CW Games",
+            value: data.cwgMedals || data.cwgGames,
+            altValue: data.cwgGames || data.cwgMedals,
+          });
+        }
+      } else {
+        if (data?.cwgMedals) {
+          items.push({ label: "CW Medals", value: data.cwgMedals });
+        }
+        if (data?.cwgGames) {
+          items.push({ label: "CW Games", value: String(data.cwgGames).replace(/\s*Attended/i, '') });
+        }
+      }
+
       if (selectedCountryMetadata?.memberSince) {
         items.push({ label: "Member Since", value: String(selectedCountryMetadata.memberSince) });
       }
@@ -3896,6 +3934,23 @@ export default function App() {
             <animate attributeName="r" values="2.1;2.3;2.1" dur="2.2s" begin="0.25s" repeatCount="indefinite" />
           </circle>
           <path d="M5.5 18.5C6.4 16.2 8.2 15 10.6 15H13.4C15.8 15 17.6 16.2 18.5 18.5" stroke="#87b940" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    }
+
+    if (normalized.includes("medals")) {
+      return (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M8 21H16M12 17V21M6 4H18V9C18 12.3137 15.3137 15 12 15C8.68629 15 6 12.3137 6 9V4Z" stroke="#fbbf24" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M6 6H3C3 8.5 4.5 10.5 6 11M18 6H21C21 8.5 19.5 10.5 18 11" stroke="#fbbf24" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      );
+    }
+
+    if (normalized.includes("games") || normalized.includes("cwg")) {
+      return (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="#fbbf24" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="rgba(251, 191, 36, 0.15)" />
         </svg>
       );
     }
@@ -5685,9 +5740,9 @@ export default function App() {
         >
           {selectedCountry ? (
             <>
-              {/* LEFT COLUMN (56% width) - Hero + Records */}
+              {/* LEFT COLUMN (56% width when media exists, 66% width when no media) - Hero + Records */}
               <div style={{
-                width: "56%",
+                width: galleryItems.length > 0 ? "56%" : "66%",
                 display: "flex",
                 flexDirection: "column",
                 borderRight: "1px solid rgba(255,255,255,0.08)",
@@ -5695,7 +5750,7 @@ export default function App() {
                 transform: isPanelVisible ? "translateY(0) scale(1)" : "translateY(16px) scale(0.97)",
                 opacity: isPanelVisible ? 1 : 0,
                 transition: isPanelVisible
-                  ? "transform 450ms cubic-bezier(0.16, 1, 0.3, 1), opacity 350ms ease"
+                  ? "width 350ms ease, transform 450ms cubic-bezier(0.16, 1, 0.3, 1), opacity 350ms ease"
                   : "transform 200ms ease, opacity 180ms ease",
               }}>
                 
@@ -5963,9 +6018,9 @@ export default function App() {
               </div>
             </div>
 
-              {/* RIGHT COLUMN (44% width) - Gallery + Overview + Stats */}
+              {/* RIGHT COLUMN (44% width when media exists, 34% width when no media) - Gallery + Overview + Stats */}
               <div style={{
-                width: "44%",
+                width: galleryItems.length > 0 ? "44%" : "34%",
                 display: "flex",
                 flexDirection: "column",
                 position: "relative",
@@ -5973,7 +6028,7 @@ export default function App() {
                 transform: isPanelVisible ? "translateX(0)" : "translateX(-50px)",
                 opacity: isPanelVisible ? 1 : 0,
                 transition: isPanelVisible
-                  ? "transform 580ms cubic-bezier(0.16, 1, 0.3, 1) 220ms, opacity 480ms cubic-bezier(0.16, 1, 0.3, 1) 220ms"
+                  ? "width 350ms ease, transform 580ms cubic-bezier(0.16, 1, 0.3, 1) 220ms, opacity 480ms cubic-bezier(0.16, 1, 0.3, 1) 220ms"
                   : "transform 200ms ease, opacity 150ms ease",
               }}>
                 {/* Close Button */}
@@ -6351,31 +6406,64 @@ export default function App() {
                   {/* Key Statistics Section */}
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", ...getRevealStyle(5) }}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.85rem", minWidth: 0 }}>
-                      {detailStatItems.map((item) => (
-                        <div
-                          key={item.label}
-                          style={{
-                            borderRadius: "18px",
-                            background: "linear-gradient(135deg, rgba(28, 28, 34, 0.65) 0%, rgba(18, 18, 22, 0.75) 100%)",
-                            border: "1px solid rgba(255, 255, 255, 0.09)",
-                            backdropFilter: "blur(12px)",
-                            WebkitBackdropFilter: "blur(12px)",
-                            boxShadow: "0 6px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08)",
-                            padding: "1.05rem 1.15rem",
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <div style={{ marginBottom: "0.4rem", display: "flex", alignItems: "center", gap: "0.45rem" }}>
-                            {renderStatIcon(item.label)}
-                            <span style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(148, 163, 184, 0.85)", fontWeight: 700 }}>
-                              {item.label}
-                            </span>
+                      {detailStatItems.map((item) => {
+                        const isCwg = /cw games|games|medals/i.test(item.label);
+                        return (
+                          <div
+                            key={item.label}
+                            style={{
+                              borderRadius: "18px",
+                              background: isCwg
+                                ? "linear-gradient(135deg, rgba(234, 179, 8, 0.14) 0%, rgba(180, 83, 9, 0.08) 100%)"
+                                : "linear-gradient(135deg, rgba(28, 28, 34, 0.65) 0%, rgba(18, 18, 22, 0.75) 100%)",
+                              border: isCwg
+                                ? "1px solid rgba(251, 191, 36, 0.35)"
+                                : "1px solid rgba(255, 255, 255, 0.09)",
+                              backdropFilter: "blur(12px)",
+                              WebkitBackdropFilter: "blur(12px)",
+                              boxShadow: isCwg
+                                ? "0 6px 20px rgba(245, 158, 11, 0.15), inset 0 1px 0 rgba(251, 191, 36, 0.25)"
+                                : "0 6px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08)",
+                              padding: "1.05rem 1.15rem",
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <div style={{ marginBottom: "0.4rem", display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                              {renderStatIcon(item.label)}
+                              <span style={{
+                                fontSize: "0.68rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.12em",
+                                color: isCwg ? "#fbbf24" : "rgba(148, 163, 184, 0.85)",
+                                fontWeight: 700,
+                              }}>
+                                {item.label}
+                              </span>
+                            </div>
+                            <div
+                              key={isCwg && item.altValue ? `cwg-val-${cwgSlideIndex}-${item.label}` : item.label}
+                              className={isCwg && item.altValue ? "cwg-slide-animate" : ""}
+                              style={{
+                                fontSize: isCwg ? "1.08rem" : "1.15rem",
+                                fontWeight: 700,
+                                color: isCwg ? "#fef08a" : "#ffffff",
+                                letterSpacing: "-0.01em",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {isCwg && item.altValue
+                                ? (cwgSlideIndex % 2 === 0
+                                    ? String(item.value).replace(/\s*\(\d+\s*Games?\)/i, '')
+                                    : String(item.altValue).replace(/\s*Attended/i, ''))
+                                : item.value}
+                            </div>
                           </div>
-                          <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "#ffffff", letterSpacing: "-0.01em" }}>{item.value}</div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {selectedCountry && getCountryData(selectedCountry)?.source && (
                         <div style={{ fontSize: "0.62rem", color: "rgba(226, 232, 240, 0.45)", textAlign: "right", marginTop: "-0.2rem", paddingRight: "0.2rem", fontStyle: "italic", gridColumn: "1 / -1" }}>
                           Source: {getCountryData(selectedCountry).source}
@@ -6656,15 +6744,6 @@ export default function App() {
                 {/* 4. Available Video Gallery (Bottom) */}
                 {galleryItems.length > 1 ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", flexShrink: 0 }}>
-                    <div style={{
-                      fontSize: "0.68rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.14em",
-                      textTransform: "uppercase",
-                      color: "rgba(226, 232, 240, 0.5)",
-                    }}>
-                      More Videos & Media
-                    </div>
                     <div className="lightbox-thumbnails-row" style={{ flexShrink: 0 }}>
                       <div
                         ref={thumbnailsTrackRef}

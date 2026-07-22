@@ -2,307 +2,407 @@
   "Antigua and Barbuda": {
     "capital": "St. John's",
     "population": 101489,
-    "source": "Wikidata"
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "11 Games"
   },
   "Australia": {
     "capital": "Canberra",
     "population": 27614411,
-    "source": "Wikidata"
+    "cwgMedals": "2,604 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "22 Games"
   },
   "The Bahamas": {
     "capital": "Nassau",
     "population": 399440,
-    "source": "Wikidata"
+    "cwgMedals": "38 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "16 Games"
   },
   "Bangladesh": {
     "capital": "Dhaka",
     "population": 171466990,
-    "source": "Wikidata"
+    "cwgMedals": "14 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "10 Games"
   },
   "Barbados": {
     "capital": "Bridgetown",
     "population": 303431,
-    "source": "Wikidata"
+    "cwgMedals": "12 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "17 Games"
   },
   "Belize": {
     "capital": "Belmopan",
     "population": 411106,
-    "source": "Wikidata"
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "11 Games"
   },
   "Botswana": {
     "capital": "Gaborone",
     "population": 2480244,
-    "source": "Wikidata"
+    "cwgMedals": "19 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "12 Games"
   },
   "Brunei Darussalam": {
     "capital": "Bandar Seri Begawan",
     "population": 458949,
-    "source": "Wikidata"
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "9 Games"
   },
   "Cameroon": {
-    "capital": "Yaoundé",
+    "capital": "Yaound\u00e9",
     "population": 28372687,
-    "source": "Wikidata"
+    "cwgMedals": "40 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "7 Games"
   },
   "Canada": {
     "capital": "Ottawa",
     "population": 40000000,
-    "source": "Wikidata"
+    "cwgMedals": "1,647 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "22 Games"
   },
   "Cyprus": {
     "capital": "Nicosia",
     "population": 1344976,
-    "source": "Wikidata"
+    "cwgMedals": "64 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "11 Games"
   },
   "Dominica": {
     "capital": "Roseau",
     "population": 74656,
-    "source": "Wikidata"
+    "cwgMedals": "2 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "11 Games"
   },
   "Eswatini": {
     "capital": "Mbabane",
     "population": 1230506,
-    "source": "Wikidata"
+    "cwgMedals": "4 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "14 Games"
   },
   "Fiji": {
     "capital": "Suva",
     "population": 926276,
-    "source": "Wikidata"
+    "cwgMedals": "23 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "17 Games"
   },
   "Gabon": {
     "capital": "Libreville",
     "population": 2300000,
-    "source": "Wikidata"
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "1 Game"
   },
   "The Gambia": {
     "capital": "Banjul",
     "population": 2639916,
-    "source": "Wikidata"
+    "cwgMedals": "1 Medal",
+    "source": "Wikidata / CGF",
+    "cwgGames": "12 Games"
   },
   "Ghana": {
     "capital": "Accra",
     "population": 32833031,
-    "source": "Wikidata"
+    "cwgMedals": "60 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "17 Games"
   },
   "Grenada": {
     "capital": "St. George's",
     "population": 114299,
-    "source": "Wikidata"
+    "cwgMedals": "5 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "10 Games"
   },
   "Guyana": {
     "capital": "Georgetown",
     "population": 878674,
-    "source": "Wikidata"
+    "cwgMedals": "16 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "19 Games"
   },
   "India": {
     "capital": "New Delhi",
     "population": 1326093247,
-    "source": "Wikidata"
+    "cwgMedals": "564 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "18 Games"
   },
   "Jamaica": {
     "capital": "Kingston",
     "population": 2734093,
-    "source": "Wikidata"
+    "cwgMedals": "160 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "18 Games"
   },
   "Kenya": {
     "capital": "Nairobi",
     "population": 47564296,
-    "source": "Wikidata"
+    "cwgMedals": "258 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "17 Games"
   },
   "Kiribati": {
     "capital": "South Tarawa",
     "population": 134518,
-    "source": "Wikidata"
+    "cwgMedals": "1 Medal",
+    "source": "Wikidata / CGF",
+    "cwgGames": "6 Games"
   },
   "Lesotho": {
     "capital": "Maseru",
     "population": 2233339,
-    "source": "Wikidata"
+    "cwgMedals": "3 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "12 Games"
   },
   "Malawi": {
     "capital": "Lilongwe",
     "population": 17563749,
-    "source": "Wikidata"
+    "cwgMedals": "4 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "14 Games"
   },
   "Malaysia": {
     "capital": "Kuala Lumpur",
     "population": 34231700,
-    "source": "Wikidata"
+    "cwgMedals": "239 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "14 Games"
   },
   "Maldives": {
-    "capital": "Malé",
+    "capital": "Mal\u00e9",
     "population": 436330,
-    "source": "Wikidata"
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "9 Games"
   },
   "Malta": {
     "capital": "Valletta",
     "population": 553214,
-    "source": "Wikidata"
+    "cwgMedals": "7 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "14 Games"
   },
   "Mauritius": {
     "capital": "Port Louis",
     "population": 1264613,
-    "source": "Wikidata"
+    "cwgMedals": "18 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "16 Games"
   },
   "Mozambique": {
     "capital": "Maputo",
     "population": 29668834,
-    "source": "Wikidata"
+    "cwgMedals": "14 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "7 Games"
   },
   "Namibia": {
     "capital": "Windhoek",
     "population": 3022401,
-    "source": "2023 Census"
+    "cwgMedals": "24 Medals",
+    "source": "2023 Census / CGF",
+    "cwgGames": "8 Games"
   },
   "Nauru": {
     "capital": "Yaren District",
     "population": 13650,
-    "source": "Wikidata"
+    "cwgMedals": "31 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "9 Games"
   },
   "New Zealand": {
     "capital": "Wellington",
     "population": 5307800,
-    "source": "Wikidata"
+    "cwgMedals": "710 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "22 Games"
   },
   "Nigeria": {
     "capital": "Abuja",
     "population": 211400708,
-    "source": "Wikidata"
+    "cwgMedals": "258 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "15 Games"
   },
   "Pakistan": {
     "capital": "Islamabad",
     "population": 223773700,
-    "source": "Wikidata"
+    "cwgMedals": "75 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "14 Games"
   },
   "Papua New Guinea": {
     "capital": "Port Moresby",
     "population": 8935000,
-    "source": "Wikidata"
+    "cwgMedals": "15 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "15 Games"
   },
   "Rwanda": {
     "capital": "Kigali",
     "population": 14569341,
-    "source": "Wikidata"
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "4 Games"
   },
   "St Kitts and Nevis": {
     "capital": "Basseterre",
     "population": 46922,
-    "source": "Wikidata"
+    "cwgMedals": "1 Medal",
+    "source": "Wikidata / CGF",
+    "cwgGames": "9 Games"
   },
   "Saint Lucia": {
     "capital": "Castries",
     "population": 167591,
-    "source": "Wikidata"
+    "cwgMedals": "5 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "11 Games"
   },
   "St Vincent and The Grenadines": {
     "capital": "Kingstown",
     "population": 104332,
-    "source": "Wikidata"
+    "cwgMedals": "3 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "12 Games"
   },
   "Samoa": {
     "capital": "Apia",
     "population": 200010,
-    "source": "Wikidata"
+    "cwgMedals": "26 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "13 Games"
   },
   "Seychelles": {
     "capital": "Victoria",
     "population": 119773,
-    "source": "Wikidata"
+    "cwgMedals": "7 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "9 Games"
   },
   "Sierra Leone": {
     "capital": "Freetown",
     "population": 7557212,
-    "source": "Wikidata"
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "13 Games"
   },
   "Singapore": {
     "capital": "Singapore",
     "population": 5866139,
-    "source": "Wikidata"
+    "cwgMedals": "110 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "17 Games"
   },
   "Solomon Islands": {
     "capital": "Honiara",
     "population": 611343,
-    "source": "Wikidata"
+    "cwgMedals": "1 Medal",
+    "source": "Wikidata / CGF",
+    "cwgGames": "10 Games"
   },
   "South Africa": {
     "capital": "Pretoria",
     "population": 62027503,
-    "source": "Wikidata"
+    "cwgMedals": "425 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "14 Games"
   },
   "Sri Lanka": {
     "capital": "Colombo",
     "population": 22037000,
-    "source": "Wikidata"
+    "cwgMedals": "24 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "17 Games"
   },
   "Tonga": {
-    "capital": "Nukuʻalofa",
+    "capital": "Nuku\u02bbalofa",
     "population": 105697,
-    "source": "Wikidata"
+    "cwgMedals": "3 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "11 Games"
   },
   "Togo": {
-    "capital": "Lomé",
+    "capital": "Lom\u00e9",
     "population": 9515240,
-    "source": "Wikidata"
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "1 Game"
   },
   "Trinidad and Tobago": {
     "capital": "Port of Spain",
     "population": 1369125,
-    "source": "Wikidata"
+    "cwgMedals": "64 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "19 Games"
   },
   "Tuvalu": {
     "capital": "Funafuti",
     "population": 10643,
-    "source": "Wikidata"
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "6 Games"
   },
   "Uganda": {
     "capital": "Kampala",
     "population": 47123531,
-    "source": "Wikidata"
+    "cwgMedals": "60 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "16 Games"
   },
   "England": {
     "capital": "London",
     "population": 56489800,
-    "source": "ONS (2021 Census)"
+    "cwgMedals": "2,323 Medals",
+    "source": "ONS / CGF",
+    "cwgGames": "22 Games"
   },
   "Scotland": {
     "capital": "Edinburgh",
     "population": 5436600,
-    "source": "NRS (2021 Census)"
+    "cwgMedals": "524 Medals",
+    "source": "NRS / CGF",
+    "cwgGames": "22 Games"
   },
   "Wales": {
     "capital": "Cardiff",
     "population": 3107500,
-    "source": "ONS (2021 Census)"
+    "cwgMedals": "334 Medals",
+    "source": "ONS / CGF",
+    "cwgGames": "22 Games"
   },
   "United Republic of Tanzania": {
     "capital": "Dodoma",
     "population": 61741120,
-    "source": "Wikidata"
+    "cwgMedals": "24 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "14 Games"
   },
   "Vanuatu": {
     "capital": "Port Vila",
     "population": 300019,
-    "source": "Wikidata"
+    "cwgMedals": "3 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "10 Games"
   },
   "Zambia": {
     "capital": "Lusaka",
     "population": 19610769,
-    "source": "Wikidata"
-  },
-  "Northern Ireland": {
-    "historicalRecords": 10500000,
-    "indexedRecords": 8200000,
-    "genealogies": 450000,
-    "catalogItems": 12000,
-    "memories": 85000,
-    "researchWikiArticles": 1200,
-    "familyTreeUsers": 650000,
-    "images": 3200000,
-    "indexingVolunteers": 1500,
-    "digitalCollections": 45,
-    "oralHistories": 300,
-    "recentUpdates": 15,
-    "helpCenters": 5,
-    "associatedSurnames": 120000
+    "cwgMedals": "39 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "15 Games"
   }
 }
