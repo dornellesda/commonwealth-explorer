@@ -5514,10 +5514,10 @@ export default function App() {
             : "translate(-50%, calc(-50% + 90px))",
           width: "min(900px, 92vw)",
           maxHeight: "75vh",
-          background: "linear-gradient(155deg, rgba(15, 23, 42, 0.86) 0%, rgba(2, 6, 23, 0.8) 52%, rgba(15, 23, 42, 0.74) 100%)",
-          boxShadow: "0 42px 120px rgba(0, 0, 0, 0.54), 0 16px 34px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
-          backdropFilter: "blur(20px) saturate(140%)",
-          WebkitBackdropFilter: "blur(20px) saturate(140%)",
+          background: "linear-gradient(155deg, rgba(15, 23, 42, 0.96) 0%, rgba(2, 6, 23, 0.92) 52%, rgba(15, 23, 42, 0.94) 100%)",
+          boxShadow: "0 42px 120px rgba(0, 0, 0, 0.6), 0 16px 34px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)",
+          backdropFilter: "none",
+          WebkitBackdropFilter: "none",
           borderRadius: "32px",
           opacity: isPanelVisible ? 1 : 0,
           transition: "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1)",
@@ -6260,15 +6260,13 @@ export default function App() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0, 0, 0, 0.88)",
+            background: "rgba(5, 5, 5, 0.98)", // Replaced 0.88 + blur(40px) with almost solid black for performance on thin clients
             zIndex: 9999,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
             padding: "2rem",
-            backdropFilter: "blur(40px)",
-            WebkitBackdropFilter: "blur(40px)",
           }}
         >
           <div
