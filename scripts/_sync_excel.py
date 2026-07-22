@@ -15,7 +15,6 @@ XLSX_PATH = 'media/Media List.xlsx'
 OUTPUT_PATH_PUBLIC = 'public/data/media_data.json'
 OUTPUT_PATH_SRC = 'src/data/media_data.json'
 LOG_PATH = 'scripts/_sync_py_log.txt'
-CDN_BASE_URL = 'https://pub-commonwealth.r2.dev'
 
 def col_letter_to_index(letter):
     """Convert Excel column letter(s) to 0-based index. A=0, B=1, etc."""
@@ -174,11 +173,8 @@ try:
         description = yt_desc or excel_desc
 
         if is_youtube and video_id:
-            cdn_url = f"{CDN_BASE_URL}/{video_id}.mp4"
             item = {
-                'url': cdn_url,
-                'r2Url': cdn_url,
-                'youtubeUrl': raw_url,
+                'url': raw_url,
                 'credit': credit,
                 'type': 'video',
                 'videoId': video_id,
