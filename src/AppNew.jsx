@@ -2183,6 +2183,10 @@ export default function App() {
   const voyagerAuraIntervalRef = useRef(null);
   const voyagerAuraTimeoutRef = useRef(null);
 
+  const hasActiveExplorationSurface = Boolean(selectedCountry || isMenuOpen || lightboxItem);
+  const isAttractMode = isIdleAttractMode && !hasActiveExplorationSurface;
+  const isDockTransitioning = isMenuClosing || isMenuOpening;
+
   const thumbnailsTrackRef = useRef(null);
   const updateScrollFades = (track) => {
     if (!track) return;
@@ -4227,9 +4231,6 @@ export default function App() {
   }, [visibleFamilySearchCollections, isPanelVisible, selectedCountry?.name]);
 
   // Attract mode is timer-driven; this guard only prevents overlay conflicts.
-  const hasActiveExplorationSurface = Boolean(selectedCountry || isMenuOpen || lightboxItem);
-  const isAttractMode = isIdleAttractMode && !hasActiveExplorationSurface;
-  const isDockTransitioning = isMenuClosing || isMenuOpening;
 
   // ─── MAP DRIFT ─────────────────────────────────────────────────────
   // Two distinct motion modes layered onto the map wrapper:
