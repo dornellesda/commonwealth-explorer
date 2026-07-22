@@ -2,13 +2,45 @@ Reading xlsx as zip...
 Shared strings count: 20
 Total rows parsed: 13
 Header: ['Country', 'Title', 'Description', ' Link', 'Credit']
-Column mapping -> Country: 0, Title: 1, Description: 2, Link: 3, Credit: 4
 Data rows with country+url: 12
-Loaded baseline metadata from src/data/media_data.json
-Countries: 2
-Total items: 12
+Fetching YouTube metadata for [Pakistan] video ID: HtXl4JbJJnA
+  ✓ YouTube oEmbed title: "Bashir Maan, interviewed in 2011"
+  ✓ YouTube description: "Told in his own words, this is the story of Bashir Maan who ..."
+Fetching YouTube metadata for [Pakistan] video ID: teUtBOeaVto
+  ✓ YouTube oEmbed title: "Bashir Maan, interviewed in 2013"
+  ✓ YouTube description: "Told in his own words, this is the story of Bashir Maan who ..."
+Fetching YouTube metadata for [Pakistan] video ID: 8F8t4lrouss
+  ✓ YouTube oEmbed title: "Shaheen Unis"
+  ✓ YouTube description: "Told in her own words, this is the story of Shaheen Unis and..."
+Fetching YouTube metadata for [Pakistan] video ID: _mD8EX5ZAJI
+  ✓ YouTube oEmbed title: "Mr Ashaque Ali - A Story of Family, Sacrifices and Hard Work"
+  ✓ YouTube description: "Told in his own words, Mr Ashaque Ali begins with the story ..."
+Fetching YouTube metadata for [Pakistan] video ID: 9dZt-cH-dvU
+  ✓ YouTube oEmbed title: "Mrs Zubaidah Azad - First South Asian Dux in Scotland"
+  ✓ YouTube description: "Not many people boast the achievement for being the first So..."
+Fetching YouTube metadata for [Pakistan] video ID: hEc_is0QfKw
+  ✓ YouTube oEmbed title: "Mohammad Sarwar"
+  ✓ YouTube description (meta fallback): "Enjoy the videos and music you love, upload original content..."
+Fetching YouTube metadata for [Pakistan] video ID: yvm1-GJX7zM
+  ✓ YouTube oEmbed title: "Mrs Perveen Sarwar - Life in Early Lossiemouth"
+  ✓ YouTube description: "Mrs Perveen Sarwar reflects on what life was like growing up..."
+Fetching YouTube metadata for [India] video ID: uVuoobNV55A
+  ✓ YouTube oEmbed title: "Mr Darbara Singh Bhullar Part 1 - Life, before, during and after partition"
+  ✓ YouTube description: "World War 2 Veteran Darbara Singh Bhullar describes the brot..."
+Fetching YouTube metadata for [India] video ID: yhqLG_mO8MM
+  ✓ YouTube oEmbed title: "Mrs Daljit Kaur Dilber Part 1 - Journey to Glasgow and the sacrifices made"
+  ✓ YouTube description: "Daljit Kaur Dilber came by ship when she was a year and a ha..."
+Fetching YouTube metadata for [India] video ID: x0szVB4KNPU
+  ✓ YouTube oEmbed title: "Mrs Sawarnjit Matharu - "It was all just very new, very different""
+  ✓ YouTube description: "Born in India and moving to Glasgow at the age of five, Sawa..."
+Fetching YouTube metadata for [India] video ID: 9wcUi7wL8OI
+  ✓ YouTube oEmbed title: "Herstory - Sawarnjit Matharu"
+  ✓ YouTube description: "Watch Sawarnjit's full interview: https://youtu.be/x0szVB4KN..."
+Fetching YouTube metadata for [India] video ID: _3iy4IaDXzI
+  ✓ YouTube oEmbed title: "Prof Brajraman Prasad Sinha Part 1: Migration to the UK and academic career"
+  ✓ YouTube description: "Prof Sinha ventured to the UK for a Postgraduate Diploma, wh..."
+Countries with media: 2
+Total media items: 12
 Written to public/data/media_data.json
 Written to src/data/media_data.json
-  India: 5 items
-  Pakistan: 7 items
 SUCCESS
