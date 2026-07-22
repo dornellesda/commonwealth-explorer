@@ -1908,6 +1908,9 @@ export default function App() {
   const [isDockExpanding, setIsDockExpanding] = useState(false);
   const dockExpansionRef = useRef({ width: 0, height: 0 });
   const dockCardsRevealTimeoutRef = useRef(null);
+  const [isPortrait, setIsPortrait] = useState(() => typeof window !== 'undefined' && window.innerHeight > window.innerWidth);
+  const [dockPage, setDockPage] = useState(0);
+  const dockSwipeRef = useRef({ startX: 0, startY: 0, dragging: false });
   const [visitedVoyagerCountries, setVisitedVoyagerCountries] = useState([]);
   const [voyagerNotice, setVoyagerNotice] = useState(null);
   const [voyagerCompletionVisible, setVoyagerCompletionVisible] = useState(false);
@@ -1947,6 +1950,24 @@ export default function App() {
   const achievementUnlockTimeoutRef = useRef(null);
   const voyagerAuraIntervalRef = useRef(null);
   const voyagerAuraTimeoutRef = useRef(null);
+
+  // Portrait orientation detection
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsPortrait(window.innerHeight > window.innerWidth);
+    };
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+    };
+  }, []);
+
+  // Reset dock page when dock opens or search changes
+  useEffect(() => {
+    setDockPage(0);
+  }, [isMenuOpen, searchTerm]);
 
   const thumbnailsTrackRef = useRef(null);
   const updateScrollFades = (track) => {
@@ -4949,9 +4970,9 @@ export default function App() {
             transform: isDockTransitioning
               ? "translateX(-50%) translateY(24px) scale(0.985)"
               : "translateX(-50%) translateY(0) scale(1)",
-            width: "min(1360px, 98vw)",
+            width: isPortrait ? "min(520px, 94vw)" : "min(1360px, 98vw)",
             zIndex: 900,
-            padding: "0.9rem 1.1rem 1rem",
+            padding: isPortrait ? "1rem 1rem 0.9rem" : "0.9rem 1.1rem 1rem",
             background: "rgba(255, 255, 255, 0.4)",
             backdropFilter: "blur(40px) saturate(200%)",
             WebkitBackdropFilter: "blur(40px) saturate(200%)",
@@ -4962,6 +4983,7 @@ export default function App() {
             transition: `opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1)`,
           }}
         >
+          {/* Search bar – shown when expanded */}
           <div
             style={{
               maxWidth: "760px",
@@ -5060,271 +5082,294 @@ export default function App() {
             ) : null}
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.85rem",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.45rem",
-                flexShrink: 0,
-                paddingLeft: "0.2rem",
-              }}
-            >
-              <button
-                onClick={() => {
-                  markDockInteraction();
-                  setIsDockSearchExpanded((value) => {
-                    const next = !value;
-                    if (!next) {
-                      setSearchTerm("");
-                    }
-                    return next;
-                  });
-                }}
-                style={{
-                  width: "46px",
-                  height: "46px",
-                  borderRadius: "50%",
-                  border: "1px solid rgba(255,255,255,0.22)",
-                  background: isDockSearchExpanded
-                    ? "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.16) 100%)"
-                    : "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)",
-                  color: "#fff",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 6px 18px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.24)",
-                  transform: isDockSearchExpanded ? "translateY(0) scale(1.03)" : "translateY(0) scale(1)",
-                  transition: `background 360ms ${DOCK_GENTLE_EASE}, transform 480ms ${DOCK_GENTLE_EASE}, box-shadow 360ms ${DOCK_GENTLE_EASE}`,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.18) 100%)";
-                  e.currentTarget.style.transform = isDockSearchExpanded ? "translateY(-1px) scale(1.03)" : "translateY(-1px) scale(1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = isDockSearchExpanded
-                    ? "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.16) 100%)"
-                    : "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)";
-                  e.currentTarget.style.transform = isDockSearchExpanded ? "translateY(0) scale(1.03)" : "translateY(0) scale(1)";
-                }}
-                aria-label={isDockSearchExpanded ? "Hide search" : "Show search"}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.3-4.3" />
-                </svg>
-              </button>
-            </div>
+          {isPortrait ? (
+            /* ── PORTRAIT: 3-row paginated grid (iOS-style) ── */
+            (() => {
+              const COLS = 3;
+              const ROWS = 3;
+              const PAGE_SIZE = COLS * ROWS;
+              const totalPages = Math.ceil(filteredCountries.length / PAGE_SIZE);
+              const safePage = Math.min(dockPage, Math.max(0, totalPages - 1));
+              const pageCountries = filteredCountries.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
-            <div
-              aria-hidden="true"
-              style={{
-                width: "1px",
-                height: "46px",
-                alignSelf: "center",
-                background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.34) 20%, rgba(255,255,255,0.34) 80%, rgba(255,255,255,0.06) 100%)",
-                boxShadow: "0 0 0 1px rgba(255,255,255,0.06)",
-                opacity: 0.9,
-                flexShrink: 0,
-              }}
-            />
+              const closeDock = () => {
+                handleCountryHover(null);
+                setIsDockSearchExpanded(false);
+                setSearchTerm("");
+                setIsMenuClosing(true);
+                clearDockSearchTimer();
+                setTimeout(() => {
+                  setIsMenuOpen(false);
+                  setIsMenuClosing(false);
+                }, 420);
+              };
 
-            {/* Country cards horizontal scroll */}
-            <div
-              style={{
-                flex: 1,
-                display: "flex",
-                gap: "0.72rem",
-                overflowX: "auto",
-                padding: "0.4rem 0.25rem 0.2rem",
-                scrollSnapType: "x mandatory",
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-                WebkitOverflowScrolling: "touch",
-              }}
-            >
-              {filteredCountries.map((country, index) => {
-                const isActive = selectedCountry?.name === country.name;
-                // During expansion, cards stagger in with 20-40ms delay based on index
-                const cardDelay = isDockExpanding ? index * 30 : 0;
-                const cardTransition = isDockExpanding
-                  ? `opacity 380ms cubic-bezier(0.22, 1, 0.36, 1) ${cardDelay}ms, transform 420ms cubic-bezier(0.22, 1, 0.36, 1) ${cardDelay}ms`
-                  : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1), background 280ms cubic-bezier(0.22, 1, 0.36, 1), border 280ms cubic-bezier(0.22, 1, 0.36, 1)";
-                return (
-                  <button
-                    key={country.name}
-                    onClick={() => {
-                      markDockInteraction();
-                      handleSelectCountry(country);
-                      setIsDockSearchExpanded(false);
-                      setSearchTerm("");
+              return (
+                <div>
+                  {/* Top control row: search icon | dots | close */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.85rem" }}>
+                    <button
+                      onClick={() => {
+                        markDockInteraction();
+                        setIsDockSearchExpanded((v) => { const next = !v; if (!next) setSearchTerm(""); return next; });
+                      }}
+                      style={{
+                        width: "40px", height: "40px", borderRadius: "50%",
+                        border: "1px solid rgba(255,255,255,0.22)",
+                        background: isDockSearchExpanded
+                          ? "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.16) 100%)"
+                          : "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)",
+                        color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                        boxShadow: "0 6px 18px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.24)", flexShrink: 0,
+                      }}
+                      aria-label={isDockSearchExpanded ? "Hide search" : "Show search"}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                      </svg>
+                    </button>
+
+                    {totalPages > 1 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        {Array.from({ length: totalPages }).map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => { setDockPage(i); markDockInteraction(); }}
+                            aria-label={`Page ${i + 1}`}
+                            style={{
+                              width: i === safePage ? "18px" : "7px", height: "7px",
+                              borderRadius: "4px", border: "none",
+                              background: i === safePage ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
+                              cursor: "pointer", padding: 0,
+                              transition: "all 300ms cubic-bezier(0.22,1,0.36,1)",
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={closeDock}
+                      style={{
+                        width: "40px", height: "40px", borderRadius: "50%",
+                        border: "1px solid rgba(255,255,255,0.22)",
+                        background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)",
+                        color: "#fff", fontSize: "1.3rem", cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        boxShadow: "0 6px 18px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.24)", flexShrink: 0,
+                      }}
+                      aria-label="Close"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  {/* 3×3 grid with swipe support */}
+                  <div
+                    onPointerDown={(e) => { dockSwipeRef.current = { startX: e.clientX, startY: e.clientY, dragging: true }; }}
+                    onPointerUp={(e) => {
+                      if (!dockSwipeRef.current.dragging) return;
+                      dockSwipeRef.current.dragging = false;
+                      const dx = e.clientX - dockSwipeRef.current.startX;
+                      const dy = Math.abs(e.clientY - dockSwipeRef.current.startY);
+                      if (Math.abs(dx) > 40 && dy < 60) {
+                        markDockInteraction();
+                        if (dx < 0 && safePage < totalPages - 1) setDockPage(safePage + 1);
+                        else if (dx > 0 && safePage > 0) setDockPage(safePage - 1);
+                      }
                     }}
-                    onPointerEnter={() => {
-                      markDockInteraction();
-                      handleCountryHover(country.name);
-                    }}
-                    onPointerLeave={() => {
-                      handleCountryHover(null);
-                    }}
-                    onPointerCancel={() => {
-                      handleCountryHover(null);
-                    }}
-                    onPointerDown={() => {
-                      markDockInteraction();
-                      handleCountryHover(country.name);
-                    }}
+                    onPointerCancel={() => { dockSwipeRef.current.dragging = false; }}
                     style={{
-                      flex: "0 0 auto",
-                      width: "124px",
-                      minHeight: "68px",
-                      padding: "0.4rem 0.62rem 0.28rem",
-                      borderRadius: "16px",
-                      background: isActive
-                        ? "linear-gradient(180deg, rgba(222, 248, 170, 0.4) 0%, rgba(255,255,255,0.26) 36%, rgba(186, 230, 96, 0.26) 100%)"
-                        : "linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 100%)",
-                      border: isActive ? "1px solid rgba(214, 255, 163, 0.9)" : "1px solid rgba(255,255,255,0.34)",
-                      boxShadow: isActive
-                        ? "0 10px 20px rgba(68, 95, 33, 0.24), inset 0 1px 0 rgba(255,255,255,0.56), inset 0 -8px 18px rgba(190, 242, 100, 0.18)"
-                        : "0 10px 20px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46), inset 0 -8px 18px rgba(147, 197, 253, 0.12)",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "0.1rem",
-                      scrollSnapAlign: "start",
-                      transform: isActive ? "translateY(-2px) scale(1.02)" : "translateY(0) scale(1)",
-                      transition: "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1), background 280ms cubic-bezier(0.22, 1, 0.36, 1), border 280ms cubic-bezier(0.22, 1, 0.36, 1)",
-                      willChange: "transform",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.transform = "translateY(-3px) scale(1.03)";
-                        e.currentTarget.style.boxShadow = "0 14px 28px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.56), inset 0 -8px 18px rgba(147, 197, 253, 0.18)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.transform = "translateY(0) scale(1)";
-                        e.currentTarget.style.boxShadow = "0 10px 20px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46), inset 0 -8px 18px rgba(147, 197, 253, 0.12)";
-                      }
+                      display: "grid",
+                      gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+                      gap: "0.65rem",
+                      touchAction: "pan-y",
+                      userSelect: "none",
                     }}
                   >
-                    {country.countryCode && (
-                      <img
-                        src={`https://flagcdn.com/w80/${country.countryCode}.png`}
-                        alt=""
-                        style={{
-                          width: "42px",
-                          height: "26px",
-                          borderRadius: "5px",
-                          objectFit: "cover",
-                          border: "1px solid rgba(255,255,255,0.55)",
-                          boxShadow: "0 2px 8px rgba(15,23,42,0.24)",
-                        }}
-                      />
-                    )}
-                    <span
+                    {pageCountries.map((country, index) => {
+                      const isActive = selectedCountry?.name === country.name;
+                      const globalIndex = safePage * PAGE_SIZE + index;
+                      const cardDelay = isDockExpanding ? globalIndex * 30 : 0;
+                      return (
+                        <button
+                          key={country.name}
+                          onClick={() => { markDockInteraction(); handleSelectCountry(country); setIsDockSearchExpanded(false); setSearchTerm(""); }}
+                          onPointerEnter={() => { markDockInteraction(); handleCountryHover(country.name); }}
+                          onPointerLeave={() => handleCountryHover(null)}
+                          onPointerCancel={() => handleCountryHover(null)}
+                          onPointerDown={() => { markDockInteraction(); handleCountryHover(country.name); }}
+                          style={{
+                            padding: "0.5rem 0.4rem 0.4rem",
+                            borderRadius: "16px",
+                            background: isActive
+                              ? "linear-gradient(180deg, rgba(222, 248, 170, 0.4) 0%, rgba(255,255,255,0.26) 36%, rgba(186, 230, 96, 0.26) 100%)"
+                              : "linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 100%)",
+                            border: isActive ? "1px solid rgba(214, 255, 163, 0.9)" : "1px solid rgba(255,255,255,0.34)",
+                            boxShadow: isActive
+                              ? "0 10px 20px rgba(68, 95, 33, 0.24), inset 0 1px 0 rgba(255,255,255,0.56)"
+                              : "0 8px 16px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46)",
+                            cursor: "pointer",
+                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                            gap: "0.28rem",
+                            transform: isActive ? "translateY(-2px) scale(1.02)" : "translateY(0) scale(1)",
+                            transition: isDockExpanding
+                              ? `opacity 380ms cubic-bezier(0.22, 1, 0.36, 1) ${cardDelay}ms, transform 420ms cubic-bezier(0.22, 1, 0.36, 1) ${cardDelay}ms`
+                              : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1), background 280ms cubic-bezier(0.22, 1, 0.36, 1)",
+                            willChange: "transform",
+                            minHeight: "76px",
+                          }}
+                        >
+                          {country.countryCode && (
+                            <img
+                              src={`https://flagcdn.com/w80/${country.countryCode}.png`}
+                              alt=""
+                              style={{ width: "40px", height: "25px", borderRadius: "4px", objectFit: "cover", border: "1px solid rgba(255,255,255,0.55)", boxShadow: "0 2px 8px rgba(15,23,42,0.24)" }}
+                            />
+                          )}
+                          <span style={{
+                            fontSize: "0.72rem", fontWeight: 620, color: "#f8fafc",
+                            textAlign: "center", lineHeight: 1.1, letterSpacing: "0.005em",
+                            textShadow: "0 1px 0 rgba(2,6,23,0.65)",
+                            maxWidth: "100%", overflow: "hidden",
+                            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                          }}>
+                            {country.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {/* Fill empty cells */}
+                    {Array.from({ length: PAGE_SIZE - pageCountries.length }).map((_, i) => (
+                      <div key={`empty-${i}`} style={{ visibility: "hidden", minHeight: "76px" }} />
+                    ))}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div style={{ textAlign: "center", marginTop: "0.65rem", fontSize: "0.68rem", color: "rgba(255,255,255,0.4)", letterSpacing: "0.04em", pointerEvents: "none", userSelect: "none" }}>
+                      Swipe to see more
+                    </div>
+                  )}
+                </div>
+              );
+            })()
+          ) : (
+            /* ── LANDSCAPE: original single-row horizontal scroll ── */
+            <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexShrink: 0, paddingLeft: "0.2rem" }}>
+                <button
+                  onClick={() => {
+                    markDockInteraction();
+                    setIsDockSearchExpanded((value) => { const next = !value; if (!next) { setSearchTerm(""); } return next; });
+                  }}
+                  style={{
+                    width: "46px", height: "46px", borderRadius: "50%",
+                    border: "1px solid rgba(255,255,255,0.22)",
+                    background: isDockSearchExpanded
+                      ? "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.16) 100%)"
+                      : "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)",
+                    color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: "0 6px 18px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.24)",
+                    transform: isDockSearchExpanded ? "translateY(0) scale(1.03)" : "translateY(0) scale(1)",
+                    transition: `background 360ms ${DOCK_GENTLE_EASE}, transform 480ms ${DOCK_GENTLE_EASE}, box-shadow 360ms ${DOCK_GENTLE_EASE}`,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.18) 100%)";
+                    e.currentTarget.style.transform = isDockSearchExpanded ? "translateY(-1px) scale(1.03)" : "translateY(-1px) scale(1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = isDockSearchExpanded
+                      ? "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.16) 100%)"
+                      : "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)";
+                    e.currentTarget.style.transform = isDockSearchExpanded ? "translateY(0) scale(1.03)" : "translateY(0) scale(1)";
+                  }}
+                  aria-label={isDockSearchExpanded ? "Hide search" : "Show search"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                  </svg>
+                </button>
+              </div>
+
+              <div aria-hidden="true" style={{ width: "1px", height: "46px", alignSelf: "center", background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.34) 20%, rgba(255,255,255,0.34) 80%, rgba(255,255,255,0.06) 100%)", boxShadow: "0 0 0 1px rgba(255,255,255,0.06)", opacity: 0.9, flexShrink: 0 }} />
+
+              {/* Country cards horizontal scroll */}
+              <div style={{ flex: 1, display: "flex", gap: "0.72rem", overflowX: "auto", padding: "0.4rem 0.25rem 0.2rem", scrollSnapType: "x mandatory", scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}>
+                {filteredCountries.map((country, index) => {
+                  const isActive = selectedCountry?.name === country.name;
+                  const cardDelay = isDockExpanding ? index * 30 : 0;
+                  return (
+                    <button
+                      key={country.name}
+                      onClick={() => { markDockInteraction(); handleSelectCountry(country); setIsDockSearchExpanded(false); setSearchTerm(""); }}
+                      onPointerEnter={() => { markDockInteraction(); handleCountryHover(country.name); }}
+                      onPointerLeave={() => handleCountryHover(null)}
+                      onPointerCancel={() => handleCountryHover(null)}
+                      onPointerDown={() => { markDockInteraction(); handleCountryHover(country.name); }}
                       style={{
-                        fontSize: "0.79rem",
-                        fontWeight: 620,
-                        color: "#f8fafc",
-                        textAlign: "center",
-                        lineHeight: 1.02,
-                        letterSpacing: "0.005em",
-                        textShadow: "0 1px 0 rgba(2,6,23,0.65)",
+                        flex: "0 0 auto", width: "124px", minHeight: "68px",
+                        padding: "0.4rem 0.62rem 0.28rem", borderRadius: "16px",
+                        background: isActive
+                          ? "linear-gradient(180deg, rgba(222, 248, 170, 0.4) 0%, rgba(255,255,255,0.26) 36%, rgba(186, 230, 96, 0.26) 100%)"
+                          : "linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 100%)",
+                        border: isActive ? "1px solid rgba(214, 255, 163, 0.9)" : "1px solid rgba(255,255,255,0.34)",
+                        boxShadow: isActive
+                          ? "0 10px 20px rgba(68, 95, 33, 0.24), inset 0 1px 0 rgba(255,255,255,0.56), inset 0 -8px 18px rgba(190, 242, 100, 0.18)"
+                          : "0 10px 20px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46), inset 0 -8px 18px rgba(147, 197, 253, 0.12)",
+                        cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                        gap: "0.1rem", scrollSnapAlign: "start",
+                        transform: isActive ? "translateY(-2px) scale(1.02)" : "translateY(0) scale(1)",
+                        transition: "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1), background 280ms cubic-bezier(0.22, 1, 0.36, 1), border 280ms cubic-bezier(0.22, 1, 0.36, 1)",
+                        willChange: "transform",
                       }}
+                      onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.transform = "translateY(-3px) scale(1.03)"; e.currentTarget.style.boxShadow = "0 14px 28px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.56), inset 0 -8px 18px rgba(147, 197, 253, 0.18)"; } }}
+                      onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.transform = "translateY(0) scale(1)"; e.currentTarget.style.boxShadow = "0 10px 20px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.46), inset 0 -8px 18px rgba(147, 197, 253, 0.12)"; } }}
                     >
-                      {country.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                      {country.countryCode && (
+                        <img src={`https://flagcdn.com/w80/${country.countryCode}.png`} alt="" style={{ width: "42px", height: "26px", borderRadius: "5px", objectFit: "cover", border: "1px solid rgba(255,255,255,0.55)", boxShadow: "0 2px 8px rgba(15,23,42,0.24)" }} />
+                      )}
+                      <span style={{ fontSize: "0.79rem", fontWeight: 620, color: "#f8fafc", textAlign: "center", lineHeight: 1.02, letterSpacing: "0.005em", textShadow: "0 1px 0 rgba(2,6,23,0.65)" }}>
+                        {country.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
 
-            <div
-              aria-hidden="true"
-              style={{
-                width: "1px",
-                height: "46px",
-                alignSelf: "center",
-                background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.34) 20%, rgba(255,255,255,0.34) 80%, rgba(255,255,255,0.06) 100%)",
-                boxShadow: "0 0 0 1px rgba(255,255,255,0.06)",
-                opacity: 0.9,
-                flexShrink: 0,
-              }}
-            />
+              <div aria-hidden="true" style={{ width: "1px", height: "46px", alignSelf: "center", background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.34) 20%, rgba(255,255,255,0.34) 80%, rgba(255,255,255,0.06) 100%)", boxShadow: "0 0 0 1px rgba(255,255,255,0.06)", opacity: 0.9, flexShrink: 0 }} />
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.45rem",
-                flexShrink: 0,
-                paddingRight: "0.2rem",
-              }}
-            >
-              <button
-                onClick={() => {
-                  handleCountryHover(null);
-                  setIsDockSearchExpanded(false);
-                  setSearchTerm("");
-                  setIsMenuClosing(true);
-                  clearDockSearchTimer();
-                  setTimeout(() => {
-                    setIsMenuOpen(false);
-                    setIsMenuClosing(false);
-                  }, 420);
-                }}
-                style={{
-                  width: "46px",
-                  height: "46px",
-                  borderRadius: "50%",
-                  border: "1px solid rgba(255,255,255,0.22)",
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)",
-                  color: "#fff",
-                  fontSize: "1.45rem",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 6px 18px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.24)",
-                  transform: "translateY(0)",
-                  transition: `background 360ms ${DOCK_GENTLE_EASE}, transform 480ms ${DOCK_GENTLE_EASE}`,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.16) 100%)";
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)";
-                  e.currentTarget.style.transform = "translateY(0)";
-                }}
-                aria-label="Close"
-              >
-                ×
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexShrink: 0, paddingRight: "0.2rem" }}>
+                <button
+                  onClick={() => {
+                    handleCountryHover(null);
+                    setIsDockSearchExpanded(false);
+                    setSearchTerm("");
+                    setIsMenuClosing(true);
+                    clearDockSearchTimer();
+                    setTimeout(() => { setIsMenuOpen(false); setIsMenuClosing(false); }, 420);
+                  }}
+                  style={{
+                    width: "46px", height: "46px", borderRadius: "50%",
+                    border: "1px solid rgba(255,255,255,0.22)",
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)",
+                    color: "#fff", fontSize: "1.45rem", cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: "0 6px 18px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.24)",
+                    transform: "translateY(0)",
+                    transition: `background 360ms ${DOCK_GENTLE_EASE}, transform 480ms ${DOCK_GENTLE_EASE}`,
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.16) 100%)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)"; e.currentTarget.style.transform = "translateY(0)"; }}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
+
       <div
         ref={mapAtmosphereRef}
         style={{

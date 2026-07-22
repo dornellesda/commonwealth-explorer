@@ -160,10 +160,10 @@ export function useWalletPass() {
       serials[milestone] = data.serialNumber;
       saveSerials(serials);
 
-      // Open the device-aware install page (Apple button on iPhone, Google on Android, QR on desktop)
-      if (data.shareUrl) {
-        window.open(data.shareUrl, "_blank", "noopener,noreferrer");
-      }
+      // No longer automatically opening window. Let the UI handle the QR code inline.
+      // if (data.shareUrl) {
+      //   window.open(data.shareUrl, "_blank", "noopener,noreferrer");
+      // }
 
       return data;
     } catch (err) {

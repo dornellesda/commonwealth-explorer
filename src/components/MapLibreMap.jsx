@@ -58,10 +58,12 @@ const VINTAGE_MAP_STYLE = {
 const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, isPanelOpen, isAttractMode, hoveredCountry, onCountrySelect, onCountryHover, onMapClick }, ref) => {
 
   const mapRef = useRef(null);
-  const isHoveringMarkerRef = useRef(false);
-  const [internalHoveredName, setInternalHoveredName] = useState(null);
   const [geojson, setGeojson] = useState(null);
+  const [internalHoveredName, setInternalHoveredName] = useState(null);
   const [zoomedIntoUK, setZoomedIntoUK] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const isHoveringMarkerRef = useRef(false);
+  
   React.useImperativeHandle(ref, () => ({
     getMap: () => mapRef.current?.getMap(),
     stop: () => mapRef.current?.getMap()?.stop(),
@@ -146,7 +148,7 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
   const effectiveHoveredCountry = hoveredCountry || internalHoveredName || '';
 
   const onHover = useCallback(event => {
-    if (isHoveringMarkerRef.current) return;
+    if (isAttractMode || isHoveringMarkerRef.current) return;
     const { features } = event;
     const hoveredFeature = features && features[0];
     
@@ -163,9 +165,13 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
     
     setInternalHoveredName(null);
     if (onCountryHover) onCountryHover(null, null);
-  }, [onCountryHover]);
+  }, [onCountryHover, isAttractMode]);
 
   const onClick = useCallback(event => {
+    if (isAttractMode) {
+      return;
+    }
+
     const { features } = event;
     const clickedFeature = features && features[0];
     const clickedCwName = clickedFeature?.properties?.cwName;
@@ -201,7 +207,7 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
     } else if (onMapClick) {
       onMapClick();
     }
-  }, [selectedCountry, onCountrySelect, onMapClick, zoomedIntoUK]);
+  }, [selectedCountry, onCountrySelect, onMapClick, zoomedIntoUK, isAttractMode]);
 
   const onZoom = useCallback(() => {
     const map = mapRef.current?.getMap();
@@ -357,18 +363,25 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
     }
   };
 
-  if (!geojson) {
-    return (
-      <div style={{ width: '100%', height: '100vh', position: 'absolute', top: 0, left: 0, zIndex: 0, background: 'radial-gradient(circle at 32% 24%, #7b7057 0%, #675d47 52%, #4b4335 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(224,212,183,0.86)', fontSize: '1.1rem' }}>
-        Loading map...
-      </div>
-    );
-  }
-
   return (
-    <div style={{ width: '100%', height: '100vh', position: 'absolute', top: 0, left: 0, zIndex: 0, background: 'radial-gradient(circle at 35% 25%, #7f7359 0%, #655c46 54%, #4d4537 100%)', overflow: 'hidden' }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100vh',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        zIndex: 0,
+        background: 'radial-gradient(circle at 35% 25%, #7f7359 0%, #655c46 54%, #4d4537 100%)',
+        overflow: 'hidden',
+        opacity: (geojson && mapLoaded) ? 1 : 0,
+        transform: (geojson && mapLoaded) ? 'scale(1)' : 'scale(1.025)',
+        transition: 'opacity 1200ms cubic-bezier(0.16, 1, 0.3, 1), transform 1400ms cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
+    >
       <MapGL
         ref={mapRef}
+        onLoad={() => setMapLoaded(true)}
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 1 }}
         mapStyle={VINTAGE_MAP_STYLE}
         initialViewState={{
@@ -376,7 +389,7 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
           latitude: ATTRACT_MODE_VIEW.center[1],
           zoom: ATTRACT_MODE_VIEW.zoom
         }}
-        interactiveLayerIds={['country-fill', 'land-fill']}
+        interactiveLayerIds={isAttractMode ? [] : ['country-fill', 'land-fill']}
         onMouseMove={onHover}
         onClick={onClick}
         onZoomEnd={onZoom}

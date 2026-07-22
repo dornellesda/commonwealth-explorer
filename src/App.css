@@ -212,11 +212,9 @@
 @keyframes achievementUnlock {
   0% {
     opacity: 0;
-    backdrop-filter: blur(0px);
   }
   100% {
     opacity: 1;
-    backdrop-filter: blur(8px);
   }
 }
 
@@ -577,12 +575,12 @@
 
 .glowing-border-rotating-part {
   position: absolute;
-  width: 320px;
-  height: 320px;
+  width: 600px;
+  height: 600px;
   top: 50%;
   left: 50%;
-  margin-left: -160px;
-  margin-top: -160px;
+  margin-left: -300px;
+  margin-top: -300px;
   background: conic-gradient(
     from 0deg,
     #87b940 0%,
@@ -764,27 +762,19 @@
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    backdrop-filter: blur(28px) saturate(200%);
   }
   100% {
     width: min(1360px, 98vw);
     height: auto;
     border-radius: 30px;
-    backdrop-filter: blur(32px) saturate(195%);
   }
 }
 
-/* Stage 3: Glass material stretch with blur increase */
+/* Stage 3: removed backdrop-filter animation — not supported in Android 7 WebView */
 @keyframes dockGlassStretch {
-  0% {
-    backdrop-filter: blur(28px) saturate(200%);
-  }
-  60% {
-    backdrop-filter: blur(24px) saturate(180%);
-  }
-  100% {
-    backdrop-filter: blur(32px) saturate(195%);
-  }
+  0% { opacity: 0.9; }
+  60% { opacity: 0.95; }
+  100% { opacity: 1; }
 }
 
 /* Stage 5: Globe icon graceful fade out */

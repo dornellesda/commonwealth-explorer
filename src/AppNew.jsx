@@ -268,7 +268,7 @@ const COMMONWEALTH_VIEW = {
 };
 const ATTRACT_MODE_VIEW = {
   center: [22, 25],
-  zoom: 3.6,
+  zoom: 4.5,
 };
 const COMMONWEALTH_MAP_BOUNDS = [
   [-62, -178],
@@ -2077,6 +2077,7 @@ export default function App() {
   const panelScrolledRef = useRef(false);
   const [isPanelScrolled, setIsPanelScrolled] = useState(false);
   const [isIdleAttractMode, setIsIdleAttractMode] = useState(true);
+  const attractExitTimeRef = useRef(0);
   const [isButtonTransitioning, setIsButtonTransitioning] = useState(false);
   const [mapOnlyStartTime, setMapOnlyStartTime] = useState(null);
   const [attractRouteSwooshes, setAttractRouteSwooshes] = useState([]);
@@ -2098,6 +2099,23 @@ export default function App() {
   const [certificateStep, setCertificateStep] = useState(null);
   const [certificateName, setCertificateName] = useState('');
   const storyCardWrapperRef = useRef(null);
+
+  const [isPortrait, setIsPortrait] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerHeight > window.innerWidth || window.matchMedia('(max-width: 768px)').matches;
+  });
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsPortrait(window.innerHeight > window.innerWidth || window.matchMedia('(max-width: 768px)').matches);
+    };
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+    };
+  }, []);
   const [isVoyagerExpanded, setIsVoyagerExpanded] = useState(false);
   const [voyagerBadgeAnimToken, setVoyagerBadgeAnimToken] = useState(0);
   const [voyagerAuraToken, setVoyagerAuraToken] = useState(0);
@@ -2242,6 +2260,7 @@ export default function App() {
   };
 
   const exitIdleAttractMode = () => {
+    attractExitTimeRef.current = Date.now();
     setIsIdleAttractMode(false);
     clearAttractPresentation();
   };
@@ -2358,6 +2377,13 @@ export default function App() {
   }, []);
 
   const handleSelectCountry = (countryOrName, options = {}) => {
+    if (isIdleAttractMode || isAttractMode || (Date.now() - attractExitTimeRef.current < 500)) {
+      if (isIdleAttractMode || isAttractMode) {
+        openCountryDock();
+      }
+      return;
+    }
+
     // Keep the active country card stable. Map clicks while it is open are
     // handled as outside clicks and close the card instead of switching it.
     if (selectedCountry) {
@@ -2465,35 +2491,21 @@ export default function App() {
     }
     setHeroMotionSeed((value) => value + 1);
     selectedCountryKeyRef.current = countryKey;
-    setIsPanelOpen(true);
-    setIsPanelVisible(false);
-    setIsOverlayVisible(false);
-    setIsContentVisible(false);
-    // Reset scroll-morph state imperatively — no re-render needed
     panelScrolledRef.current = false;
-    setActivatedCountryName(null);
+    setActivatedCountryName(country.name);
 
-    // Background fetch will be handled by the selectedCountry useEffect.
+    setIsPanelOpen(true);
+    setIsOverlayVisible(true);
+    setIsContentVisible(true);
 
-    const activationTimeout = window.setTimeout(() => {
-      setActivatedCountryName(country.name);
-    }, 150);
-    const overlayTimeout = window.setTimeout(() => {
-      setIsOverlayVisible(true);
-    }, 300);
-    const panelTimeout = window.setTimeout(() => {
-      setIsPanelVisible(true);
-    }, 700);
-    const contentTimeout = window.setTimeout(() => {
-      setIsContentVisible(true);
-    }, 760);
+    // Trigger smooth GPU transition in next frame
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        setIsPanelVisible(true);
+      });
+    });
 
-    selectionTimelineTimeoutsRef.current = [
-      activationTimeout,
-      overlayTimeout,
-      panelTimeout,
-      contentTimeout,
-    ];
+    selectionTimelineTimeoutsRef.current = [];
 
     flyToCountry(country);
   };
@@ -2526,54 +2538,33 @@ export default function App() {
     scheduleVoyagerAuraIdleTick();
   };
 
-  const openCountryDock = (shouldExpand = false) => {
+  const openCountryDock = () => {
     markUserActivity();
     setIsButtonTransitioning(true);
-    setIsDockExpanding(shouldExpand);
+    setIsDockExpanding(false);
 
-    // Exit idle mode and bring dock in from the same visual anchor as the button.
+    const wasAttractMode = isIdleAttractMode;
+
+    // Exit idle mode cleanly
+    attractExitTimeRef.current = Date.now();
     setIsIdleAttractMode(false);
     clearAttractPresentation();
 
-    // Stage 1: Scale down slightly (120-180ms)
-    // Stage 2: Expand horizontally to full dock width
-    // Stage 3: Cards fade and slide in with stagger
-    // Stage 4: Globe icon fades out gracefully
-
-    const buttonNode = document.querySelector('.explore-cta-button');
-    if (buttonNode) {
-      const rect = buttonNode.getBoundingClientRect();
-      dockExpansionRef.current = {
-        width: rect.width,
-        height: rect.height,
-      };
+    // Smoothly zoom out map to world/Commonwealth overview when leaving attract mode
+    if (wasAttractMode && mapRef.current) {
+      mapRef.current?.getMap()?.flyTo({
+        center: [COMMONWEALTH_VIEW.center[1], COMMONWEALTH_VIEW.center[0]],
+        zoom: COMMONWEALTH_VIEW.zoom,
+        duration: 1.8 * 1000,
+        essential: true,
+      });
     }
 
     setIsMenuClosing(false);
+    setIsMenuOpening(false);
     setIsMenuOpen(true);
-    setIsMenuOpening(true);
 
-    if (shouldExpand) {
-      // Card reveal staggers: start after expansion (200ms), then 20-40ms between cards
-      const startCardReveal = () => {
-        dockCardsRevealTimeoutRef.current = window.setTimeout(() => {
-          // Trigger card reveal by setting isDockExpanding to false
-          // Cards will use their own stagger delays based on index
-          setIsDockExpanding(false);
-        }, 500);
-      };
-
-      // Expansion timeline: 180ms for width expansion
-      const expansionDuration = 180;
-      window.setTimeout(() => {
-        // End of expansion - cards will now begin their staggered reveal
-        startCardReveal();
-      }, expansionDuration);
-    } else {
-      setIsDockExpanding(false);
-    }
-
-    // Cleanup transition state after full animation
+    // Cleanup transition state after animation completes
     window.setTimeout(() => {
       setIsButtonTransitioning(false);
     }, EXHIBIT_TRANSITION_MS);
@@ -2585,17 +2576,17 @@ export default function App() {
   const handleExploreCommonwealthPress = () => {
     if (selectedCountry) {
       handleReset({ skipMenuState: true });
-      openCountryDock(true);
+      openCountryDock();
       return;
     }
 
     // First interaction leaves attract mode and directly opens the country dock.
     if (isIdleAttractMode) {
-      openCountryDock(false);
+      openCountryDock();
       return;
     }
 
-    openCountryDock(true);
+    openCountryDock();
   };
 
   const handleGeojsonLoad = (data) => {
@@ -3694,6 +3685,47 @@ export default function App() {
     );
   };
 
+  const renderTrophyIcon = (size = 20) => {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="trophyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#87B940" />
+            <stop offset="100%" stopColor="#1BA9E6" />
+          </linearGradient>
+        </defs>
+        {/* Sleeker Cup + Thinner Handles */}
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M7 3.5C7 3.22386 7.22386 3 7.5 3H16.5C16.7761 3 17 3.22386 17 3.5V8C17 10.7614 14.7614 13 12 13C9.23858 13 7 10.7614 7 8V3.5ZM5.2 4.8C4.54 4.8 4 5.34 4 6C4 7.5 5.1 8.7 6.5 9.1V7.7C5.8 7.4 5.4 6.8 5.4 6C5.4 5.7 5.6 5.4 5.9 5.3L6.5 5.1V4.8H5.2ZM18.8 4.8C19.46 4.8 20 5.34 20 6C20 7.5 18.9 8.7 17.5 9.1V7.7C18.2 7.4 18.6 6.8 18.6 6C18.6 5.7 18.4 5.4 18.1 5.3L17.5 5.1V4.8H18.8Z"
+          fill="url(#trophyGradient)"
+        />
+        {/* Slender Stem & Pedestal */}
+        <path
+          d="M10 14C9.4 15.2 8.8 16.3 7.8 17H16.2C15.2 16.3 14.6 15.2 14 14H10Z"
+          fill="url(#trophyGradient)"
+        />
+        {/* Sleek Base Plate */}
+        <rect
+          x="6"
+          y="18.2"
+          width="12"
+          height="2"
+          rx="0.5"
+          fill="url(#trophyGradient)"
+        />
+      </svg>
+    );
+  };
+
   const VOYAGER_BADGES = {
     5: { icon: BADGE_ICONS[5] },
     10: { icon: BADGE_ICONS[10] },
@@ -4075,22 +4107,31 @@ export default function App() {
   const isAttractMode = isIdleAttractMode && !hasActiveExplorationSurface;
   const isDockTransitioning = isMenuClosing || isMenuOpening;
 
-  // Ambient Ken Burns drift on the map while idle — the same trick behind
-  // Aerial/tvOS screensavers: a slow, non-repeating pan+zoom so the "hero"
-  // frame never reads as paused, even when no route swoosh is animating.
-  // Entering/leaving the drift is spring-driven too, so it eases back to
-  // dead-center instead of snapping when a visitor steps up to the kiosk.
+  // ─── MAP DRIFT ─────────────────────────────────────────────────────
+  // Two distinct motion modes layered onto the map wrapper:
+  //
+  // 1. ATTRACT (idle) → gentle Ken Burns pan + zoom so the map never
+  //    reads as a static image. Springs out when the visitor engages.
+  //
+  // 2. EXPLORATION (dock closed, no country selected, not attracting) →
+  //    slow horizontal-only pan that hints "there's more map to see".
+  //    Springs back to centre the instant the user touches the map.
+  // ─────────────────────────────────────────────────────────────────────
+  const [mapDriftSuppressed, setMapDriftSuppressed] = useState(false);
+
   useEffect(() => {
     const node = mapAtmosphereRef.current;
     if (!node) return;
 
-    if (!isAttractMode) {
+    const isExplorationMode = !isAttractMode && !selectedCountry && !isMenuOpen && !mapDriftSuppressed;
+
+    if (!isAttractMode && !isExplorationMode) {
       const start = { ...mapDriftStateRef.current };
       const stop = animateSpring({
         from: 1,
         to: 0,
-        stiffness: 140,
-        damping: 22,
+        stiffness: 110,
+        damping: 18,
         onUpdate: (progress) => {
           const x = start.x * progress;
           const y = start.y * progress;
@@ -4104,22 +4145,37 @@ export default function App() {
 
     let rafId;
     const startedAt = performance.now();
+    const startX = mapDriftStateRef.current.x;
+    const startScale = mapDriftStateRef.current.scale;
 
-    const drift = (now) => {
-      const t = (now - startedAt) / 1000;
-      const scale = 1.02 + Math.sin(t / 21) * 0.011;
-      const x = Math.sin(t / 27) * 9;
-      const y = Math.sin(t / 33 + 1.4) * 6;
-      mapDriftStateRef.current = { x, y, scale };
-      node.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
+    if (isAttractMode) {
+      const drift = (now) => {
+        const t = (now - startedAt) / 1000;
+        const scale = 1.02 + Math.sin(t / 21) * 0.011;
+        const x = Math.sin(t / 27) * 9;
+        const y = Math.sin(t / 33 + 1.4) * 6;
+        mapDriftStateRef.current = { x, y, scale };
+        node.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
+        rafId = requestAnimationFrame(drift);
+      };
       rafId = requestAnimationFrame(drift);
-    };
+    } else {
+      const drift = (now) => {
+        const t = (now - startedAt) / 1000;
+        const x = startX + Math.sin(t / 31) * 110;
+        const scale = startScale || 1;
+        const y = 0;
+        mapDriftStateRef.current = { x, y, scale };
+        node.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
+        rafId = requestAnimationFrame(drift);
+      };
+      rafId = requestAnimationFrame(drift);
+    }
 
-    rafId = requestAnimationFrame(drift);
     return () => {
       cancelAnimationFrame(rafId);
     };
-  }, [isAttractMode]);
+  }, [isAttractMode, selectedCountry, isMenuOpen, mapDriftSuppressed]);
 
   // Spring the headline block in on entry instead of easing to a flat stop,
   // so it grows past its resting position by a couple of px and settles —
@@ -4416,10 +4472,14 @@ export default function App() {
       >
         {/* ATTRACT MODE OVERLAY - Shows when idle */}
         <div
-          onPointerDown={() => {
+          onPointerDown={(e) => {
+            e.stopPropagation();
             if (isAttractMode) {
-              openCountryDock(true);
+              openCountryDock();
             }
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
           }}
           style={{
             position: "absolute",
@@ -4436,12 +4496,14 @@ export default function App() {
               : "opacity 500ms cubic-bezier(0.22, 1, 0.36, 1) 150ms",
           }}
         >
-          {/* Subtle left-aligned mask and general light vignette */}
+          {/* Subtle vignette: radial in portrait to highlight central hero graphic, linear in landscape */}
           <div
             style={{
               position: "absolute",
               inset: 0,
-              background: "linear-gradient(90deg, rgba(8, 11, 20, 0.85) 0%, rgba(8, 11, 20, 0.5) 30%, rgba(8, 11, 20, 0) 65%)",
+              background: isPortrait
+                ? "radial-gradient(ellipse 95% 75% at 50% 48%, rgba(8, 11, 20, 0.3) 0%, rgba(8, 11, 20, 0.88) 100%)"
+                : "linear-gradient(90deg, rgba(8, 11, 20, 0.85) 0%, rgba(8, 11, 20, 0.5) 30%, rgba(8, 11, 20, 0) 65%)",
               pointerEvents: "none",
             }}
           />
@@ -4461,10 +4523,10 @@ export default function App() {
               left: "50%",
               top: "50%",
               transform: "translate(-50%, -50%)",
-              width: "800px",
-              height: "800px",
+              width: isPortrait ? "1150px" : "800px",
+              height: isPortrait ? "1150px" : "800px",
               pointerEvents: "none",
-              opacity: isAttractMode ? 0.22 : 0,
+              opacity: isAttractMode ? (isPortrait ? 0.28 : 0.22) : 0,
               transition: isAttractMode
                 ? "opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1)"
                 : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1)",
@@ -4479,7 +4541,7 @@ export default function App() {
                 transformOrigin: "center center",
               }}
             >
-              <svg viewBox="0 0 800 800" width="100%" height="100%" style={{ stroke: "rgba(255,255,255,0.12)", strokeWidth: 0.75, fill: "none" }}>
+              <svg viewBox="0 0 800 800" width="100%" height="100%" style={{ stroke: "rgba(255,255,255,0.14)", strokeWidth: 0.85, fill: "none" }}>
                 <circle cx="400" cy="400" r="160" strokeDasharray="3,12" />
                 <circle cx="400" cy="400" r="280" strokeDasharray="6,18" />
                 <circle cx="400" cy="400" r="380" strokeDasharray="1,24" />
@@ -4502,17 +4564,20 @@ export default function App() {
 
           {/* Editorial Content Column */}
           <div
+            className="attract-editorial-column"
             style={{
               position: "relative",
               zIndex: 10,
               display: "flex",
               flexDirection: "column",
               justifyContent: "center",
-              alignItems: "flex-start",
+              alignItems: isPortrait ? "center" : "flex-start",
+              textAlign: isPortrait ? "center" : "left",
               width: "100%",
-              maxWidth: "600px",
+              maxWidth: isPortrait ? "840px" : "600px",
               height: "100%",
-              paddingLeft: "10%",
+              margin: isPortrait ? "0 auto" : undefined,
+              paddingLeft: isPortrait ? "2rem" : "10%",
               paddingRight: "2rem",
               boxSizing: "border-box",
               pointerEvents: "none",
@@ -4526,7 +4591,7 @@ export default function App() {
                 transition: isAttractMode
                   ? "opacity 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms, transform 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms"
                   : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
-                marginBottom: "2rem",
+                marginBottom: isPortrait ? "2.5rem" : "2rem",
                 pointerEvents: isAttractMode ? "auto" : "none",
               }}
             >
@@ -4534,9 +4599,9 @@ export default function App() {
                 src={FAMILYSEARCH_LOGO_URL}
                 alt="FamilySearch"
                 style={{
-                  width: "148px",
+                  width: isPortrait ? "230px" : "148px",
                   height: "auto",
-                  filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15))",
+                  filter: "drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45))",
                 }}
               />
             </div>
@@ -4547,6 +4612,7 @@ export default function App() {
                 margin: 0,
                 display: "flex",
                 flexDirection: "column",
+                alignItems: isPortrait ? "center" : "flex-start",
                 gap: "0.4rem",
                 pointerEvents: isAttractMode ? "auto" : "none",
               }}
@@ -4555,11 +4621,12 @@ export default function App() {
                 ref={attractEyebrowRef}
                 style={{
                   fontFamily: "var(--heading)",
-                  fontSize: "clamp(2.4rem, 4.6vw, 3.8rem)",
-                  fontWeight: 500,
-                  color: "rgba(255, 255, 255, 0.95)",
-                  lineHeight: 1.1,
-                  letterSpacing: "-0.015em",
+                  fontSize: isPortrait ? "clamp(3.4rem, 6.5vw, 5.2rem)" : "clamp(2.4rem, 4.6vw, 3.8rem)",
+                  fontWeight: 600,
+                  color: "rgba(255, 255, 255, 0.98)",
+                  lineHeight: 1.08,
+                  letterSpacing: "-0.02em",
+                  textShadow: "0 4px 24px rgba(0, 0, 0, 0.5)",
                   opacity: isAttractMode ? 1 : 0,
                   transform: isAttractMode ? undefined : "translateY(16px)",
                   transition: isAttractMode
@@ -4573,11 +4640,12 @@ export default function App() {
                 ref={attractTitleRef}
                 style={{
                   fontFamily: "var(--heading)",
-                  fontSize: "clamp(2.4rem, 4.6vw, 3.8rem)",
+                  fontSize: isPortrait ? "clamp(3.4rem, 6.5vw, 5.2rem)" : "clamp(2.4rem, 4.6vw, 3.8rem)",
                   fontWeight: 500,
-                  color: "rgba(255, 255, 255, 0.72)",
-                  lineHeight: 1.1,
-                  letterSpacing: "-0.015em",
+                  color: "rgba(255, 255, 255, 0.78)",
+                  lineHeight: 1.08,
+                  letterSpacing: "-0.02em",
+                  textShadow: "0 4px 24px rgba(0, 0, 0, 0.4)",
                   opacity: isAttractMode ? 1 : 0,
                   transform: isAttractMode ? undefined : "translateY(16px)",
                   transition: isAttractMode
@@ -4594,12 +4662,13 @@ export default function App() {
               ref={attractSubRef}
               style={{
                 fontFamily: "var(--sans)",
-                fontSize: "clamp(1.05rem, 1.8vw, 1.25rem)",
-                fontWeight: 300,
-                color: "rgba(255, 255, 255, 0.60)",
-                lineHeight: 1.5,
-                maxWidth: "460px",
-                margin: "1.8rem 0 2.5rem 0",
+                fontSize: isPortrait ? "clamp(1.2rem, 2.4vw, 1.55rem)" : "clamp(1.05rem, 1.8vw, 1.25rem)",
+                fontWeight: 350,
+                color: "rgba(255, 255, 255, 0.75)",
+                lineHeight: 1.55,
+                maxWidth: isPortrait ? "680px" : "460px",
+                margin: isPortrait ? "2.2rem 0 3rem 0" : "1.8rem 0 2.5rem 0",
+                textShadow: "0 2px 12px rgba(0, 0, 0, 0.4)",
                 opacity: isAttractMode ? 1 : 0,
                 transform: isAttractMode ? undefined : "translateY(16px)",
                 transition: isAttractMode
@@ -4626,25 +4695,25 @@ export default function App() {
                 className="premium-attract-cta"
                 onClick={(e) => {
                   e.stopPropagation();
-                  openCountryDock(true);
+                  openCountryDock();
                 }}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "12px",
-                  padding: "1rem 2.2rem",
+                  gap: "14px",
+                  padding: isPortrait ? "1.25rem 3.4rem" : "1rem 2.2rem",
                   borderRadius: "100px",
                   border: "none",
-                  background: "linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)",
-                  backdropFilter: "blur(24px)",
-                  WebkitBackdropFilter: "blur(24px)",
-                  color: "rgba(255, 255, 255, 0.95)",
+                  background: "linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%)",
+                  backdropFilter: "blur(28px) saturate(200%)",
+                  WebkitBackdropFilter: "blur(28px) saturate(200%)",
+                  color: "rgba(255, 255, 255, 0.98)",
                   fontFamily: "var(--sans)",
-                  fontSize: "1.05rem",
-                  fontWeight: 500,
+                  fontSize: isPortrait ? "1.3rem" : "1.05rem",
+                  fontWeight: 600,
                   letterSpacing: "0.04em",
                   cursor: "pointer",
-                  boxShadow: "0 12px 32px rgba(0, 0, 0, 0.2)",
+                  boxShadow: "0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)",
                   whiteSpace: "nowrap",
                   transition: "all 400ms cubic-bezier(0.22, 1, 0.36, 1)",
                   position: "relative",
@@ -4658,8 +4727,8 @@ export default function App() {
                 {/* Animated indicator dot transitioning softly through brand colors */}
                 <span
                   style={{
-                    width: "9px",
-                    height: "9px",
+                    width: "10px",
+                    height: "10px",
                     borderRadius: "50%",
                     display: "inline-block",
                     animation: "attractDotHueCycle 16s ease-in-out infinite",
@@ -4668,7 +4737,7 @@ export default function App() {
                   }}
                 />
                 <span style={{ position: "relative", zIndex: 2 }}>Start Exploring</span>
-                <span style={{ fontSize: "1.2rem", lineHeight: 1, marginLeft: "2px", transition: "transform 300ms ease", position: "relative", zIndex: 2 }} className="cta-arrow">→</span>
+                <span style={{ fontSize: "1.3rem", lineHeight: 1, marginLeft: "4px", transition: "transform 300ms ease", position: "relative", zIndex: 2 }} className="cta-arrow">→</span>
               </button>
             </div>
 
@@ -4676,9 +4745,18 @@ export default function App() {
             <div
               style={{
                 display: "flex",
-                gap: "2.5rem",
-                marginTop: "3rem",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: isPortrait ? "3.2rem" : "2.5rem",
+                marginTop: isPortrait ? "3.5rem" : "3rem",
                 marginBottom: "1rem",
+                padding: isPortrait ? "16px 36px" : undefined,
+                borderRadius: isPortrait ? "999px" : undefined,
+                background: isPortrait ? "rgba(255, 255, 255, 0.08)" : undefined,
+                backdropFilter: isPortrait ? "blur(20px) saturate(180%)" : undefined,
+                WebkitBackdropFilter: isPortrait ? "blur(20px) saturate(180%)" : undefined,
+                border: isPortrait ? "1px solid rgba(255, 255, 255, 0.15)" : undefined,
+                boxShadow: isPortrait ? "0 12px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2)" : undefined,
                 opacity: isAttractMode ? 1 : 0,
                 transform: isAttractMode ? "translateY(0)" : "translateY(16px)",
                 transition: isAttractMode
@@ -4688,18 +4766,18 @@ export default function App() {
               }}
             >
               <div>
-                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "var(--sans)" }}>56</div>
-                <div style={{ textTransform: "uppercase", fontSize: "0.7rem", color: "rgba(255,255,255,0.42)", letterSpacing: "0.15em", marginTop: "2px" }}>Nations</div>
+                <div style={{ fontSize: isPortrait ? "2.2rem" : "1.6rem", fontWeight: 800, color: "rgba(255,255,255,0.96)", fontFamily: "var(--sans)" }}>56</div>
+                <div style={{ textTransform: "uppercase", fontSize: isPortrait ? "0.78rem" : "0.7rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.18em", marginTop: "2px" }}>Nations</div>
               </div>
-              <div style={{ width: "1px", height: "2.5rem", background: "rgba(255,255,255,0.12)", alignSelf: "center" }} />
+              <div style={{ width: "1px", height: isPortrait ? "3rem" : "2.5rem", background: "rgba(255,255,255,0.18)", alignSelf: "center" }} />
               <div>
-                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "var(--sans)" }}>2.7B</div>
-                <div style={{ textTransform: "uppercase", fontSize: "0.7rem", color: "rgba(255,255,255,0.42)", letterSpacing: "0.15em", marginTop: "2px" }}>People</div>
+                <div style={{ fontSize: isPortrait ? "2.2rem" : "1.6rem", fontWeight: 800, color: "rgba(255,255,255,0.96)", fontFamily: "var(--sans)" }}>2.7B</div>
+                <div style={{ textTransform: "uppercase", fontSize: isPortrait ? "0.78rem" : "0.7rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.18em", marginTop: "2px" }}>People</div>
               </div>
-              <div style={{ width: "1px", height: "2.5rem", background: "rgba(255,255,255,0.12)", alignSelf: "center" }} />
+              <div style={{ width: "1px", height: isPortrait ? "3rem" : "2.5rem", background: "rgba(255,255,255,0.18)", alignSelf: "center" }} />
               <div>
-                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "var(--sans)" }}>Countless</div>
-                <div style={{ textTransform: "uppercase", fontSize: "0.7rem", color: "rgba(255,255,255,0.42)", letterSpacing: "0.15em", marginTop: "2px" }}>Stories</div>
+                <div style={{ fontSize: isPortrait ? "2.2rem" : "1.6rem", fontWeight: 800, color: "rgba(255,255,255,0.96)", fontFamily: "var(--sans)" }}>Countless</div>
+                <div style={{ textTransform: "uppercase", fontSize: isPortrait ? "0.78rem" : "0.7rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.18em", marginTop: "2px" }}>Stories</div>
               </div>
             </div>
           </div>
@@ -4854,13 +4932,13 @@ export default function App() {
                 position: "fixed",
                 left: "50%",
                 top: isAttractMode ? "72%" : "auto",
-                bottom: isAttractMode ? "auto" : "2.2rem",
+                bottom: isAttractMode ? "auto" : "max(7.5rem, 12vh)",
                 transform: `translateX(-50%) ${baseExploreTransform}`,
                 zIndex: selectedCountry ? 995 : 910,
                 display: "flex",
                 alignItems: "center",
                 gap: (isAttractMode || isPanelOpen) ? "0px" : "4px",
-                padding: "6px", // Larger outer padding
+                padding: "7px", // 10% larger outer padding
                 borderRadius: "999px",
                 border: "1px solid rgba(255,255,255,0.12)",
                 background: "rgba(25, 25, 30, 0.65)",
@@ -4890,14 +4968,14 @@ export default function App() {
                   zIndex: 2,
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
-                  padding: (isAttractMode || hideRecentre) ? "10px 20px" : "10px 22px 10px 18px", // Symmetric when recentre is hidden
+                  gap: "9px",
+                  padding: (isAttractMode || hideRecentre) ? "11px 22px" : "11px 24px 11px 20px", // 10% larger padding
                   borderRadius: "999px",
                   border: "none",
                   background: "linear-gradient(180deg, rgba(135, 185, 64, 0.85) 0%, rgba(115, 160, 50, 0.85) 100%)",
                   color: "#ffffff",
-                  fontSize: "1.12rem", // Larger font size
-                  fontWeight: 700, // Stronger weight
+                  fontSize: "1.24rem", // 10% larger font size (1.12rem * 1.1)
+                  fontWeight: 700,
                   cursor: "pointer",
                   boxShadow: "0 4px 14px rgba(135, 185, 64, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
                   textShadow: "0 1px 2px rgba(0, 0, 0, 0.2)",
@@ -4911,7 +4989,7 @@ export default function App() {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {renderGlobeIcon(isAttractMode ? 20 : 22)}
+                  {renderGlobeIcon(isAttractMode ? 22 : 24)}
                 </div>
                 {!isAttractMode && <span>Explore</span>}
                 {isAttractMode && <span>{exploreButtonLabel}</span>}
@@ -4922,9 +5000,9 @@ export default function App() {
                 <div
                   style={{
                     overflow: "hidden",
-                    width: hideRecentre ? "0px" : "48px", // Larger width
-                    minWidth: hideRecentre ? "0px" : "48px",
-                    maxWidth: hideRecentre ? "0px" : "48px",
+                    width: hideRecentre ? "0px" : "52px", // 10% larger
+                    minWidth: hideRecentre ? "0px" : "52px",
+                    maxWidth: hideRecentre ? "0px" : "52px",
                     opacity: hideRecentre ? 0 : 1,
                     transition: "width 400ms cubic-bezier(0.22,1,0.36,1), min-width 400ms cubic-bezier(0.22,1,0.36,1), max-width 400ms cubic-bezier(0.22,1,0.36,1), opacity 280ms ease",
                     pointerEvents: hideRecentre ? "none" : "auto",
@@ -4947,8 +5025,8 @@ export default function App() {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      width: "44px", // Larger size
-                      height: "44px", // Larger size
+                      width: "48px", // 10% larger size
+                      height: "48px",
                       borderRadius: "50%",
                       border: "none",
                       background: "transparent",
@@ -4959,7 +5037,7 @@ export default function App() {
                     onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.15)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                   >
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="2" y1="12" x2="6" y2="12"></line>
                       <line x1="18" y1="12" x2="22" y2="12"></line>
                       <line x1="12" y1="2" x2="12" y2="6"></line>
@@ -5082,8 +5160,8 @@ export default function App() {
             onClick={() => setIsVoyagerExpanded((value) => !value)}
             style={{
               position: "fixed",
-              top: "clamp(0.75rem, 3vw, 1.5rem)",
-              right: "clamp(0.75rem, 3vw, 1.5rem)",
+              top: "2.2rem",
+              right: "2.2rem",
               zIndex: 820,
               width: isVoyagerExpanded
                 ? "min(340px, calc(100vw - 1.5rem))"
@@ -5092,8 +5170,8 @@ export default function App() {
                 ? (voyagerProgressCount >= 5 ? "400px" : (visitedVoyagerCountries.length === 0 ? "224px" : "252px"))
                 : "44px",
               borderRadius: "22px",
-              padding: "3px",
-              background: "rgba(135, 185, 64, 0.28)", // Premium FamilySearch Green border outline
+              padding: "2px",
+              background: "rgba(135, 185, 64, 0.28)", // Subtle FamilySearch Green rim
               pointerEvents: "auto",
               overflow: "hidden",
               isolation: "isolate",
@@ -5112,14 +5190,14 @@ export default function App() {
                 position: "absolute",
                 inset: 0,
                 borderRadius: "22px",
-                opacity: isVoyagerExpanded ? 0 : 1, // Fade out when expanded for an elegant look
+                opacity: isVoyagerExpanded ? 0 : 0.85, // Subtle elegant glow
                 transition: "opacity 400ms cubic-bezier(0.22, 1, 0.36, 1)",
                 pointerEvents: "none",
                 zIndex: 1,
-                animation: "beamPulse 12s ease-in-out infinite",
                 overflow: "hidden",
-                padding: "3px",
+                padding: "2px",
                 boxSizing: "border-box",
+                filter: "blur(4px)", // Softens the gradient to a glow
               }}
             >
               <div style={{
@@ -5130,21 +5208,20 @@ export default function App() {
                 height: "100vh",
                 marginLeft: "-50vh",
                 marginTop: "-50vh",
-                background: "conic-gradient(from 0deg, transparent 50%, rgba(135, 185, 64, 0.8) 75%, #1ba9e6 95%, transparent 100%)",
-                animation: "spin 4.5s linear infinite",
+                background: "conic-gradient(from 0deg, #87B940, #1BA9E6, #4C7D1E, #0F5D80, #87B940)", // FamilySearch Brand Colors
+                animation: "spin 5s linear infinite",
               }} />
             </div>
 
-            {/* Inner Premium Liquid Glass Container (FamilySearch Brand) */}
+            {/* Inner Premium Light Glass Container (FamilySearch Style) */}
             <div style={{
               position: "relative",
               zIndex: 2,
-              borderRadius: "19px",
-              background: "rgba(255, 255, 255, 0.58)", // Highly translucent, glossy liquid glass base
-              backdropFilter: "blur(40px) saturate(160%)",
-              WebkitBackdropFilter: "blur(40px) saturate(160%)",
-              // Premium liquid glass shading with intense internal reflections & high-contrast top rim highlights
-              boxShadow: "0 12px 36px rgba(51, 51, 49, 0.12), inset 0 12px 24px -10px rgba(255,255,255,0.8), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 2px rgba(0,0,0,0.04)",
+              borderRadius: "20px",
+              background: "rgba(255, 255, 255, 0.85)", // Light Apple-like glass surface
+              backdropFilter: "blur(20px) saturate(180%)",
+              WebkitBackdropFilter: "blur(20px) saturate(180%)",
+              boxShadow: "0 8px 32px rgba(32, 39, 56, 0.12), inset 0 0 0 1px rgba(255,255,255,0.6)",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -5153,23 +5230,10 @@ export default function App() {
               padding: isVoyagerExpanded ? "1.1rem 1.2rem" : "6px 16px 6px 12px",
               boxSizing: "border-box",
               justifyContent: "space-between",
-              color: "#333331", // Brand charcoal text
+              color: "#202738", // Charcoal text
             }}>
 
-              {/* Liquid Glass Gloss Shine & Highlight Overlays */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  // Diagonal glare + soft radial green glow
-                  background: "linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 50%), radial-gradient(circle at 40% 35%, rgba(135, 185, 64, 0.12) 0%, transparent 70%)",
-                  borderRadius: "19px",
-                  pointerEvents: "none",
-                  zIndex: 1,
-                }}
-              />
-
-              {/* Progress aura ring */}
+              {/* Removed glossy top reflection to match matte AI pill */}              {/* Progress aura ring */}
               <div
                 key={`voyager-aura-${voyagerAuraToken}`}
                 className={`voyager-aura-ring${voyagerAuraToken > 0 ? (voyagerProgressPercent >= 100 ? " aura-platinum" : " aura-active") : ""}`}
@@ -5215,7 +5279,7 @@ export default function App() {
                   fontSize: "0.75rem",
                   letterSpacing: "0.12em",
                   textTransform: "uppercase",
-                  color: hoveredMilestone ? "#87B940" : "#333331", // FamilySearch Green / Charcoal
+                  color: hoveredMilestone ? "#87B940" : "#202738", // FS Green / Slate
                   fontWeight: 800,
                   textAlign: "center",
                   transition: "color 150ms ease",
@@ -5238,7 +5302,7 @@ export default function App() {
                   fontSize: "1.2rem",
                   fontWeight: 700,
                   letterSpacing: "-0.02em",
-                  color: "#333331",
+                  color: "#202738",
                 }}>
                   {voyagerProgressCount} / {VOYAGER_TOTAL_COUNTRIES}
                 </div>
@@ -5378,7 +5442,7 @@ export default function App() {
                   style={{
                     background: "none",
                     border: "none",
-                    color: "#87B940",
+                    color: "#D5548E", // AI pinkish tint
                     textDecoration: "underline",
                     fontSize: "0.7rem",
                     fontWeight: "bold",
@@ -5386,8 +5450,8 @@ export default function App() {
                     padding: "4px",
                     transition: "color 150ms ease"
                   }}
-                  onMouseEnter={(e) => e.target.style.color = "#5E8E3E"}
-                  onMouseLeave={(e) => e.target.style.color = "#87B940"}
+                  onMouseEnter={(e) => e.target.style.color = "#E78351"}
+                  onMouseLeave={(e) => e.target.style.color = "#D5548E"}
                 >
                   Download your certificate
                 </button>
@@ -5421,7 +5485,7 @@ export default function App() {
                       fontSize: "0.74rem",
                       fontWeight: 700,
                       letterSpacing: "0.02em",
-                      color: "#333331",
+                      color: "#202738",
                       whiteSpace: "nowrap",
                       flexShrink: 0,
                     }}>
@@ -5431,11 +5495,11 @@ export default function App() {
                       fontSize: "0.74rem",
                       fontWeight: 800,
                       letterSpacing: "0.01em",
-                      color: "#333331", // Dark charcoal base
+                      color: "#202738", // Slate text
                       marginLeft: "auto",
                       flexShrink: 0,
                     }}>
-                      <span style={{ color: "#4C7D1E" }}>{voyagerProgressCount}</span>/{VOYAGER_TOTAL_COUNTRIES}
+                      <span style={{ fontWeight: 800 }}>{voyagerProgressCount}</span>/{VOYAGER_TOTAL_COUNTRIES}
                     </div>
                   </>
                 ) : (
@@ -5446,12 +5510,12 @@ export default function App() {
                     fontSize: "0.74rem",
                     fontWeight: 700,
                     letterSpacing: "0.02em",
-                    color: "#333331",
+                    color: "#202738", // Slate text
                     width: "100%",
                   }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", color: "#4C7D1E" }}>{renderGiftIcon(14)}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center" }}>{renderTrophyIcon(20)}</span>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                      <span style={{ color: "#4C7D1E", fontWeight: 800 }}>{voyagerCountriesUntilSurprise}</span> {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} to go!
+                      <span style={{ fontWeight: 800 }}>{voyagerCountriesUntilSurprise}</span> {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} to go!
                     </span>
                   </div>
                 )}
@@ -5472,6 +5536,12 @@ export default function App() {
           handleSelectCountry={handleSelectCountry}
           handleCountryHover={handleCountryHover}
           handleReset={handleReset}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          isDockSearchExpanded={isDockSearchExpanded}
+          setIsDockSearchExpanded={setIsDockSearchExpanded}
+          setIsMenuOpen={setIsMenuOpen}
+          setIsMenuClosing={setIsMenuClosing}
         />
 
         <div
@@ -5479,8 +5549,9 @@ export default function App() {
           style={{
             position: "absolute",
             inset: 0,
-            width: "100%",
+            width: "calc(100% + 240px)",
             height: "100%",
+            left: "-120px",
             boxSizing: "border-box",
             overflow: "hidden",
             transformOrigin: "50% 50%",
@@ -5514,6 +5585,7 @@ export default function App() {
             ref={mapRef}
             onCountrySelect={handleSelectCountry}
             onMapClick={(options = {}) => {
+              if (isAttractMode || isIdleAttractMode || (Date.now() - attractExitTimeRef.current < 500)) return;
               if (selectedCountry) {
                 handleReset(options);
               } else if (isMenuOpen) {
@@ -6311,14 +6383,15 @@ export default function App() {
             unlocked={achievementUnlocked}
             onClose={() => setAchievementUnlocked(null)}
             onViewCertificate={openCertificateFlow}
-            onAddToWallet={() => {
-              createPass({
+            onAddToWallet={async () => {
+              const res = await createPass({
                 milestone: achievementUnlocked.count,
                 totalVisited: visitedVoyagerCountries.length,
                 visitedNames: visitedVoyagerCountries,
                 heroImageUrl: null,
                 userId: explorerId
               });
+              return res?.shareUrl;
             }}
             isWalletLoading={isWalletLoading}
             walletError={walletError}

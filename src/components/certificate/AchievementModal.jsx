@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { BADGE_COLORS, BADGE_ICONS, FAMILYSEARCH_COLORS } from "./badges";
 
 // Detect platform for wallet button label
@@ -32,6 +34,17 @@ export default function AchievementModal({
   walletError = null,
   hasWalletPass = false,
 }) {
+  const [walletQrUrl, setWalletQrUrl] = useState(null);
+
+  const handleAddToWalletClick = async () => {
+    if (onAddToWallet) {
+      const url = await onAddToWallet();
+      if (url) {
+        setWalletQrUrl(url);
+      }
+    }
+  };
+
   if (!unlocked) return null;
 
   const { badgeLevel, levelName } = unlocked;
@@ -199,7 +212,31 @@ export default function AchievementModal({
             animation: "cert-riseIn 460ms ease-out 400ms both",
           }}
         >
-          {/* Primary CTA — View Certificate */}
+          {walletQrUrl ? (
+            <div style={{
+              background: "#fff",
+              padding: "1.5rem",
+              borderRadius: "16px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+              animation: "cert-fadeIn 300ms ease-out",
+            }}>
+              <QRCodeSVG
+                value={walletQrUrl}
+                size={160}
+                bgColor={"#ffffff"}
+                fgColor={"#000000"}
+                level={"M"}
+              />
+              <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "#666", fontWeight: 500, lineHeight: 1.4 }}>
+                Scan with your phone to add to <strong>Apple Wallet</strong> or <strong>Google Wallet</strong>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Primary CTA — View Certificate */}
           <button
             onClick={onViewCertificate}
             style={{
@@ -225,7 +262,7 @@ export default function AchievementModal({
           {/* Secondary CTA — Add to Wallet (only rendered when callback is provided) */}
           {onAddToWallet && (
             <button
-              onClick={isWalletLoading ? undefined : onAddToWallet}
+              onClick={isWalletLoading ? undefined : handleAddToWalletClick}
               disabled={isWalletLoading}
               aria-label={hasWalletPass ? `Open ${walletLabel.replace("Add to ", "")}` : walletLabel}
               style={{
@@ -273,6 +310,8 @@ export default function AchievementModal({
                 </>
               )}
             </button>
+          )}
+          </>
           )}
 
           {/* Error state */}

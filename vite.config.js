@@ -5,7 +5,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
 
-base: '/',
+  base: '/',
+
+  build: {
+    // Target Android 7.1.2 WebView which corresponds to Chrome ~55
+    target: ['chrome55'],
+  },
 
   server: {
     proxy: {
