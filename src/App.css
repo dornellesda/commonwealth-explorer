@@ -841,27 +841,57 @@
   mask-composite: subtract;
 }
 
-/* Custom Lightbox Content Row & Drawer styling */
+/* Custom Lightbox Content Row & Drawer styling matching Country Pop-up */
+@keyframes lightboxBackdropFade {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+}
+
+@keyframes lightboxModalScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.lightbox-overlay-animate {
+  animation: lightboxBackdropFade 350ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.lightbox-modal-animate {
+  animation: lightboxModalScaleUp 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .lightbox-outer-row {
   display: flex;
   flex-direction: column;
   width: min(1150px, 96vw);
-  border-radius: 28px;
+  border-radius: 32px;
   overflow: hidden;
-  background: rgba(30, 30, 35, 0.65);
-  backdrop-filter: blur(40px) saturate(210%);
-  -webkit-backdrop-filter: blur(40px) saturate(210%);
+  background: linear-gradient(155deg, rgba(18, 18, 22, 0.97) 0%, rgba(10, 10, 12, 0.95) 52%, rgba(18, 18, 22, 0.96) 100%);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow: 0 42px 120px rgba(0, 0, 0, 0.65), 0 16px 34px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .lightbox-left-column {
   flex: none;
-  width: calc(100% - 340px);
+  width: calc(100% - 360px);
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 1.5rem 1rem 1.5rem 1.5rem;
+  padding: 1.6rem 1.25rem 1.6rem 1.6rem;
   gap: 1.25rem;
   justify-content: flex-start;
   box-sizing: border-box;
@@ -881,9 +911,9 @@
   top: 0;
   bottom: 0;
   right: 0;
-  width: 340px;
+  width: 360px;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(20, 20, 25, 0.25);
+  background: rgba(14, 14, 18, 0.4);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -893,7 +923,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.1rem 1.25rem;
+  padding: 1.2rem 1.4rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.02);
 }
