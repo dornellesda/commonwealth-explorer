@@ -6768,7 +6768,7 @@ export default function App() {
                   flexShrink: 0,
                 }}>
                   {lightboxItem.type === "video" ? (
-                    <PlyrVideoPlayer videoItem={lightboxItem} autoplay={true} />
+                    <PlyrVideoPlayer key={lightboxItem.id} videoItem={lightboxItem} autoplay={true} />
                   ) : (
                     <img
                       src={lightboxItem.sourceUrl}
@@ -6825,14 +6825,8 @@ export default function App() {
                         className="lightbox-thumbnails-track fade-right"
                         onScroll={(e) => updateScrollFades(e.currentTarget)}
                       >
-                        {(() => {
-                          const sortedGalleryItems = [...galleryItems].sort((a, b) => {
-                            if (a.id === lightboxItem.id) return -1;
-                            if (b.id === lightboxItem.id) return 1;
-                            return 0;
-                          });
-                          return sortedGalleryItems.map((item) => {
-                            const isActive = item.id === lightboxItem.id;
+                        {galleryItems.map((item) => {
+                          const isActive = item.id === lightboxItem.id;
                             const isViewed = viewedVideoIds.has(item.id);
                             return (
                               <button
@@ -6875,8 +6869,7 @@ export default function App() {
                                 ) : null}
                               </button>
                             );
-                          });
-                        })()}
+                          })}
                       </div>
                     </div>
                   </div>
