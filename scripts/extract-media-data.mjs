@@ -19,41 +19,47 @@ const header = rows[0];
 const countryIdx = header.findIndex(h => h && String(h).toLowerCase().trim() === 'country');
 const titleIdx = header.findIndex(h => h && String(h).toLowerCase().trim() === 'title');
 const descIdx = header.findIndex(h => h && String(h).toLowerCase().trim() === 'description');
-const linkIdx = header.findIndex(h => h && String(h).toLowerCase().trim().includes('link'));
+const cdnIdx = header.findIndex(h => h && (String(h).toLowerCase().trim().includes('cdn') || String(h).toLowerCase().trim().includes('r2') || String(h).toLowerCase().trim().includes('mp4')));
+const linkIdx = header.findIndex(h => h && String(h).toLowerCase().trim().includes('link') && cdnIdx !== header.indexOf(h));
 const creditIdx = header.findIndex(h => h && String(h).toLowerCase().trim() === 'credit');
 
 const cIdx = countryIdx !== -1 ? countryIdx : 0;
 const tIdx = titleIdx !== -1 ? titleIdx : 1;
 const dIdx = descIdx !== -1 ? descIdx : 2;
 const lIdx = linkIdx !== -1 ? linkIdx : 3;
+const r2Idx = cdnIdx !== -1 ? cdnIdx : -1;
 const crIdx = creditIdx !== -1 ? creditIdx : 4;
 
-console.log(`Column mapping -> Country: ${cIdx}, Title: ${tIdx}, Description: ${dIdx}, Link: ${lIdx}, Credit: ${crIdx}`);
+console.log(`Column mapping -> Country: ${cIdx}, Title: ${tIdx}, Description: ${dIdx}, Link: ${lIdx}, CDN: ${r2Idx}, Credit: ${crIdx}`);
 
 // Skip header row
-const dataRows = rows.slice(1).filter(row => row[cIdx] && row[lIdx]);
+const dataRows = rows.slice(1).filter(row => row[cIdx] && (row[lIdx] || (r2Idx !== -1 && row[r2Idx])));
 
 const mediaByCountry = {};
 
 for (const row of dataRows) {
   const country = String(row[cIdx] || '').trim();
   let url = String(row[lIdx] || '').trim();
+  let r2Url = r2Idx !== -1 ? String(row[r2Idx] || '').trim() : '';
   const credit = String(row[crIdx] || '').trim();
   const excelTitle = String(row[tIdx] || '').trim();
   const excelDesc = String(row[dIdx] || '').trim();
 
+  if (!url && r2Url) url = r2Url;
   if (!country || !url) continue;
 
   // Clean URL - remove trailing whitespace and trailing slash
   url = url.replace(/[\s\u00a0]+$/, '').replace(/\/+$/, '');
+  if (r2Url) r2Url = r2Url.replace(/[\s\u00a0]+$/, '').replace(/\/+$/, '');
 
   if (!mediaByCountry[country]) {
     mediaByCountry[country] = [];
   }
 
-  // Determine if YouTube or Colourful Heritage
-  const isYoutube = /youtube\.com|youtu\.be/i.test(url);
-  // Extract video ID for YouTube
+  const isDirectR2 = (url.includes('.mp4') || url.includes('.m3u8') || url.includes('r2.dev') || url.includes('cloudflare')) || Boolean(r2Url);
+  const isYoutube = !isDirectR2 && /youtube\.com|youtu\.be/i.test(url);
+  if (!r2Url && isDirectR2) r2Url = url;
+
   let videoId = null;
   if (isYoutube) {
     const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
@@ -62,8 +68,9 @@ for (const row of dataRows) {
 
   mediaByCountry[country].push({
     url,
+    r2Url: r2Url || null,
     credit,
-    type: isYoutube ? 'video' : 'photo',
+    type: (isYoutube || isDirectR2) ? 'video' : 'photo',
     videoId,
     title: excelTitle,
     description: excelDesc,

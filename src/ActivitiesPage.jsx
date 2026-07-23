@@ -635,20 +635,15 @@ export default function ActivitiesPage() {
           <div style={{
             display: "flex",
             flexDirection: "column",
-            gap: "1.2rem",
-            justifyContent: "space-between"
+            gap: "1.2rem"
           }}>
-            {/* Top 50%: Surname Origins Block */}
+            {/* Top: Surname Origins Block (Compact Height) */}
             <div style={{
               background: "linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)",
-              borderRadius: "20px",
+              borderRadius: "24px",
               border: "1.5px solid rgba(39, 196, 244, 0.25)",
               padding: "1.2rem 1.4rem",
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              boxShadow: "0 10px 24px -4px rgba(39, 196, 244, 0.12)",
+              boxShadow: "0 8px 20px -4px rgba(39, 196, 244, 0.12)",
               position: "relative",
               overflow: "hidden"
             }}>
@@ -749,7 +744,7 @@ export default function ActivitiesPage() {
                 flex: 1,
                 display: "flex",
                 alignItems: "center",
-                gap: "1.4rem",
+                gap: "1.3rem",
                 cursor: "pointer",
                 boxShadow: "0 12px 28px -4px rgba(153, 103, 153, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9)",
                 transition: "transform 0.2s ease, boxShadow 0.2s ease",
@@ -1013,9 +1008,9 @@ export default function ActivitiesPage() {
             position: "fixed",
             inset: 0,
             zIndex: 1000,
-            backgroundColor: "rgba(51, 51, 49, 0.35)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
+            backgroundColor: "rgba(15, 23, 42, 0.55)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1025,73 +1020,154 @@ export default function ActivitiesPage() {
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              backgroundColor: FS_COLORS.cardBg,
-              border: `1px solid ${FS_COLORS.border}`,
-              borderRadius: "24px",
-              padding: "2.2rem",
-              maxWidth: "420px",
+              backgroundColor: "#ffffff",
+              border: "1.5px solid rgba(226, 232, 240, 0.8)",
+              borderRadius: "28px",
+              padding: "2.2rem 2rem 1.8rem",
+              maxWidth: "440px",
               width: "100%",
               textAlign: "center",
-              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.12)"
+              boxShadow: "0 24px 60px -12px rgba(15, 23, 42, 0.3)",
+              position: "relative",
+              overflow: "hidden"
             }}
           >
-            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📱</div>
-            <h3 style={{ fontFamily: FONT_HEADING, fontSize: "1.35rem", fontWeight: 500, color: FS_COLORS.bodyDark, margin: "0 0 0.5rem" }}>
-              {qrModalItem.title}
-            </h3>
-            <p style={{ color: FS_COLORS.bodyMuted, fontSize: "0.88rem", lineHeight: 1.5, marginBottom: "1.5rem", fontFamily: FONT_SANS, fontWeight: 300 }}>
-              Scan the QR code with your mobile camera or click below to launch the experience directly on FamilySearch.org.
-            </p>
+            {/* Top Close Button (X) */}
+            <button
+              onClick={() => setQrModalItem(null)}
+              style={{
+                position: "absolute",
+                top: "1.2rem",
+                right: "1.2rem",
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                backgroundColor: "#f1f5f9",
+                border: "none",
+                color: "#64748b",
+                fontSize: "1.1rem",
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                transition: "all 0.2s ease"
+              }}
+            >
+              ✕
+            </button>
 
+            {/* Header Icon / Badge */}
             <div style={{
-              background: "#f8fafc",
-              padding: "1rem",
+              width: "52px",
+              height: "52px",
               borderRadius: "16px",
-              border: `1px solid ${FS_COLORS.border}`,
-              display: "inline-block",
-              marginBottom: "1.5rem"
+              backgroundColor: "rgba(135, 185, 64, 0.12)",
+              border: "1px solid rgba(135, 185, 64, 0.3)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.6rem",
+              margin: "0 auto 1rem"
             }}>
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrModalItem.url)}`}
-                alt="QR Code"
-                style={{ width: "160px", height: "160px", display: "block" }}
-              />
+              🌐
             </div>
 
-            <div style={{ display: "flex", gap: "0.8rem" }}>
-              <button
-                onClick={() => window.open(qrModalItem.url, "_blank")}
-                style={{
-                  flex: 1,
-                  background: FS_COLORS.primary,
-                  color: "#ffffff",
-                  border: "none",
-                  padding: "0.75rem",
-                  borderRadius: "12px",
-                  fontWeight: 500,
+            {/* Modal Title & Subtitle */}
+            <h3 style={{
+              fontFamily: FONT_HEADING,
+              fontSize: "1.45rem",
+              fontWeight: 700,
+              color: "#0f172a",
+              margin: "0 0 0.5rem",
+              lineHeight: 1.3,
+              letterSpacing: "-0.01em"
+            }}>
+              {qrModalItem.title}
+            </h3>
+
+            <p style={{
+              color: "#475569",
+              fontSize: "0.9rem",
+              lineHeight: 1.5,
+              margin: "0 0 1.5rem",
+              fontFamily: FONT_SANS,
+              fontWeight: 400
+            }}>
+              Launch the full experience directly on FamilySearch.org or scan the QR code below for mobile access.
+            </p>
+
+            {/* PRIMARY FEATURE: PRIORITIZED LINK BUTTON */}
+            <button
+              onClick={() => window.open(qrModalItem.url, "_blank")}
+              style={{
+                width: "100%",
+                background: "linear-gradient(135deg, #87b940 0%, #6da228 100%)",
+                color: "#ffffff",
+                border: "none",
+                padding: "0.9rem 1.5rem",
+                borderRadius: "16px",
+                fontWeight: 700,
+                fontSize: "1rem",
+                fontFamily: FONT_SANS,
+                cursor: "pointer",
+                boxShadow: "0 8px 22px rgba(135, 185, 64, 0.35)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.6rem",
+                marginBottom: "1.6rem",
+                transition: "transform 0.2s ease, boxShadow 0.2s ease"
+              }}
+            >
+              <span>Open on FamilySearch.org</span>
+              <span style={{ fontSize: "1.1rem" }}>→</span>
+            </button>
+
+            {/* SECONDARY FEATURE: COMPACT MOBILE QR SCANNER SECTION */}
+            <div style={{
+              backgroundColor: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: "20px",
+              padding: "0.85rem 1rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "1rem"
+            }}>
+              <div style={{
+                background: "#ffffff",
+                padding: "0.4rem",
+                borderRadius: "12px",
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                flexShrink: 0
+              }}>
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(qrModalItem.url)}`}
+                  alt="QR Code"
+                  style={{ width: "85px", height: "85px", display: "block" }}
+                />
+              </div>
+
+              <div style={{ textAlign: "left" }}>
+                <div style={{
+                  color: "#0f172a",
+                  fontWeight: 700,
                   fontSize: "0.85rem",
                   fontFamily: FONT_SANS,
-                  cursor: "pointer"
-                }}
-              >
-                Open Link
-              </button>
-              <button
-                onClick={() => setQrModalItem(null)}
-                style={{
-                  background: "#f1f5f9",
-                  color: FS_COLORS.bodyDark,
-                  border: "none",
-                  padding: "0.75rem 1.2rem",
-                  borderRadius: "12px",
-                  fontWeight: 500,
-                  fontSize: "0.85rem",
-                  fontFamily: FONT_SANS,
-                  cursor: "pointer"
-                }}
-              >
-                Close
-              </button>
+                  marginBottom: "0.15rem"
+                }}>
+                  📱 Scan for Mobile
+                </div>
+                <div style={{
+                  color: "#64748b",
+                  fontSize: "0.78rem",
+                  lineHeight: 1.35,
+                  fontFamily: FONT_SANS
+                }}>
+                  Point your phone camera to view this record on your mobile device.
+                </div>
+              </div>
             </div>
           </div>
         </div>

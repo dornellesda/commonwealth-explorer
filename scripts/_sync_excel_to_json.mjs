@@ -31,18 +31,21 @@ async function run() {
     const countryIdx = header.findIndex(h => h && String(h).toLowerCase().trim() === 'country');
     const titleIdx = header.findIndex(h => h && String(h).toLowerCase().trim() === 'title');
     const descIdx = header.findIndex(h => h && String(h).toLowerCase().trim() === 'description');
-    const linkIdx = header.findIndex(h => h && String(h).toLowerCase().trim().includes('link'));
+    const cdnIdx = header.findIndex(h => h && String(h).toLowerCase().trim().includes('cdn'));
+    const r2LinkIdx = cdnIdx !== -1 ? cdnIdx : header.findIndex(h => h && (String(h).toLowerCase().trim().includes('r2') || String(h).toLowerCase().trim().includes('mp4')));
+    const linkIdx = header.findIndex(h => h && String(h).toLowerCase().trim().includes('link') && r2LinkIdx !== header.indexOf(h));
     const creditIdx = header.findIndex(h => h && String(h).toLowerCase().trim() === 'credit');
 
     const cIdx = countryIdx !== -1 ? countryIdx : 0;
     const tIdx = titleIdx !== -1 ? titleIdx : 1;
     const dIdx = descIdx !== -1 ? descIdx : 2;
     const lIdx = linkIdx !== -1 ? linkIdx : 3;
+    const r2Idx = r2LinkIdx !== -1 ? r2LinkIdx : -1;
     const crIdx = creditIdx !== -1 ? creditIdx : 4;
 
-    log(`Column mapping -> Country: ${cIdx}, Title: ${tIdx}, Description: ${dIdx}, Link: ${lIdx}, Credit: ${crIdx}`);
+    log(`Column mapping -> Country: ${cIdx}, Title: ${tIdx}, Description: ${dIdx}, Link: ${lIdx}, R2: ${r2Idx}, Credit: ${crIdx}`);
 
-    const dataRows = rows.slice(1).filter(row => row[cIdx] && row[lIdx]);
+    const dataRows = rows.slice(1).filter(row => row[cIdx] && (row[lIdx] || (r2Idx !== -1 && row[r2Idx])));
     log('Data rows: ' + dataRows.length);
 
     // Read existing metadata
@@ -64,19 +67,28 @@ async function run() {
     for (const row of dataRows) {
       const country = String(row[cIdx] || '').trim();
       let url = String(row[lIdx] || '').trim();
+      let r2Url = r2Idx !== -1 ? String(row[r2Idx] || '').trim() : '';
       const credit = String(row[crIdx] || '').trim();
       const excelTitle = String(row[tIdx] || '').trim();
       const excelDesc = String(row[dIdx] || '').trim();
 
+      if (!url && r2Url) url = r2Url;
       if (!country || !url) continue;
 
       url = url.replace(/[\s\u00a0]+$/, '').replace(/\/+$/, '');
+      if (r2Url) r2Url = r2Url.replace(/[\s\u00a0]+$/, '').replace(/\/+$/, '');
 
       if (!mediaByCountry[country]) {
         mediaByCountry[country] = [];
       }
 
-      const isYoutube = /youtube\.com|youtu\.be/i.test(url);
+      const isDirectR2 = (url.includes('.mp4') || url.includes('.m3u8') || url.includes('r2.dev') || url.includes('cloudflare')) || Boolean(r2Url);
+      const isYoutube = !isDirectR2 && /youtube\.com|youtu\.be/i.test(url);
+      
+      if (!r2Url && isDirectR2) {
+        r2Url = url;
+      }
+
       let videoId = null;
       if (isYoutube) {
         const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
@@ -86,7 +98,7 @@ async function run() {
       // Check if item exists in old data
       let oldItem = null;
       for (const oldItems of Object.values(oldData)) {
-        const found = oldItems.find(n => n.url === url);
+        const found = oldItems.find(n => n.url === url || (n.r2Url && n.r2Url === r2Url));
         if (found) {
           oldItem = found;
           break;
@@ -95,8 +107,9 @@ async function run() {
 
       const item = {
         url,
+        r2Url: r2Url || (oldItem ? oldItem.r2Url : null),
         credit: credit || (oldItem ? oldItem.credit : ''),
-        type: isYoutube ? 'video' : 'photo',
+        type: (isYoutube || isDirectR2 || (oldItem && oldItem.type === 'video')) ? 'video' : 'photo',
         videoId,
         title: excelTitle || (oldItem ? oldItem.title : ''),
         description: excelDesc || (oldItem ? oldItem.description : ''),
