@@ -1103,3 +1103,38 @@
     opacity: 1;
   }
 }
+
+/* Elegant occasional shake for voyager trophy teaser */
+@keyframes trophyShakeTeaser {
+  0%, 88%, 100% {
+    transform: rotate(0deg) scale(1);
+    filter: drop-shadow(0 0 0px rgba(153, 103, 153, 0));
+  }
+  90% {
+    transform: rotate(-8deg) scale(1.1);
+    filter: drop-shadow(0 4px 8px rgba(153, 103, 153, 0.4));
+  }
+  92% {
+    transform: rotate(6deg) scale(1.1);
+    filter: drop-shadow(0 4px 8px rgba(241, 100, 88, 0.4));
+  }
+  94% {
+    transform: rotate(-6deg) scale(1.1);
+    filter: drop-shadow(0 4px 8px rgba(153, 103, 153, 0.4));
+  }
+  96% {
+    transform: rotate(4deg) scale(1.1);
+    filter: drop-shadow(0 4px 8px rgba(241, 100, 88, 0.4));
+  }
+  98% {
+    transform: rotate(0deg) scale(1.05);
+    filter: drop-shadow(0 2px 4px rgba(153, 103, 153, 0.2));
+  }
+}
+
+.voyager-trophy-teaser {
+  transform-origin: center bottom;
+  animation: trophyShakeTeaser 7s ease-in-out infinite;
+  display: inline-flex;
+  will-change: transform, filter;
+}

@@ -233,6 +233,9 @@ export default function AchievementModal({
               <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "#666", fontWeight: 500, lineHeight: 1.4 }}>
                 Scan with your phone to add to <strong>Apple Wallet</strong> or <strong>Google Wallet</strong>
               </div>
+              <div style={{ marginTop: "0.5rem", fontSize: "0.7rem", color: "#888", fontWeight: 400, lineHeight: 1.3, textAlign: "center", maxWidth: "240px" }}>
+                The wallet functionality is owned and mantained by an external entity, walletwallet.dev. This is an experimental feature, and may not work as expected on every device.
+              </div>
             </div>
           ) : (
             <>

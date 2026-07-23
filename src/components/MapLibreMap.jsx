@@ -55,7 +55,7 @@ const VINTAGE_MAP_STYLE = {
   ]
 };
 
-const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, isPanelOpen, isAttractMode, hoveredCountry, onCountrySelect, onCountryHover, onMapClick, onMapDragStart }, ref) => {
+const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, isPanelOpen, isAttractMode, hoveredCountry, onCountrySelect, onCountryHover, onMapClick, onMapDragStart, onMoveEnd }, ref) => {
 
   const mapRef = useRef(null);
   const [geojson, setGeojson] = useState(null);
@@ -396,6 +396,11 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         onMoveStart={(e) => {
           if (e.originalEvent && onMapDragStart) {
             onMapDragStart();
+          }
+        }}
+        onMoveEnd={(e) => {
+          if (e.originalEvent && onMoveEnd) {
+            onMoveEnd(e.viewState);
           }
         }}
         renderWorldCopies={false}

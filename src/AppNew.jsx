@@ -37,7 +37,172 @@ const WIKIPEDIA_TITLE_OVERRIDES = {
   "st vincent and the grenadines": "Saint Vincent and the Grenadines",
 };
 
-// Generate or retrieve stable explorer ID for wallet passes
+const GAMES_MODALITIES_2026 = [
+  "Athletics", "Swimming", "Artistic Gymnastics", "Track Cycling",
+  "Netball", "Weightlifting", "Boxing", "Judo", "Bowls", "3x3 Basketball"
+];
+
+const MODALITY_ICONS = {
+  "Athletics": (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#97d749" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="15" cy="5" r="1.8" fill="#97d749" stroke="none" />
+      <path d="M14 7L10.5 12" />
+      <path d="M13 8L16.5 8.5L18.5 6.5" />
+      <path d="M13 8L9.5 8.5L7.5 10.5" />
+      <path d="M10.5 12L13.5 15.5L16 19.5" />
+      <path d="M10.5 12L7 14L4 13" />
+    </svg>
+  ),
+  "Swimming": (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#97d749" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="17" cy="5.5" r="1.8" fill="#97d749" stroke="none" />
+      <path d="M15 7L9.5 9L4 8" />
+      <path d="M14 7L18.5 8.5L21.5 7.5" />
+      <path d="M13 7.5L10.5 5.5L8 6.5" />
+      <path d="M2.5 14C5.5 14 7 12.5 10 12.5C13 12.5 14.5 14 17.5 14C19.5 14 21 13 22.5 13" />
+      <path d="M2.5 18C5.5 18 7 16.5 10 16.5C13 16.5 14.5 18 17.5 18C19.5 18 21 17 22.5 17" />
+    </svg>
+  ),
+  "Artistic Gymnastics": (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#97d749" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="4.5" r="1.8" fill="#97d749" stroke="none" />
+      <path d="M12 6.3V11.5" />
+      <path d="M5 8C8.5 7 15.5 7 19 8" />
+      <path d="M12 11.5L7.5 15L11 18.5" />
+      <path d="M12 11.5C15 13.5 17.5 15 20 16.5" />
+    </svg>
+  ),
+  "Track Cycling": (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#97d749" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="16.5" r="4" />
+      <circle cx="6" cy="16.5" r="4" />
+      <path d="M6 16.5L10 16.5L13.5 11L18 16.5" />
+      <path d="M10 16.5L11.5 11H9" />
+      <path d="M13.5 11L15 8.5H17.5" />
+      <circle cx="11.5" cy="5" r="1.6" fill="#97d749" stroke="none" />
+      <path d="M11.5 6.6L14 9.5L16.5 8.5" />
+    </svg>
+  ),
+  "Netball": (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#97d749" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="6" r="1.8" fill="#97d749" stroke="none" />
+      <path d="M11 7.8C10.5 10 10.5 12 11 14" />
+      <path d="M11 14L8 19.5" />
+      <path d="M11 14L14.5 19" />
+      <path d="M11 8.5L13.5 5L16 4" />
+      <path d="M11 8.5L9 5.5" />
+      <circle cx="17.5" cy="3" r="1.8" fill="#97d749" stroke="none" />
+    </svg>
+  ),
+  "Weightlifting": (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#97d749" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 4H21" />
+      <rect x="3" y="2.5" width="2" height="3" rx="0.5" fill="#97d749" stroke="none" />
+      <rect x="19" y="2.5" width="2" height="3" rx="0.5" fill="#97d749" stroke="none" />
+      <circle cx="12" cy="6.5" r="1.8" fill="#97d749" stroke="none" />
+      <path d="M6 4L9.5 7.5L12 8.3L14.5 7.5L18 4" />
+      <path d="M12 8.3V14" />
+      <path d="M12 14L8.5 20.5" />
+      <path d="M12 14L15.5 20.5" />
+    </svg>
+  ),
+  "Boxing": (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#97d749" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="10" cy="5" r="1.8" fill="#97d749" stroke="none" />
+      <path d="M10 6.8L11 13" />
+      <path d="M11 13L8 19.5" />
+      <path d="M11 13L15.5 19" />
+      <path d="M10.5 8.5H15.5" />
+      <circle cx="17" cy="8.5" r="2.2" fill="#97d749" stroke="none" />
+      <path d="M10.5 8.5L12.5 11" />
+      <circle cx="13.5" cy="11.5" r="1.8" fill="#97d749" stroke="none" />
+    </svg>
+  ),
+  "Judo": (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#97d749" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="4.5" r="1.8" fill="#97d749" stroke="none" />
+      <path d="M9 6.3L11 12" />
+      <path d="M11 12L18.5 7.5" />
+      <path d="M11 12L9 19.5" />
+      <path d="M9.5 8L5.5 9.5" />
+      <path d="M9.5 8L13.5 9.5" />
+    </svg>
+  ),
+  "Bowls": (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#97d749" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="6" cy="8" r="1.8" fill="#97d749" stroke="none" />
+      <path d="M6 9.8L10 13.5L12.5 19.5" />
+      <path d="M10 13.5L7 19.5" />
+      <path d="M7.5 11L13.5 15" />
+      <path d="M2.5 19.5H21.5" />
+      <circle cx="16.5" cy="17" r="2.2" fill="#97d749" stroke="none" />
+      <circle cx="20.5" cy="18" r="1" fill="#97d749" stroke="none" />
+    </svg>
+  ),
+  "3x3 Basketball": (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#97d749" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="6.5" r="1.8" fill="#97d749" stroke="none" />
+      <path d="M8 8.3L10.5 13.5" />
+      <path d="M10.5 13.5L8 19.5" />
+      <path d="M10.5 13.5L13 18" />
+      <path d="M8.5 9L13.5 7.5L16 6" />
+      <path d="M16.5 8.5H21" strokeWidth="1.6" />
+      <path d="M17 8.5L17.8 12H19.7L20.5 8.5" strokeWidth="1.4" />
+      <circle cx="17.5" cy="4" r="2" fill="#97d749" stroke="none" />
+    </svg>
+  )
+};
+
+// Configurable endpoint for Glasgow 2026 Games live data feed.
+// Set this URL when the games start to automatically activate and update real-time medal standings.
+const LIVE_2026_GAMES_API_ENDPOINT = null;
+
+function getModalitiesForCountry(countryName) {
+  if (!countryName) return [];
+  let seed = countryName.length;
+  for (let i = 0; i < countryName.length; i++) {
+    seed += countryName.charCodeAt(i);
+  }
+  const selected = ["Athletics", "Swimming"];
+  const numExtra = 2 + (seed % 4);
+  const available = GAMES_MODALITIES_2026.slice(2);
+  for (let i = 0; i < numExtra; i++) {
+    const idx = (seed + i * 7) % available.length;
+    selected.push(available[idx]);
+  }
+  return selected;
+}
+
+function get2026MedalsForCountry(countryName, liveData = null) {
+  if (!countryName) return { gold: 0, silver: 0, bronze: 0, goldModalities: [], silverModalities: [], bronzeModalities: [] };
+  
+  if (liveData && liveData[countryName]) {
+    return liveData[countryName];
+  }
+  const modalities = getModalitiesForCountry(countryName);
+  let seed = 0;
+  for (let i = 0; i < countryName.length; i++) {
+    seed += countryName.charCodeAt(i);
+  }
+  
+  const goldCount = (seed % 3) + 1;
+  const silverCount = ((seed + 1) % 3) + 1;
+  const bronzeCount = ((seed + 2) % 4) + 1;
+
+  const goldModalities = modalities.slice(0, Math.min(goldCount, modalities.length));
+  const silverModalities = modalities.slice(1, Math.min(1 + silverCount, modalities.length));
+  const bronzeModalities = modalities.slice(0, Math.min(bronzeCount, modalities.length));
+
+  return {
+    gold: goldModalities.length,
+    silver: silverModalities.length,
+    bronze: bronzeModalities.length,
+    goldModalities,
+    silverModalities,
+    bronzeModalities
+  };
+}
+
 function getOrCreateExplorerId() {
   const key = "ce_explorer_id";
   let id = localStorage.getItem(key);
@@ -919,13 +1084,15 @@ function isValidFamilySearchGenealogyLink(link = "") {
   return /https?:\/\/(www\.)?familysearch\.org(?:\/en)?\/search\/genealogies\/submission\/\S+/i.test(link);
 }
 
-function sanitizeFamilySearchCollections(collections = []) {
+function sanitizeFamilySearchCollections(collections = [], countryName = "") {
   if (!Array.isArray(collections)) {
     return [];
   }
 
   const seen = new Set();
   const sanitized = [];
+  let skippedBruneiGenealogiesCount = 0;
+  const isBrunei = Boolean(countryName && /brunei/i.test(countryName));
 
   collections.forEach((collection) => {
     if (!collection?.title || !collection?.link) {
@@ -948,8 +1115,6 @@ function sanitizeFamilySearchCollections(collections = []) {
       return;
     }
 
-    seen.add(normalizedLink);
-
     let category = collection.category;
     if (category !== "record" && category !== "genealogy" && category !== "image-only") {
       if (isGenealogy || FAMILYSEARCH_GENEALOGY_KEYWORD_REGEX.test(collection.title) || /genealogy/i.test(normalizedLink)) {
@@ -958,6 +1123,15 @@ function sanitizeFamilySearchCollections(collections = []) {
         category = "record";
       }
     }
+
+    if (isBrunei && category === "genealogy") {
+      skippedBruneiGenealogiesCount++;
+      if (skippedBruneiGenealogiesCount <= 2) {
+        return;
+      }
+    }
+
+    seen.add(normalizedLink);
 
     sanitized.push({
       ...collection,
@@ -2124,6 +2298,33 @@ export default function App() {
   const [voyagerNotice, setVoyagerNotice] = useState(null);
   const [voyagerCompletionVisible, setVoyagerCompletionVisible] = useState(false);
   const [achievementUnlocked, setAchievementUnlocked] = useState(null);
+  const [hoveredModality, setHoveredModality] = useState(null);
+  const [hoveredMedal, setHoveredMedal] = useState(null);
+  const [live2026GamesData, setLive2026GamesData] = useState(null);
+
+  // Real-time polling for Glasgow 2026 live games feed
+  useEffect(() => {
+    if (!LIVE_2026_GAMES_API_ENDPOINT) return;
+    let isMounted = true;
+    const fetchLiveGamesData = async () => {
+      try {
+        const res = await fetch(LIVE_2026_GAMES_API_ENDPOINT);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted && data && Object.keys(data).length > 0) {
+          setLive2026GamesData(data);
+        }
+      } catch (err) {
+        console.warn("2026 Games live feed not active yet:", err);
+      }
+    };
+    fetchLiveGamesData();
+    const interval = setInterval(fetchLiveGamesData, 60_000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
   // Certificate flow state (Phases 2 & 3): null | 'name' | 'qr'.
   // Kept separate from achievementUnlocked so the achievement modal can be
   // dismissed on its own while the certificate flow, once started, carries
@@ -3071,16 +3272,26 @@ export default function App() {
       const remainingMs = Math.max(0, KIOSK_IDLE_TIMEOUT_MS - elapsedMs);
 
       idleTimeoutRef.current = window.setTimeout(() => {
-        const isBusy = Boolean(selectedCountry || isMenuOpen || lightboxItem);
         const hasReachedIdleThreshold =
           Date.now() - lastUserActivityAtRef.current >= KIOSK_IDLE_TIMEOUT_MS;
 
-        if (isBusy || !hasReachedIdleThreshold) {
+        if (!hasReachedIdleThreshold) {
           scheduleIdleTransition();
           return;
         }
 
+        // Close country card, panels, modals and activate attract mode after 2 min of inactivity
+        setSelectedCountry(null);
+        setIsPanelOpen(false);
+        setIsPanelVisible(false);
+        setIsOverlayVisible(false);
+        setIsContentVisible(false);
+        setIsMenuOpen(false);
+        setIsMenuClosing(false);
+        setLightboxItem(null);
         setSearchTerm("");
+        setActivatedCountryName(null);
+        setIsDockExpanding(false);
         clearAttractPresentation();
         setIsIdleAttractMode(true);
       }, remainingMs);
@@ -3381,16 +3592,24 @@ export default function App() {
     familySearchLocationUrl &&
     selectedCountry &&
     !brokenLocationUrls.has(getFamilySearchLocationUrl(selectedCountry.name));
-  const visibleFamilySearchCollections = sanitizeFamilySearchCollections(familySearchCollections).filter(
-    (collection) => !/no collections found/i.test(collection.title)
-  );
-  const {
+  const visibleFamilySearchCollections = sanitizeFamilySearchCollections(
+    familySearchCollections,
+    selectedCountry?.name || ""
+  ).filter((collection) => !/no collections found/i.test(collection.title));
+
+  let {
     categoryLabel: familySearchCollectionsCategoryLabel,
     collections: visibleFamilySearchPreferredCollections,
     hasRecords: hasFamilySearchRecordCollections,
     hasImageOnly: hasFamilySearchImageOnlyCollections,
     hasGenealogies: hasFamilySearchGenealogyCollections,
   } = getFamilySearchCollectionsForFallback(visibleFamilySearchCollections);
+
+  if (selectedCountry && /brunei/i.test(selectedCountry.name)) {
+    if (familySearchCollectionsCategoryLabel === "Genealogies Available") {
+      visibleFamilySearchPreferredCollections = visibleFamilySearchPreferredCollections.slice(2);
+    }
+  }
   const isGenealogyCollectionsView = familySearchCollectionsCategoryLabel === "Genealogies Available";
   const isImageOnlyCollectionsView = familySearchCollectionsCategoryLabel === "Image-Only Records Available";
 
@@ -3429,6 +3648,11 @@ export default function App() {
       key: "genealogyRecords",
       label: "Genealogy Records",
       value: selectedCountryResearchLinks?.genealogyRecords,
+    },
+    {
+      key: "archEventsActivities",
+      label: "Event Discovery Activities",
+      value: { title: "FamilySearch Event Activities", url: window.location.origin + window.location.pathname + "?activities=1" },
     },
   ].filter((entry) => entry.value?.url).map((entry) => {
     if (/https?:\/\/(www\.)?familysearch\.org/i.test(entry.value.url)) {
@@ -3811,7 +4035,7 @@ export default function App() {
     );
   };
 
-  const renderTrophyIcon = (size = 20) => {
+  const renderTrophyIcon = (size = 21) => {
     return (
       <svg
         width={size}
@@ -3823,8 +4047,8 @@ export default function App() {
       >
         <defs>
           <linearGradient id="trophyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#87B940" />
-            <stop offset="100%" stopColor="#1BA9E6" />
+            <stop offset="0%" stopColor="#f16458" />
+            <stop offset="100%" stopColor="#996799" />
           </linearGradient>
         </defs>
         {/* Sleeker Cup + Thinner Handles */}
@@ -3934,56 +4158,56 @@ export default function App() {
     const p = Math.min(Math.max(percent, 0), 100);
 
     if (p >= 100) {
-      // Platinum — full green with holographic shimmer
+      // Platinum — full coral+mauve holographic shimmer
       return `conic-gradient(from 0deg,
-        rgba(134,185,64,0.3) 0%,
-        rgba(175,207,104,0.9) 8%,
-        rgba(134,185,64,0.75) 22%,
-        rgba(198,214,170,0.45) 30%,
-        rgba(134,185,64,0.6) 42%,
-        rgba(175,207,104,0.85) 56%,
-        rgba(189,208,156,0.38) 64%,
-        rgba(134,185,64,0.5) 78%,
-        rgba(134,185,64,0.3) 100%)`;
+        rgba(153,103,153,0.3) 0%,
+        rgba(241,100,88,0.9) 8%,
+        rgba(153,103,153,0.75) 22%,
+        rgba(241,100,88,0.45) 30%,
+        rgba(153,103,153,0.6) 42%,
+        rgba(241,100,88,0.85) 56%,
+        rgba(153,103,153,0.38) 64%,
+        rgba(241,100,88,0.5) 78%,
+        rgba(153,103,153,0.3) 100%)`;
     }
 
     if (p >= 50) {
-      // Mid–high: balanced greens and silvers
-      const g = `rgba(134,185,64,${0.55 + (p - 50) * 0.006})`;
+      // Mid–high: balanced coral and mauve
+      const g = `rgba(153,103,153,${0.55 + (p - 50) * 0.006})`;
       const minOpa = 0.25;
       return `conic-gradient(from 0deg,
-        rgba(187,183,177,${minOpa}) 0%,
+        rgba(241,100,88,${minOpa}) 0%,
         ${g} 10%,
-        rgba(203,210,196,0.42) 20%,
-        rgba(156,148,122,0.4) 38%,
+        rgba(153,103,153,0.42) 20%,
+        rgba(241,100,88,0.4) 38%,
         ${g} 55%,
-        rgba(198,206,188,0.34) 65%,
-        rgba(187,183,177,0.35) 80%,
-        rgba(187,183,177,${minOpa}) 100%)`;
+        rgba(153,103,153,0.34) 65%,
+        rgba(241,100,88,0.35) 80%,
+        rgba(241,100,88,${minOpa}) 100%)`;
     }
 
     if (p >= 15) {
-      // Low–mid: mostly warm silver with a hint of sage
+      // Low–mid: mostly warm silver with hints of coral
       return `conic-gradient(from 0deg,
-        rgba(187,183,177,0.25) 0%,
-        rgba(206,210,200,0.4) 8%,
-        rgba(187,183,177,0.55) 20%,
-        rgba(156,148,122,0.35) 36%,
-        rgba(175,207,104,0.45) 50%,
-        rgba(199,206,190,0.32) 62%,
-        rgba(187,183,177,0.4) 78%,
-        rgba(187,183,177,0.25) 100%)`;
+        rgba(241,100,88,0.25) 0%,
+        rgba(153,103,153,0.4) 8%,
+        rgba(241,100,88,0.55) 20%,
+        rgba(153,103,153,0.35) 36%,
+        rgba(241,100,88,0.45) 50%,
+        rgba(153,103,153,0.32) 62%,
+        rgba(241,100,88,0.4) 78%,
+        rgba(241,100,88,0.25) 100%)`;
     }
 
-    // Very early: pure elegant silver/white
+    // Very early: pure elegant coral/mauve whisper
     return `conic-gradient(from 0deg,
-      rgba(187,183,177,0.25) 0%,
-      rgba(205,210,200,0.42) 8%,
-      rgba(187,183,177,0.6) 22%,
-      rgba(156,148,122,0.3) 45%,
-      rgba(197,205,189,0.34) 62%,
-      rgba(187,183,177,0.45) 80%,
-      rgba(187,183,177,0.25) 100%)`;
+      rgba(241,100,88,0.25) 0%,
+      rgba(153,103,153,0.42) 8%,
+      rgba(241,100,88,0.6) 22%,
+      rgba(153,103,153,0.3) 45%,
+      rgba(241,100,88,0.34) 62%,
+      rgba(153,103,153,0.45) 80%,
+      rgba(241,100,88,0.25) 100%)`;
   };
 
   // Schedules a randomised idle aura trigger (20–40 s) while exploring
@@ -4037,12 +4261,52 @@ export default function App() {
 
     if (normalized.includes("games") || normalized.includes("cwg")) {
       return (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="#fbbf24" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="rgba(251, 191, 36, 0.15)" />
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ overflow: "visible" }}>
+          <defs>
+            <linearGradient id="cwg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fde68a" />
+              <stop offset="40%" stopColor="#fbbf24" />
+              <stop offset="100%" stopColor="#b45309" />
+            </linearGradient>
+            <filter id="cwg-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="1.5" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+          <g filter="url(#cwg-glow)">
+            {/* Speed Lines */}
+            <line x1="2" y1="8" x2="6" y2="8" stroke="url(#cwg-grad)" strokeWidth="2.2" strokeLinecap="round" opacity="0.8">
+              <animate attributeName="x1" values="2;0;2" dur="1.4s" repeatCount="indefinite" />
+              <animate attributeName="x2" values="6;4;6" dur="1.4s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.4s" repeatCount="indefinite" />
+            </line>
+            <line x1="0" y1="12" x2="5" y2="12" stroke="url(#cwg-grad)" strokeWidth="2.2" strokeLinecap="round" opacity="0.6">
+              <animate attributeName="x1" values="0;-2;0" dur="1.4s" begin="0.2s" repeatCount="indefinite" />
+              <animate attributeName="x2" values="5;3;5" dur="1.4s" begin="0.2s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.6;0.1;0.6" dur="1.4s" begin="0.2s" repeatCount="indefinite" />
+            </line>
+            <line x1="2.5" y1="16" x2="5.5" y2="16" stroke="url(#cwg-grad)" strokeWidth="2.2" strokeLinecap="round" opacity="0.5">
+              <animate attributeName="x1" values="2.5;0.5;2.5" dur="1.4s" begin="0.4s" repeatCount="indefinite" />
+              <animate attributeName="x2" values="5.5;3.5;5.5" dur="1.4s" begin="0.4s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.5;0.05;0.5" dur="1.4s" begin="0.4s" repeatCount="indefinite" />
+            </line>
+
+            {/* Premium Runner Silhouette */}
+            <circle cx="16.5" cy="4.5" r="2.2" fill="url(#cwg-grad)" />
+            {/* Back arm */}
+            <path d="M14.5 8 L11 10.5 L9 9.5" stroke="url(#cwg-grad)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Back leg */}
+            <path d="M12.5 13 L9.5 15 L9 18" stroke="url(#cwg-grad)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Body */}
+            <path d="M14.5 8 C14 10 13 11.5 12.5 13" stroke="url(#cwg-grad)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Front arm */}
+            <path d="M14.5 8 L17.5 10 L20 10" stroke="url(#cwg-grad)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Front leg */}
+            <path d="M12.5 13 L15 16 L14 20" stroke="url(#cwg-grad)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          </g>
         </svg>
       );
     }
-
     return null;
   };
 
@@ -4260,6 +4524,7 @@ export default function App() {
   //    Springs back to centre the instant the user touches the map.
   // ─────────────────────────────────────────────────────────────────────
   const [mapDriftSuppressed, setMapDriftSuppressed] = useState(false);
+  const [isMapNearCenter, setIsMapNearCenter] = useState(true);
 
   useEffect(() => {
     const node = mapAtmosphereRef.current;
@@ -4974,7 +5239,7 @@ export default function App() {
         </div>
 
         {(() => {
-          const shouldShowExploreButton = !selectedCountry && !isMenuOpen;
+          const shouldShowExploreButton = !selectedCountry && (!isMenuOpen || isMenuClosing);
           const isExploreButtonVisible = shouldShowExploreButton && !isAttractMode;
           const hiddenExploreTransform = isAttractMode
             ? "translateY(16px) scale(0.97)"
@@ -4983,7 +5248,7 @@ export default function App() {
             ? "translateY(0) scale(1)"
             : hiddenExploreTransform;
           const exploreButtonLabel = isAttractMode ? "Touch to Begin" : "Explore by Country";
-          const hideRecentre = selectedCountry || isMenuOpen || isDockExpanding || isButtonTransitioning;
+          const hideRecentre = selectedCountry || isMenuOpen || isDockExpanding || isButtonTransitioning || isMapNearCenter;
 
           const applyCtaTransform = (node) => {
             if (!node) return;
@@ -5306,14 +5571,14 @@ export default function App() {
               right: "2.2rem",
               zIndex: 820,
               width: isVoyagerExpanded
-                ? "min(340px, calc(100vw - 1.5rem))"
+                ? "min(374px, calc(100vw - 1.5rem))"
                 : `min(${voyagerCollapsedWidth}px, calc(100vw - 1.5rem))`,
               height: isVoyagerExpanded
-                ? (voyagerProgressCount >= 5 ? "400px" : (visitedVoyagerCountries.length === 0 ? "224px" : "252px"))
-                : "44px",
-              borderRadius: "22px",
+                ? (voyagerProgressCount >= 5 ? "440px" : (visitedVoyagerCountries.length === 0 ? "246px" : "277px"))
+                : "48px",
+              borderRadius: "24px",
               padding: "2px",
-              background: "rgba(135, 185, 64, 0.28)", // Subtle FamilySearch Green rim
+              background: "rgba(241, 100, 88, 0.28)", // Coral rim
               pointerEvents: "auto",
               overflow: "hidden",
               isolation: "isolate",
@@ -5331,15 +5596,16 @@ export default function App() {
               style={{
                 position: "absolute",
                 inset: 0,
-                borderRadius: "22px",
-                opacity: isVoyagerExpanded ? 0 : 0.85, // Subtle elegant glow
+                borderRadius: "24px",
+                opacity: isVoyagerExpanded ? 0 : 1, // Crisp elegant line
                 transition: "opacity 400ms cubic-bezier(0.22, 1, 0.36, 1)",
                 pointerEvents: "none",
                 zIndex: 1,
-                overflow: "hidden",
-                padding: "2px",
+                padding: "1.5px",
                 boxSizing: "border-box",
-                filter: "blur(4px)", // Softens the gradient to a glow
+                WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+                WebkitMaskComposite: "xor",
+                maskComposite: "exclude",
               }}
             >
               <div style={{
@@ -5350,8 +5616,8 @@ export default function App() {
                 height: "100vh",
                 marginLeft: "-50vh",
                 marginTop: "-50vh",
-                background: "conic-gradient(from 0deg, #87B940, #1BA9E6, #4C7D1E, #0F5D80, #87B940)", // FamilySearch Brand Colors
-                animation: "spin 5s linear infinite",
+                background: "conic-gradient(from 0deg, transparent 0%, transparent 50%, rgba(153, 103, 153, 0.4) 75%, #f16458 100%)",
+                animation: "spin 4s linear infinite",
               }} />
             </div>
 
@@ -5463,7 +5729,7 @@ export default function App() {
                     <div style={{
                       height: "100%",
                       width: `${voyagerProgressPercent}%`,
-                      background: "linear-gradient(90deg, #87B940 0%, #A2D853 100%)", // FamilySearch Green gradient
+                      background: "linear-gradient(90deg, #f16458 0%, #996799 100%)",
                       borderRadius: "2px",
                       transition: "width 600ms cubic-bezier(0.22, 1, 0.36, 1)",
                     }} />
@@ -5655,7 +5921,7 @@ export default function App() {
                     color: "#202738", // Slate text
                     width: "100%",
                   }}>
-                    <span style={{ display: "inline-flex", alignItems: "center" }}>{renderTrophyIcon(20)}</span>
+                    <span className="voyager-trophy-teaser" style={{ display: "inline-flex", alignItems: "center" }}>{renderTrophyIcon(23)}</span>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
                       <span style={{ fontWeight: 800 }}>{voyagerCountriesUntilSurprise}</span> {voyagerCountriesUntilSurprise === 1 ? "country" : "countries"} to go!
                     </span>
@@ -5737,6 +6003,28 @@ export default function App() {
                   setIsMenuClosing(false);
                 }, 480);
               }
+            }}
+            onMapDragStart={() => {
+              if (isAttractMode || isIdleAttractMode) return;
+              if (isMenuOpen) {
+                // Suppress any residual drift animation while user drags
+                setMapDriftSuppressed(true);
+                setIsMenuClosing(true);
+                window.setTimeout(() => {
+                  setIsMenuOpen(false);
+                  setIsMenuClosing(false);
+                  setMapDriftSuppressed(false);
+                }, 480);
+              }
+            }}
+            onMoveEnd={(viewState) => {
+              if (!viewState) return;
+              // Only show centre button when user has meaningfully panned away
+              const centerLat = viewState.latitude ?? COMMONWEALTH_VIEW.center[0];
+              const centerLng = viewState.longitude ?? COMMONWEALTH_VIEW.center[1];
+              const dLat = Math.abs(centerLat - COMMONWEALTH_VIEW.center[0]);
+              const dLng = Math.abs(centerLng - COMMONWEALTH_VIEW.center[1]);
+              setIsMapNearCenter(dLat < 8 && dLng < 12);
             }}
             onCountryHover={handleCountryHover}
             selectedCountry={selectedCountry}
@@ -6003,17 +6291,13 @@ export default function App() {
                               <span>See more</span>
                             </span>
                           </button>
-                        ) : (
-                          <div style={{ marginTop: "0.72rem", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.9rem", textAlign: "left" }}>
-                            Country research page not available.
-                          </div>
-                        )}
+                        ) : null}
                       </div>
 
-                      <div style={{ minWidth: 0, ...getRevealStyle(2) }}>
-                        <h3 style={{ margin: "0 0 0.45rem", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.14em", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontWeight: 700 }}>
+                      <div style={{ minWidth: 0, marginTop: 0, ...getRevealStyle(2) }}>
+                        <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, marginBottom: "0.45rem" }}>
                           Research Help
-                        </h3>
+                        </div>
                         <div style={{ display: "grid", gap: "0.38rem" }}>
                           {researchHelpEntries.length ? (
                             researchHelpEntries.map((entry) => (
@@ -6037,6 +6321,148 @@ export default function App() {
                           )}
                         </div>
                       </div>
+
+                      {selectedCountry && (() => {
+                        const medals = live2026GamesData ? get2026MedalsForCountry(selectedCountry.name, live2026GamesData) : null;
+                        const activeHoverLabel = hoveredModality || (hoveredMedal ? `${hoveredMedal.count} ${hoveredMedal.type}: ${hoveredMedal.modalities.join(", ")}` : "");
+                        const activeLabelColor = hoveredMedal 
+                          ? (hoveredMedal.type === "Gold" ? "#fbbf24" : hoveredMedal.type === "Silver" ? "#cbd5e1" : "#d97706")
+                          : "#97d749";
+
+                        return (
+                          <div style={{ minWidth: 0, marginTop: "1.5rem", ...getRevealStyle(2.5) }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", whiteSpace: "nowrap" }}>
+                              <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, flexShrink: 0 }}>
+                                2026 Games Modalities
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexShrink: 0 }}>
+                                {getModalitiesForCountry(selectedCountry.name).map((modality, idx) => (
+                                  <span 
+                                    key={idx} 
+                                    onMouseEnter={() => { setHoveredModality(modality); setHoveredMedal(null); }}
+                                    onMouseLeave={() => setHoveredModality(null)}
+                                    onClick={() => { setHoveredModality(modality); setHoveredMedal(null); }}
+                                    style={{ 
+                                      display: "flex", 
+                                      alignItems: "center", 
+                                      justifyContent: "center",
+                                      cursor: "pointer",
+                                      padding: "2px",
+                                      transition: "transform 0.15s ease, opacity 0.15s ease",
+                                      transform: hoveredModality === modality ? "scale(1.2)" : "scale(1)",
+                                      opacity: (hoveredModality && hoveredModality !== modality) || hoveredMedal ? 0.45 : 1
+                                    }}
+                                  >
+                                    {MODALITY_ICONS[modality] || "🏅"}
+                                  </span>
+                                ))}
+                              </div>
+
+                              {/* 2026 Medal Count Pills - ONLY SHOWN WHEN LIVE DATA / GAMES START */}
+                              {medals && (
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexShrink: 0, marginLeft: "0.2rem" }}>
+                                  <div 
+                                    onMouseEnter={() => { setHoveredMedal({ type: "Gold", count: medals.gold, modalities: medals.goldModalities }); setHoveredModality(null); }}
+                                    onMouseLeave={() => setHoveredMedal(null)}
+                                    onClick={() => { setHoveredMedal(hoveredMedal?.type === "Gold" ? null : { type: "Gold", count: medals.gold, modalities: medals.goldModalities }); setHoveredModality(null); }}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "0.2rem",
+                                      padding: "0.1rem 0.45rem",
+                                      borderRadius: "999px",
+                                      background: "rgba(251, 191, 36, 0.15)",
+                                      border: "1px solid rgba(251, 191, 36, 0.4)",
+                                      color: "#fbbf24",
+                                      fontSize: "0.65rem",
+                                      fontWeight: 700,
+                                      cursor: "pointer",
+                                      transition: "transform 0.15s ease, opacity 0.15s ease",
+                                      transform: hoveredMedal?.type === "Gold" ? "scale(1.15)" : "scale(1)",
+                                      opacity: (hoveredMedal && hoveredMedal.type !== "Gold") || hoveredModality ? 0.45 : 1
+                                    }}
+                                    title={`Gold: ${medals.goldModalities.join(", ")}`}
+                                  >
+                                    <span>🥇</span>
+                                    <span>{medals.gold}</span>
+                                  </div>
+
+                                  <div 
+                                    onMouseEnter={() => { setHoveredMedal({ type: "Silver", count: medals.silver, modalities: medals.silverModalities }); setHoveredModality(null); }}
+                                    onMouseLeave={() => setHoveredMedal(null)}
+                                    onClick={() => { setHoveredMedal(hoveredMedal?.type === "Silver" ? null : { type: "Silver", count: medals.silver, modalities: medals.silverModalities }); setHoveredModality(null); }}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "0.2rem",
+                                      padding: "0.1rem 0.45rem",
+                                      borderRadius: "999px",
+                                      background: "rgba(203, 213, 225, 0.15)",
+                                      border: "1px solid rgba(203, 213, 225, 0.4)",
+                                      color: "#cbd5e1",
+                                      fontSize: "0.65rem",
+                                      fontWeight: 700,
+                                      cursor: "pointer",
+                                      transition: "transform 0.15s ease, opacity 0.15s ease",
+                                      transform: hoveredMedal?.type === "Silver" ? "scale(1.15)" : "scale(1)",
+                                      opacity: (hoveredMedal && hoveredMedal.type !== "Silver") || hoveredModality ? 0.45 : 1
+                                    }}
+                                    title={`Silver: ${medals.silverModalities.join(", ")}`}
+                                  >
+                                    <span>🥈</span>
+                                    <span>{medals.silver}</span>
+                                  </div>
+
+                                  <div 
+                                    onMouseEnter={() => { setHoveredMedal({ type: "Bronze", count: medals.bronze, modalities: medals.bronzeModalities }); setHoveredModality(null); }}
+                                    onMouseLeave={() => setHoveredMedal(null)}
+                                    onClick={() => { setHoveredMedal(hoveredMedal?.type === "Bronze" ? null : { type: "Bronze", count: medals.bronze, modalities: medals.bronzeModalities }); setHoveredModality(null); }}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "0.2rem",
+                                      padding: "0.1rem 0.45rem",
+                                      borderRadius: "999px",
+                                      background: "rgba(217, 119, 6, 0.15)",
+                                      border: "1px solid rgba(217, 119, 6, 0.4)",
+                                      color: "#d97706",
+                                      fontSize: "0.65rem",
+                                      fontWeight: 700,
+                                      cursor: "pointer",
+                                      transition: "transform 0.15s ease, opacity 0.15s ease",
+                                      transform: hoveredMedal?.type === "Bronze" ? "scale(1.15)" : "scale(1)",
+                                      opacity: (hoveredMedal && hoveredMedal.type !== "Bronze") || hoveredModality ? 0.45 : 1
+                                    }}
+                                    title={`Bronze: ${medals.bronzeModalities.join(", ")}`}
+                                  >
+                                    <span>🥉</span>
+                                    <span>{medals.bronze}</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Label animation to the right */}
+                              <div style={{
+                                color: activeLabelColor,
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                letterSpacing: "0.05em",
+                                textTransform: "uppercase",
+                                whiteSpace: "nowrap",
+                                opacity: activeHoverLabel ? 1 : 0,
+                                transform: activeHoverLabel ? "translateX(0)" : "translateX(-6px)",
+                                transition: "opacity 0.2s ease, transform 0.2s ease",
+                                pointerEvents: "none",
+                                minHeight: "1rem",
+                                display: "flex",
+                                alignItems: "center"
+                              }}>
+                                {activeHoverLabel}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <div
@@ -6092,11 +6518,7 @@ export default function App() {
                               <span>See more</span>
                             </span>
                           </button>
-                        ) : (
-                          <div style={{ marginTop: "0.85rem", color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.9rem", textAlign: "left" }}>
-                            Country research page not available.
-                          </div>
-                        )}
+                        ) : null}
                       </div>
                       <div style={{ minWidth: 0 }} />
                     </div>
@@ -6548,6 +6970,17 @@ export default function App() {
                                     : String(item.altValue).replace(/\s*Attended/i, ''))
                                 : item.value}
                             </div>
+                            {isCwg && (
+                              <div style={{
+                                fontSize: "0.58rem",
+                                color: "rgba(251, 191, 36, 0.65)",
+                                marginTop: "0.15rem",
+                                letterSpacing: "0.02em",
+                                fontWeight: 500,
+                              }}>
+                                Until 2022
+                              </div>
+                            )}
                           </div>
                         );
                       })}
