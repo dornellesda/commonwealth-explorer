@@ -205,8 +205,8 @@ export default function ActivitiesPage() {
     const clean = surnameQuery.trim();
     if (!clean) return;
 
-    // Directly opens FamilySearch Surname experience page: https://www.familysearch.org/en/surname?surname=<clean>
-    const destUrl = `https://www.familysearch.org/en/surname?surname=${encodeURIComponent(clean)}`;
+    // Directly opens FamilySearch Surname experience page: https://www.familysearch.org/en/surname/?surname=<clean>&CID=RE-00063181
+    const destUrl = `https://www.familysearch.org/en/surname/?surname=${encodeURIComponent(clean)}&CID=RE-00063181`;
 
     // Open Mobile QR Handoff modal & direct link to FamilySearch Surname experience
     setQrModalItem({
@@ -485,7 +485,7 @@ export default function ActivitiesPage() {
             {filteredPersonalities.map((person) => (
               <div
                 key={person.name}
-                onClick={() => setQrModalItem({ title: `Are you related to ${person.name}?`, url: person.url })}
+                onClick={() => setQrModalItem({ title: `Are you related to ${person.name}?`, url: addCidTracking(person.url) })}
                 style={{
                   minWidth: "268px",
                   maxWidth: "268px",
@@ -735,7 +735,7 @@ export default function ActivitiesPage() {
 
             {/* Bottom 50%: All About Me Block - Simpler, Ultra-Premium, Link-Prioritised */}
             <div
-              onClick={() => setQrModalItem({ title: "All About Me - FamilySearch Discovery", url: "https://www.familysearch.org/en/discovery/about" })}
+              onClick={() => setQrModalItem({ title: "All About Me - FamilySearch Discovery", url: "https://www.familysearch.org/en/discovery/about/?CID=RE-00063181" })}
               style={{
                 background: "linear-gradient(135deg, #ffffff 0%, #faf4fa 100%)",
                 borderRadius: "24px",
@@ -892,7 +892,7 @@ export default function ActivitiesPage() {
                 return (
                   <div
                     key={c.name}
-                    onClick={() => setQrModalItem({ title: `Explore Ancestors in ${c.name} - Oral Genealogies`, url: `https://www.familysearch.org/africa/sve/search-for-ancestors/${encodeURIComponent(c.name)}?lang=en` })}
+                    onClick={() => setQrModalItem({ title: `Explore Ancestors in ${c.name} - Oral Genealogies`, url: `https://www.familysearch.org/africa/sve/search-for-ancestors/${encodeURIComponent(c.name)}/?lang=en&CID=RE-00063181` })}
                     style={{
                       minWidth: "150px",
                       maxWidth: "150px",
@@ -973,7 +973,7 @@ export default function ActivitiesPage() {
           </div>
 
             <button
-              onClick={() => setQrModalItem({ title: "FamilySearch Africa Portal", url: "https://www.familysearch.org/africa" })}
+              onClick={() => setQrModalItem({ title: "FamilySearch Africa Portal", url: "https://www.familysearch.org/africa/?CID=RE-00063181" })}
               style={{
                 width: "100%",
                 background: "linear-gradient(135deg, #78350f 0%, #451a03 100%)",
@@ -1099,7 +1099,7 @@ export default function ActivitiesPage() {
 
             {/* PRIMARY FEATURE: PRIORITIZED LINK BUTTON */}
             <button
-              onClick={() => window.open(qrModalItem.url, "_blank")}
+              onClick={() => { window.location.href = qrModalItem.url; }}
               style={{
                 width: "100%",
                 background: "linear-gradient(135deg, #87b940 0%, #6da228 100%)",
