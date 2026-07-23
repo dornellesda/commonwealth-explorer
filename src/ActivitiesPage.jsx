@@ -640,24 +640,43 @@ export default function ActivitiesPage() {
           }}>
             {/* Top 50%: Surname Origins Block */}
             <div style={{
-              backgroundColor: FS_COLORS.cardBg,
+              background: "linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)",
               borderRadius: "20px",
-              border: `1px solid ${FS_COLORS.border}`,
+              border: "1.5px solid rgba(39, 196, 244, 0.25)",
               padding: "1.2rem 1.4rem",
               flex: 1,
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
-              boxShadow: "0 6px 18px rgba(0, 0, 0, 0.03)"
+              boxShadow: "0 10px 24px -4px rgba(39, 196, 244, 0.12)",
+              position: "relative",
+              overflow: "hidden"
             }}>
-              <div>
+              {/* Subtle, Faded Decorative Luxury Dotted World Map Background Art */}
+              <div style={{
+                position: "absolute",
+                top: "-10px",
+                right: "-20px",
+                bottom: "-10px",
+                left: "20%",
+                backgroundImage: "url('/assets/dotted-world-map.png')",
+                backgroundSize: "contain",
+                backgroundPosition: "center right",
+                backgroundRepeat: "no-repeat",
+                opacity: 0.15,
+                pointerEvents: "none",
+                maskImage: "linear-gradient(to right, transparent 0%, black 35%)",
+                WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 35%)"
+              }} />
+
+              <div style={{ position: "relative", zIndex: 1 }}>
                 <h2 style={{
                   fontFamily: FONT_HEADING,
                   fontSize: "1.35rem",
-                  fontWeight: 600,
+                  fontWeight: 700,
                   margin: "0 0 0.2rem",
-                  backgroundImage: "linear-gradient(135deg, #27c4f4 0%, #0e789d 100%)",
-                  WebkitBackgroundImage: "linear-gradient(135deg, #27c4f4 0%, #0e789d 100%)",
+                  backgroundImage: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+                  WebkitBackgroundImage: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
                   WebkitBackgroundClip: "text",
                   backgroundClip: "text",
                   WebkitTextFillColor: "transparent",
@@ -666,14 +685,14 @@ export default function ActivitiesPage() {
                 }}>
                   Surname Origins
                 </h2>
-                <p style={{ color: FS_COLORS.bodyMuted, fontSize: "0.82rem", lineHeight: 1.35, margin: "0 0 0.75rem", fontWeight: 300, fontFamily: FONT_SANS }}>
+                <p style={{ color: FS_COLORS.bodyMuted, fontSize: "0.82rem", lineHeight: 1.35, margin: "0 0 0.75rem", fontWeight: 400, fontFamily: FONT_SANS }}>
                   Discover your last name's meaning & global family tree distribution.
                 </p>
 
                 <form onSubmit={handleSurnameSearch} style={{ display: "flex", gap: "0.5rem" }}>
                   <input
                     type="text"
-                    placeholder="e.g. 'Dornelles', 'Smith'..."
+                    placeholder=""
                     value={inputActive ? surnameQuery : teaserDisplay}
                     onFocus={activateInput}
                     onKeyDown={activateInput}
@@ -683,17 +702,18 @@ export default function ActivitiesPage() {
                     }}
                     style={{
                       flex: 1,
-                      background: "#f1f5f9",
-                      border: `1px solid ${FS_COLORS.border}`,
+                      background: "rgba(255, 255, 255, 0.9)",
+                      border: "1.5px solid rgba(39, 196, 244, 0.35)",
                       borderRadius: "10px",
                       padding: "0.55rem 0.85rem",
                       color: inputActive ? FS_COLORS.bodyDark : FS_COLORS.bodyMuted,
                       fontSize: "0.85rem",
                       fontFamily: FONT_SANS,
-                      fontWeight: 300,
+                      fontWeight: 400,
                       outline: "none",
                       caretColor: inputActive ? FS_COLORS.bodyDark : "transparent",
-                      transition: "color 0.2s ease"
+                      boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.02)",
+                      transition: "all 0.2s ease"
                     }}
                   />
                   <button
@@ -705,11 +725,11 @@ export default function ActivitiesPage() {
                       border: "none",
                       borderRadius: "10px",
                       padding: "0.55rem 1.1rem",
-                      fontWeight: 500,
+                      fontWeight: 600,
                       fontSize: "0.82rem",
                       fontFamily: FONT_SANS,
                       cursor: "pointer",
-                      boxShadow: "0 4px 10px rgba(39, 196, 244, 0.25)"
+                      boxShadow: "0 4px 12px rgba(39, 196, 244, 0.3)"
                     }}
                   >
                     Search
@@ -718,161 +738,263 @@ export default function ActivitiesPage() {
               </div>
             </div>
 
-            {/* Bottom 50%: All About Me Block */}
-            <div style={{
-              background: "linear-gradient(135deg, #ffffff 0%, #f7f0f7 100%)",
-              borderRadius: "20px",
-              border: "1.5px solid rgba(153, 103, 153, 0.3)",
-              padding: "1.2rem 1.4rem",
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              boxShadow: "0 6px 18px rgba(153, 103, 153, 0.08)"
-            }}>
-              <div>
+            {/* Bottom 50%: All About Me Block - Simpler, Ultra-Premium, Link-Prioritised */}
+            <div
+              onClick={() => setQrModalItem({ title: "All About Me - FamilySearch Discovery", url: "https://www.familysearch.org/en/discovery/about" })}
+              style={{
+                background: "linear-gradient(135deg, #ffffff 0%, #faf4fa 100%)",
+                borderRadius: "24px",
+                border: "1.5px solid rgba(153, 103, 153, 0.25)",
+                padding: "1.3rem 1.5rem",
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                gap: "1.4rem",
+                cursor: "pointer",
+                boxShadow: "0 12px 28px -4px rgba(153, 103, 153, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9)",
+                transition: "transform 0.2s ease, boxShadow 0.2s ease",
+                position: "relative",
+                overflow: "hidden"
+              }}
+            >
+              {/* Photo of Happy Individual from FamilySearch Assets */}
+              <div style={{
+                width: "185px",
+                height: "185px",
+                borderRadius: "20px",
+                overflow: "hidden",
+                flexShrink: 0,
+                boxShadow: "0 10px 24px rgba(153, 103, 153, 0.25)",
+                border: "2px solid #ffffff",
+                position: "relative"
+              }}>
+                <img
+                  src="/assets/all-about-me-happy.jpg"
+                  alt="Happy individual portrait"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    objectPosition: "50% 20%",
+                    transform: "scale(1.48)",
+                    transformOrigin: "50% 20%",
+                    display: "block"
+                  }}
+                />
+              </div>
+
+              {/* Right Content Column: Prioritised Link Action */}
+              <div style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                justify: "center",
+                alignItems: "flex-start",
+                gap: "0.5rem"
+              }}>
                 <h2 style={{
                   fontFamily: FONT_HEADING,
-                  fontSize: "1.35rem",
-                  fontWeight: 600,
-                  margin: "0 0 0.2rem",
-                  backgroundImage: "linear-gradient(135deg, #996799 0%, #7b4d7b 100%)",
-                  WebkitBackgroundImage: "linear-gradient(135deg, #996799 0%, #7b4d7b 100%)",
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  color: "transparent",
-                  display: "inline-block"
+                  fontSize: "1.55rem",
+                  fontWeight: 700,
+                  margin: 0,
+                  color: "#4a224a",
+                  letterSpacing: "-0.01em"
                 }}>
                   All About Me
                 </h2>
-                <p style={{ color: FS_COLORS.bodyMuted, fontSize: "0.82rem", lineHeight: 1.35, margin: "0 0 0.75rem", fontWeight: 300, fontFamily: FONT_SANS }}>
-                  Relive top headlines, music hits, and fun facts from your birth year.
-                </p>
-              </div>
 
-              <button
-                onClick={() => setQrModalItem({ title: "All About Me - FamilySearch Discovery", url: "https://www.familysearch.org/en/discovery/about" })}
-                style={{
-                  width: "100%",
-                  background: "#996799",
+                <p style={{
+                  color: FS_COLORS.bodyMuted,
+                  fontSize: "0.86rem",
+                  lineHeight: 1.4,
+                  margin: "0 0 0.3rem",
+                  fontWeight: 400,
+                  fontFamily: FONT_SANS
+                }}>
+                  Discover top headlines, music hits, and fun facts from your birth year.
+                </p>
+
+                {/* Prioritised Premium Action Link Button */}
+                <div style={{
+                  background: "linear-gradient(135deg, #996799 0%, #7b4d7b 100%)",
                   color: "#ffffff",
-                  border: "none",
-                  padding: "0.6rem",
-                  borderRadius: "10px",
-                  fontWeight: 500,
-                  fontSize: "0.82rem",
+                  padding: "0.7rem 1.4rem",
+                  borderRadius: "14px",
+                  fontWeight: 700,
+                  fontSize: "0.9rem",
                   fontFamily: FONT_SANS,
-                  cursor: "pointer",
-                  boxShadow: "0 4px 10px rgba(153, 103, 153, 0.25)",
-                  display: "flex",
+                  boxShadow: "0 6px 18px rgba(153, 103, 153, 0.35)",
+                  display: "inline-flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  gap: "0.4rem"
-                }}
-              >
-                <span>Explore All About Me</span>
-                <span>→</span>
-              </button>
+                  gap: "0.55rem",
+                  transition: "all 0.2s ease"
+                }}>
+                  <span>Test what you know!</span>
+                  <span style={{ fontSize: "1rem" }}>→</span>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* CARD 2: FAMILYSEARCH AFRICA - SELECT AFRICAN COUNTRY FOR ANCESTORS */}
           <div style={{
-            backgroundColor: "#fcb34b",
-            borderRadius: "24px",
-            border: "1px solid #e59325",
-            padding: "1.5rem 1.6rem",
+            background: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%)",
+            borderRadius: "28px",
+            border: "1.5px solid rgba(245, 158, 11, 0.35)",
+            padding: "1.6rem 1.7rem",
             display: "flex",
             flexDirection: "column",
-            justify: "space-between",
-            boxShadow: "0 12px 28px rgba(252, 179, 75, 0.25)"
+            justifyContent: "space-between",
+            boxShadow: "0 16px 36px -6px rgba(217, 119, 6, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.8)",
+            position: "relative",
+            overflow: "hidden"
           }}>
+            {/* Ambient Background Decorative Glow */}
+            <div style={{
+              position: "absolute",
+              top: "-60px",
+              right: "-60px",
+              width: "180px",
+              height: "180px",
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(252, 179, 75, 0.35) 0%, rgba(252, 179, 75, 0) 70%)",
+              pointerEvents: "none"
+            }} />
+
             <div>
               <h2 style={{
                 fontFamily: FONT_HEADING,
-                fontSize: "1.4rem",
-                fontWeight: 600,
-                color: "#ffffff",
+                fontSize: "1.5rem",
+                fontWeight: 700,
+                color: "#78350f",
                 margin: "0 0 0.3rem",
-                textShadow: "0 2px 4px rgba(0, 0, 0, 0.1)"
+                letterSpacing: "-0.01em"
               }}>
-                Oral Genealogies
+                Discover African Ancestors
               </h2>
-              <p style={{ color: "#ffffff", fontSize: "0.85rem", lineHeight: 1.4, margin: "0 0 0.9rem", fontWeight: 400, fontFamily: FONT_SANS }}>
-                Select an African country to discover records, lineages & oral histories.
+
+              <p style={{ color: "#92400e", fontSize: "0.86rem", lineHeight: 1.45, margin: "0 0 1rem", fontWeight: 400, fontFamily: FONT_SANS }}>
+                Tap a country to explore oral genealogies, family lineages and historical records.
               </p>
             </div>
 
-            {/* Interactive Country Shapes Slider */}
-            <div style={{
-              display: "flex",
-              gap: "0.75rem",
-              overflowX: "auto",
-              WebkitOverflowScrolling: "touch",
-              paddingBottom: "0.5rem",
-              marginBottom: "0.85rem",
-              scrollSnapType: "x mandatory",
-              scrollbarWidth: "none"
-            }}>
-              {AFRICAN_COUNTRIES.map((c) => (
-                <div
-                  key={c.name}
-                  onClick={() => setQrModalItem({ title: `Explore Ancestors in ${c.name} - Oral Genealogies`, url: `https://www.familysearch.org/africa/sve/search-for-ancestors/${encodeURIComponent(c.name)}?lang=en` })}
-                  style={{
-                    minWidth: "128px",
-                    maxWidth: "128px",
-                    height: "140px",
-                    backgroundColor: "rgba(255, 255, 255, 0.25)",
-                    border: "1.5px solid rgba(255, 255, 255, 0.6)",
-                    borderRadius: "16px",
-                    padding: "0.7rem 0.6rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justify: "space-between",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                    scrollSnapAlign: "start",
-                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-                    transition: "all 0.2s ease"
-                  }}
-                >
-                  {/* Country Shape Vector Silhouette */}
-                  <div style={{ width: "48px", height: "48px", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg viewBox="0 0 60 60" style={{ width: "100%", height: "100%", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.12))" }}>
-                      <path d={c.path} fill="#ffffff" stroke="rgba(255, 255, 255, 0.9)" strokeWidth="1" />
-                    </svg>
-                    <span style={{ position: "absolute", bottom: "-2px", right: "-2px", fontSize: "1rem" }}>{c.flag}</span>
-                  </div>
+            {/* Interactive Country Shapes Slider Container with Floating Swipe Cue */}
+            <div style={{ position: "relative", marginBottom: "1rem" }}>
+              <div style={{
+                display: "flex",
+                gap: "0.9rem",
+                overflowX: "auto",
+                WebkitOverflowScrolling: "touch",
+                paddingBottom: "0.75rem",
+                paddingRight: "1.5rem",
+                scrollSnapType: "x mandatory",
+                scrollbarWidth: "none"
+              }}>
+                {AFRICAN_COUNTRIES.map((c, idx) => {
+                  const accentColors = ["#f16458", "#27c4f4", "#BFD730", "#996799", "#9c947a", "#fcb34b"];
+                  const cardAccent = accentColors[idx % accentColors.length];
 
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ color: "#ffffff", fontWeight: 600, fontSize: "0.83rem", fontFamily: FONT_HEADING }}>
-                      {c.name}
+                return (
+                  <div
+                    key={c.name}
+                    onClick={() => setQrModalItem({ title: `Explore Ancestors in ${c.name} - Oral Genealogies`, url: `https://www.familysearch.org/africa/sve/search-for-ancestors/${encodeURIComponent(c.name)}?lang=en` })}
+                    style={{
+                      minWidth: "150px",
+                      maxWidth: "150px",
+                      height: "142px",
+                      backgroundColor: "#ffffff",
+                      border: "1.5px solid rgba(255, 255, 255, 0.9)",
+                      borderRadius: "20px",
+                      padding: "0.75rem 0.65rem",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.5rem",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                      scrollSnapAlign: "start",
+                      boxShadow: "0 8px 20px -4px rgba(120, 53, 15, 0.12), 0 3px 6px -2px rgba(0, 0, 0, 0.04)",
+                      position: "relative",
+                      overflow: "hidden",
+                      transition: "transform 0.25s ease, boxShadow 0.25s ease"
+                    }}
+                  >
+                    {/* Top Accent Color Bar */}
+                    <div style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: "4px",
+                      backgroundColor: cardAccent
+                    }} />
+
+                    {/* Circular Medallion Background for Country Vector Silhouette */}
+                    <div style={{
+                      width: "70px",
+                      height: "70px",
+                      borderRadius: "50%",
+                      background: `radial-gradient(circle at 30% 30%, #ffffff 0%, ${cardAccent}18 100%)`,
+                      border: `1.5px solid ${cardAccent}35`,
+                      position: "relative",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: "inset 0 2px 4px rgba(255,255,255,0.9), 0 4px 10px rgba(0,0,0,0.06)"
+                    }}>
+                      <svg viewBox="0 0 60 60" style={{ width: "72%", height: "72%", filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.15))" }}>
+                        <path d={c.path} fill={cardAccent} stroke={cardAccent} strokeWidth="0.4" />
+                      </svg>
+
+                      {/* Flag Badge Pill */}
+                      <span style={{
+                        position: "absolute",
+                        bottom: "-2px",
+                        right: "-2px",
+                        fontSize: "1.3rem",
+                        lineHeight: 1,
+                        filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.15))"
+                      }}>
+                        {c.flag}
+                      </span>
                     </div>
-                    <div style={{ color: "rgba(255, 255, 255, 0.92)", fontSize: "0.68rem", fontFamily: FONT_SANS, marginTop: "0.15rem" }}>
-                      Select Country →
+
+                    <div style={{ textAlign: "center", width: "100%" }}>
+                      <div style={{
+                        color: "#0f172a",
+                        fontWeight: 700,
+                        fontSize: "1.05rem",
+                        fontFamily: FONT_HEADING,
+                        lineHeight: 1.25
+                      }}>
+                        {c.name}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+          </div>
 
-            {/* CTA Button */}
             <button
               onClick={() => setQrModalItem({ title: "FamilySearch Africa Portal", url: "https://www.familysearch.org/africa" })}
               style={{
                 width: "100%",
-                background: "#ffffff",
+                background: "linear-gradient(135deg, #78350f 0%, #451a03 100%)",
+                color: "#ffffff",
                 border: "none",
-                color: "#b06600",
-                padding: "0.65rem",
-                borderRadius: "12px",
-                fontWeight: 600,
-                fontSize: "0.85rem",
+                padding: "0.75rem 1rem",
+                borderRadius: "14px",
+                fontWeight: 700,
+                fontSize: "0.88rem",
                 fontFamily: FONT_SANS,
                 cursor: "pointer",
-                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)"
+                boxShadow: "0 6px 18px rgba(120, 53, 15, 0.25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem"
               }}
             >
               More FamilySearch Africa →

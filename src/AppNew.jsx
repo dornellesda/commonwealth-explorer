@@ -159,18 +159,15 @@ const LIVE_2026_GAMES_API_ENDPOINT = null;
 
 function getModalitiesForCountry(countryName) {
   if (!countryName) return [];
-  let seed = countryName.length;
-  for (let i = 0; i < countryName.length; i++) {
-    seed += countryName.charCodeAt(i);
+  // For England (and 2026 Commonwealth Games teams), return the full official 10 sports modalities
+  if (countryName === "England" || countryName === "Scotland" || countryName === "Wales" || countryName === "Northern Ireland" || countryName === "Australia" || countryName === "Canada" || countryName === "New Zealand") {
+    return [
+      "Athletics", "Boxing", "Weightlifting", "Judo",
+      "Artistic Gymnastics", "Track Cycling", "Bowls", "Swimming",
+      "3x3 Basketball", "Netball"
+    ];
   }
-  const selected = ["Athletics", "Swimming"];
-  const numExtra = 2 + (seed % 4);
-  const available = GAMES_MODALITIES_2026.slice(2);
-  for (let i = 0; i < numExtra; i++) {
-    const idx = (seed + i * 7) % available.length;
-    selected.push(available[idx]);
-  }
-  return selected;
+  return GAMES_MODALITIES_2026;
 }
 
 function get2026MedalsForCountry(countryName, liveData = null) {
@@ -3648,11 +3645,6 @@ export default function App() {
       key: "genealogyRecords",
       label: "Genealogy Records",
       value: selectedCountryResearchLinks?.genealogyRecords,
-    },
-    {
-      key: "archEventsActivities",
-      label: "Event Discovery Activities",
-      value: { title: "FamilySearch Event Activities", url: window.location.origin + "/activities/" },
     },
   ].filter((entry) => entry.value?.url).map((entry) => {
     if (/https?:\/\/(www\.)?familysearch\.org/i.test(entry.value.url)) {

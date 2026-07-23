@@ -13,6 +13,7 @@ import FamilySearchQrModal from './components/FamilySearchQrModal';
 import ukBoundaries from './data/uk_boundaries.json';
 import { BADGE_ICONS } from './components/certificate/badges';
 import countryMedia from './data/media_data.json';
+import PlyrVideoPlayer from './components/PlyrVideoPlayer';
 
 // Format population number (e.g., 5771000 → "5.8 million")
 function formatPopulation(pop) {
@@ -6325,21 +6326,7 @@ export default function App() {
                   flexShrink: 0,
                 }}>
                   {lightboxItem.type === "video" ? (
-                    <div style={{ position: "relative", paddingTop: "56.25%" }}>
-                      <iframe
-                        src={`https://www.youtube.com/embed/${lightboxItem.videoId}?autoplay=1&rel=0&modestbranding=1&controls=0&showinfo=0&iv_load_policy=3&cc_load_policy=0`}
-                        title={lightboxItem.title}
-                        allow="autoplay; encrypted-media; picture-in-picture"
-                        allowFullScreen
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          width: "100%",
-                          height: "100%",
-                          border: "none",
-                        }}
-                      />
-                    </div>
+                    <PlyrVideoPlayer key={lightboxItem.id} videoItem={lightboxItem} autoplay={true} />
                   ) : (
                     <img
                       src={lightboxItem.sourceUrl}

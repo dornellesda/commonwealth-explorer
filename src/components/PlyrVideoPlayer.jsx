@@ -40,6 +40,7 @@ export default function PlyrVideoPlayer({ videoItem, autoplay = true }) {
   // NOT when a new videoItem object reference with identical content arrives.
   const stableKey = videoItem?.id || videoItem?.videoId || '';
   const directUrl = useMemo(() => resolveDirectUrl(videoItem), [stableKey, videoItem?.r2Url, videoItem?.videoUrl, videoItem?.mp4Url, videoItem?.sourceUrl, videoItem?.url]);
+  const isYouTube = !directUrl && (Boolean(videoItem?.videoId) || Boolean(videoItem?.url));
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -123,7 +124,7 @@ export default function PlyrVideoPlayer({ videoItem, autoplay = true }) {
     // ── Initialise Plyr ──────────────────────────────────────────────
     let instance;
     try {
-      instance = new Plyr(videoEl, {
+      const plyrOptions = {
         autoplay: autoplay,
         controls: [
           'play-large',
@@ -141,12 +142,28 @@ export default function PlyrVideoPlayer({ videoItem, autoplay = true }) {
         tooltips: { controls: true, seek: true },
         keyboard: { focused: true, global: false },
         clickToPlay: true,
-        // Prevent Plyr from injecting a <source> that would conflict with HLS.js
         disableContextMenu: false,
-        quality: { default: 720, options: [4320, 2880, 2160, 1440, 1080, 720, 576, 480, 360, 240] },
-        storage: { enabled: false },   // no localStorage reads (faster init)
-      });
+        storage: { enabled: false },
+      };
 
+      if (isYouTube) {
+        // YouTube specific optimizations to allow native ABR without buffer resets
+        plyrOptions.youtube = {
+          noCookie: false,
+          rel: 0,
+          showinfo: 0,
+          iv_load_policy: 3,
+          modestbranding: 1,
+          playsinline: 1,
+          enablejsapi: 1,
+        };
+        // DO NOT set quality override for YouTube: calling setPlaybackQuality on YouTube API clears buffers and causes stutter/stopping.
+      } else {
+        // Direct MP4/HLS quality options
+        plyrOptions.quality = { default: 720, options: [4320, 2880, 2160, 1440, 1080, 720, 576, 480, 360, 240] };
+      }
+
+      instance = new Plyr(videoEl, plyrOptions);
       plyrInstanceRef.current = instance;
 
       if (autoplay) {
@@ -180,7 +197,7 @@ export default function PlyrVideoPlayer({ videoItem, autoplay = true }) {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stableKey, directUrl, autoplay]);
+  }, [stableKey, directUrl, autoplay, isYouTube]);
 
   if (directUrl) {
     // Cloudflare R2 / HLS / Direct MP4 video with GPU hardware acceleration
@@ -193,9 +210,7 @@ export default function PlyrVideoPlayer({ videoItem, autoplay = true }) {
           overflow: 'hidden',
           backgroundColor: '#000000',
           boxShadow: '0 12px 36px rgba(0, 0, 0, 0.3)',
-          willChange: 'transform',
-          transform: 'translateZ(0)',
-          backfaceVisibility: 'hidden',
+          isolation: 'isolate',
         }}
       >
         <video
@@ -218,26 +233,47 @@ export default function PlyrVideoPlayer({ videoItem, autoplay = true }) {
     );
   }
 
-  // YouTube / Plyr embed fallback
+  // YouTube embed fallback: Use lightweight native iframe to prevent Android WebView iframe_api hanging
+  const videoId = videoItem?.videoId || (videoItem?.url ? videoItem.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/)?.[1] : null);
+
   return (
     <div
       className="plyr-wrapper"
       style={{
         width: '100%',
+        aspectRatio: '16 / 9',
         borderRadius: '20px',
         overflow: 'hidden',
         backgroundColor: '#000000',
         boxShadow: '0 12px 36px rgba(0, 0, 0, 0.3)',
-        willChange: 'transform',
-        transform: 'translateZ(0)',
+        isolation: 'isolate',
+        position: 'relative',
       }}
     >
-      <div
-        ref={videoRef}
-        className="plyr__video-embed"
-        data-plyr-provider="youtube"
-        data-plyr-embed-id={videoItem.videoId || videoItem.url}
-      />
+      {videoId ? (
+        <iframe
+          src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`}
+          title={videoItem?.title || "Video player"}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            borderRadius: '20px',
+          }}
+        />
+      ) : (
+        <div
+          ref={videoRef}
+          className="plyr__video-embed"
+          data-plyr-provider="youtube"
+          data-plyr-embed-id={videoItem?.videoId || videoItem?.url}
+        />
+      )}
     </div>
   );
 }
