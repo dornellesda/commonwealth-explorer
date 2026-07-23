@@ -1,19 +1,11 @@
 Sheets: ["Sheet1"]
-Total rows: 13
-Header: ["Country","Title","Description"," Link","Credit"]
-Column mapping -> Country: 0, Title: 1, Description: 2, Link: 3, R2: -1, Credit: 4
-Data rows: 12
+Total rows: 14
+Header: ["Country","Title","Description","Youtube","CDN","Credit"]
+Column mapping -> Country: 0, Title: 1, Description: 2, Link: 3, R2: 4, Credit: 5
+Data rows: 13
 Loaded baseline metadata from src/data/media_data.json
-Fetching YouTube description for video ID: teUtBOeaVto
-  ✓ Description fetched: "Told in his own words, this is the story of Bashir Maan who ..."
-Fetching YouTube description for video ID: 8F8t4lrouss
-  ✓ Description fetched: "Told in her own words, this is the story of Shaheen Unis and..."
-Fetching YouTube description for video ID: yhqLG_mO8MM
-  ✓ Description fetched: "Daljit Kaur Dilber came by ship when she was a year and a ha..."
-Fetching YouTube description for video ID: _3iy4IaDXzI
-  ✓ Description fetched: "Prof Sinha ventured to the UK for a Postgraduate Diploma, wh..."
 Countries: 2
-Total items: 12
+Total items: 13
 Written to public/data/media_data.json
 Written to src/data/media_data.json
 SUCCESS

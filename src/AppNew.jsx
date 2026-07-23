@@ -42,6 +42,12 @@ const GAMES_MODALITIES_2026 = [
   "Netball", "Weightlifting", "Boxing", "Judo", "Bowls", "3x3 Basketball"
 ];
 
+function extractYoutubeId(url = '') {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
 const MODALITY_ICONS = {
   "Athletics": (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#97d749" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -157,17 +163,83 @@ const MODALITY_ICONS = {
 // Set this URL when the games start to automatically activate and update real-time medal standings.
 const LIVE_2026_GAMES_API_ENDPOINT = null;
 
+const COUNTRY_MODALITIES_MAP = {
+  // Major Full Delegations (All 10 Modalities)
+  "England": ["Athletics", "Swimming", "Artistic Gymnastics", "Track Cycling", "Netball", "Weightlifting", "Boxing", "Judo", "Bowls", "3x3 Basketball"],
+  "Scotland": ["Athletics", "Swimming", "Artistic Gymnastics", "Track Cycling", "Netball", "Weightlifting", "Boxing", "Judo", "Bowls", "3x3 Basketball"],
+  "Wales": ["Athletics", "Swimming", "Artistic Gymnastics", "Track Cycling", "Netball", "Weightlifting", "Boxing", "Judo", "Bowls", "3x3 Basketball"],
+  "Northern Ireland": ["Athletics", "Swimming", "Artistic Gymnastics", "Track Cycling", "Netball", "Weightlifting", "Boxing", "Judo", "Bowls", "3x3 Basketball"],
+  "Australia": ["Athletics", "Swimming", "Artistic Gymnastics", "Track Cycling", "Netball", "Weightlifting", "Boxing", "Judo", "Bowls", "3x3 Basketball"],
+  "Canada": ["Athletics", "Swimming", "Artistic Gymnastics", "Track Cycling", "Netball", "Weightlifting", "Boxing", "Judo", "Bowls", "3x3 Basketball"],
+  "New Zealand": ["Athletics", "Swimming", "Artistic Gymnastics", "Track Cycling", "Netball", "Weightlifting", "Boxing", "Judo", "Bowls", "3x3 Basketball"],
+  "South Africa": ["Athletics", "Swimming", "Artistic Gymnastics", "Track Cycling", "Netball", "Weightlifting", "Boxing", "Judo", "Bowls", "3x3 Basketball"],
+  "India": ["Athletics", "Weightlifting", "Boxing", "Judo", "Swimming", "Artistic Gymnastics", "Track Cycling", "Bowls", "3x3 Basketball"],
+  "United Kingdom": ["Athletics", "Swimming", "Artistic Gymnastics", "Track Cycling", "Netball", "Weightlifting", "Boxing", "Judo", "Bowls", "3x3 Basketball"],
+
+  // Caribbean Nations
+  "Jamaica": ["Athletics", "Netball", "Swimming", "Boxing", "Weightlifting", "3x3 Basketball"],
+  "The Bahamas": ["Athletics", "Swimming", "Boxing", "3x3 Basketball"],
+  "Barbados": ["Athletics", "Swimming", "Netball", "Boxing", "Weightlifting", "3x3 Basketball"],
+  "Trinidad and Tobago": ["Athletics", "Track Cycling", "Swimming", "Boxing", "Netball", "3x3 Basketball"],
+  "Antigua and Barbuda": ["Athletics", "Swimming", "Boxing", "3x3 Basketball"],
+  "Grenada": ["Athletics", "Swimming", "Boxing"],
+  "Dominica": ["Athletics", "Boxing", "3x3 Basketball"],
+  "Saint Lucia": ["Athletics", "Swimming", "Boxing", "3x3 Basketball"],
+  "St Kitts and Nevis": ["Athletics", "Boxing"],
+  "St Vincent and The Grenadines": ["Athletics", "Swimming", "Netball", "3x3 Basketball"],
+  "Guyana": ["Athletics", "Boxing", "Swimming", "3x3 Basketball"],
+  "Belize": ["Athletics", "Track Cycling", "Boxing", "3x3 Basketball"],
+
+  // African Nations
+  "Kenya": ["Athletics", "Boxing", "Weightlifting", "Judo", "Swimming", "3x3 Basketball"],
+  "Uganda": ["Athletics", "Boxing", "Weightlifting", "Netball", "Judo", "3x3 Basketball"],
+  "Nigeria": ["Athletics", "Weightlifting", "Boxing", "Judo", "3x3 Basketball"],
+  "Ghana": ["Athletics", "Boxing", "Weightlifting", "Judo", "Swimming", "3x3 Basketball"],
+  "Cameroon": ["Athletics", "Weightlifting", "Judo", "Boxing"],
+  "Botswana": ["Athletics", "Boxing", "Judo", "Weightlifting", "3x3 Basketball"],
+  "Namibia": ["Athletics", "Bowls", "Track Cycling", "Boxing", "Swimming"],
+  "Zambia": ["Athletics", "Boxing", "Judo", "Weightlifting", "3x3 Basketball"],
+  "Malawi": ["Netball", "Athletics", "Boxing", "Judo"],
+  "Mozambique": ["Athletics", "Swimming", "Boxing", "Judo"],
+  "Rwanda": ["Athletics", "Track Cycling", "Boxing", "Judo"],
+  "Eswatini": ["Athletics", "Boxing", "Swimming"],
+  "Lesotho": ["Athletics", "Boxing", "Weightlifting"],
+  "Sierra Leone": ["Athletics", "Boxing", "Judo", "Swimming", "Weightlifting"],
+  "The Gambia": ["Athletics", "Boxing", "Judo"],
+  "Gabon": ["Athletics", "Judo", "Boxing", "Weightlifting"],
+  "Togo": ["Athletics", "Boxing", "Judo"],
+  "United Republic of Tanzania": ["Athletics", "Boxing", "Judo"],
+
+  // Pacific & Oceania Nations
+  "Fiji": ["Netball", "Weightlifting", "Athletics", "Bowls", "Swimming", "Judo", "3x3 Basketball"],
+  "Samoa": ["Weightlifting", "Boxing", "Athletics", "Judo", "Bowls", "3x3 Basketball"],
+  "Tonga": ["Weightlifting", "Boxing", "Athletics", "Judo", "3x3 Basketball"],
+  "Papua New Guinea": ["Weightlifting", "Athletics", "Boxing", "Bowls", "Swimming", "Judo"],
+  "Nauru": ["Weightlifting", "Boxing", "Athletics"],
+  "Kiribati": ["Weightlifting", "Boxing", "Athletics"],
+  "Tuvalu": ["Weightlifting", "Athletics"],
+  "Vanuatu": ["Athletics", "Weightlifting", "Boxing", "Bowls", "Judo"],
+  "Solomon Islands": ["Weightlifting", "Athletics", "Boxing", "Judo"],
+
+  // Asian Nations
+  "Malaysia": ["Swimming", "Track Cycling", "Weightlifting", "Artistic Gymnastics", "Bowls", "Athletics", "Judo"],
+  "Singapore": ["Swimming", "Athletics", "Artistic Gymnastics", "Judo", "3x3 Basketball", "Weightlifting"],
+  "Pakistan": ["Weightlifting", "Boxing", "Judo", "Athletics", "Swimming"],
+  "Sri Lanka": ["Weightlifting", "Boxing", "Athletics", "Swimming", "Judo", "3x3 Basketball"],
+  "Bangladesh": ["Athletics", "Boxing", "Weightlifting", "Swimming", "Judo"],
+  "Brunei Darussalam": ["Bowls", "Athletics", "Swimming"],
+  "Maldives": ["Athletics", "Swimming", "3x3 Basketball"],
+
+  // European Nations
+  "Cyprus": ["Athletics", "Artistic Gymnastics", "Swimming", "Judo", "Weightlifting", "Boxing"],
+  "Malta": ["Athletics", "Swimming", "Judo", "Weightlifting", "Bowls", "Boxing"]
+};
+
 function getModalitiesForCountry(countryName) {
   if (!countryName) return [];
-  // For England (and 2026 Commonwealth Games teams), return the full official 10 sports modalities
-  if (countryName === "England" || countryName === "Scotland" || countryName === "Wales" || countryName === "Northern Ireland" || countryName === "Australia" || countryName === "Canada" || countryName === "New Zealand") {
-    return [
-      "Athletics", "Boxing", "Weightlifting", "Judo",
-      "Artistic Gymnastics", "Track Cycling", "Bowls", "Swimming",
-      "3x3 Basketball", "Netball"
-    ];
-  }
-  return GAMES_MODALITIES_2026;
+  return COUNTRY_MODALITIES_MAP[countryName] || [
+    "Athletics", "Boxing", "Weightlifting", "Swimming", "Judo"
+  ];
 }
 
 function get2026MedalsForCountry(countryName, liveData = null) {
@@ -4388,11 +4460,6 @@ export default function App() {
   const selectedCountryNormalizedName = selectedCountry
     ? normalizeName(selectedCountry.name)
     : "";
-  const extractYoutubeId = (url = '') => {
-    if (!url) return null;
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/);
-    return match ? match[1] : null;
-  };
 
   const countryMediaItems = selectedCountry
     ? (COUNTRY_MEDIA_BY_NAME[selectedCountry.name] || [])

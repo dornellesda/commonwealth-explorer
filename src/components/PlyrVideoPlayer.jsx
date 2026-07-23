@@ -119,6 +119,9 @@ export default function PlyrVideoPlayer({ videoItem, autoplay = true }) {
     } else if (isHls && videoEl.canPlayType('application/vnd.apple.mpegurl')) {
       // Native HLS (Safari)
       videoEl.src = directUrl;
+    } else if (directUrl) {
+      // Direct MP4 / WebM / Ogg video file (Cloudflare R2 / CDN)
+      videoEl.src = directUrl;
     }
 
     // ── Initialise Plyr ──────────────────────────────────────────────
@@ -199,6 +202,20 @@ export default function PlyrVideoPlayer({ videoItem, autoplay = true }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stableKey, directUrl, autoplay, isYouTube]);
 
+  useEffect(() => {
+    if (videoRef.current && autoplay) {
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          if (videoRef.current) {
+            videoRef.current.muted = true;
+            videoRef.current.play().catch(() => {});
+          }
+        });
+      }
+    }
+  }, [directUrl, autoplay]);
+
   if (directUrl) {
     // Cloudflare R2 / HLS / Direct MP4 video with GPU hardware acceleration
     return (
@@ -206,29 +223,57 @@ export default function PlyrVideoPlayer({ videoItem, autoplay = true }) {
         className="plyr-wrapper"
         style={{
           width: '100%',
+          aspectRatio: '16 / 9',
           borderRadius: '20px',
           overflow: 'hidden',
           backgroundColor: '#000000',
           boxShadow: '0 12px 36px rgba(0, 0, 0, 0.3)',
           isolation: 'isolate',
+          position: 'relative'
         }}
       >
+        {/* Colourful Heritage Overlay Logo (No background, 80% opacity, larger size) */}
+        <div style={{
+          position: 'absolute',
+          top: '1.1rem',
+          right: '1.2rem',
+          zIndex: 20,
+          pointerEvents: 'none',
+          opacity: 0.8,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <img
+            src="/assets/colourful-heritage-logo.png"
+            alt="Colourful Heritage"
+            style={{
+              height: '42px',
+              width: 'auto',
+              display: 'block',
+              filter: 'drop-shadow(0 3px 8px rgba(0, 0, 0, 0.7))'
+            }}
+          />
+        </div>
+
         <video
           ref={videoRef}
+          src={directUrl}
+          controls
+          autoPlay={autoplay}
           playsInline
-          disableRemotePlayback
-          disablePictureInPicture
-          crossOrigin="anonymous"
-          preload="metadata"
+          muted
+          preload="auto"
           poster={videoItem.thumbnailUrl || videoItem.poster || videoItem.imageUrl}
           style={{
             width: '100%',
-            height: 'auto',
+            height: '100%',
             display: 'block',
             borderRadius: '20px',
-            objectFit: 'contain',
+            objectFit: 'cover',
           }}
-        />
+        >
+          <source src={directUrl} type="video/mp4" />
+        </video>
       </div>
     );
   }
@@ -250,6 +295,28 @@ export default function PlyrVideoPlayer({ videoItem, autoplay = true }) {
         position: 'relative',
       }}
     >
+      {/* Colourful Heritage Overlay Logo (No background, 80% opacity, larger size) */}
+      <div style={{
+        position: 'absolute',
+        top: '1.1rem',
+        right: '1.2rem',
+        zIndex: 20,
+        pointerEvents: 'none',
+        opacity: 0.8,
+        display: 'flex',
+        alignItems: 'center'
+      }}>
+        <img
+          src="/assets/colourful-heritage-logo.png"
+          alt="Colourful Heritage"
+          style={{
+            height: '42px',
+            width: 'auto',
+            display: 'block',
+            filter: 'drop-shadow(0 3px 8px rgba(0, 0, 0, 0.7))'
+          }}
+        />
+      </div>
       {videoId ? (
         <iframe
           src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`}
