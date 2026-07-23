@@ -682,6 +682,7 @@ const countryZoomOverrides = {
   Gabon: { center: [-0.8, 11.8], zoom: 5 },
   Rwanda: { center: [-2, 30], zoom: 6 },
   Malawi: { center: [-13.5, 34], zoom: 5.5 },
+  "South Africa": { center: [-29, 24], zoom: 5 },
 };
 
 function normalizeName(value = "") {
@@ -6202,8 +6203,9 @@ export default function App() {
                   }}
                 >
                   <img
-                className="country-hero-image"
-                src={validatedHeroImage || selectedCountryHeroImage}
+                    className="country-hero-image"
+                    decoding="async"
+                    src={validatedHeroImage || selectedCountryHeroImage}
                 alt=""
                 style={{
                   width: "100%",
