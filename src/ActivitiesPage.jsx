@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import famousPersonalitiesData from './data/famousPersonalities.json';
 
 const FONT_HEADING = "'Museo Slab', 'Roboto Slab', Rockwell, serif";
@@ -103,11 +103,80 @@ const CATALOG_CATEGORIES = [
   { name: "Passenger Lists", count: "6,700+ Collections", icon: "🚢", desc: "Port departure records & passenger manifests.", accent: FS_COLORS.accents.purple }
 ];
 
+// Commonwealth surnames cycled as teaser placeholders
+const SURNAME_TEASERS = [
+  "Smith", "Patel", "Jones", "Nguyen", "Williams", "Brown", "Khan", "Singh",
+  "Taylor", "Wilson", "Ali", "Campbell", "Thompson", "MacDonald", "Okafor",
+  "Fernandez", "Silva", "Cohen", "Kim", "Park", "Ahmed", "Dlamini",
+  "Naidu", "Osei", "Mwangi", "Okonkwo", "Dornelles", "Rodriguez",
+];
+
+const TYPING_SPEED_MS = 90;
+const DELETING_SPEED_MS = 45;
+const PAUSE_AFTER_TYPED_MS = 1800;
+
 export default function ActivitiesPage() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("All");
   const [selectedCountryFilter, setSelectedCountryFilter] = useState("All");
   const [surnameQuery, setSurnameQuery] = useState("");
   const [qrModalItem, setQrModalItem] = useState(null);
+
+  // ── Fake-typing teaser state ────────────────────────────────────────────
+  const [teaserDisplay, setTeaserDisplay] = useState("");
+  const [inputActive, setInputActive] = useState(false); // true once user interacts
+
+  useEffect(() => {
+    if (inputActive) {
+      setTeaserDisplay("");
+      return;
+    }
+
+    let teaserIdx = 0;
+    let charIdx = 0;
+    let isDeleting = false;
+    let timer = null;
+
+    const tick = () => {
+      const currentWord = SURNAME_TEASERS[teaserIdx % SURNAME_TEASERS.length];
+
+      if (!isDeleting) {
+        // Typing forward
+        charIdx++;
+        setTeaserDisplay(currentWord.slice(0, charIdx));
+
+        if (charIdx >= currentWord.length) {
+          isDeleting = true;
+          timer = setTimeout(tick, PAUSE_AFTER_TYPED_MS);
+          return;
+        }
+        timer = setTimeout(tick, TYPING_SPEED_MS);
+      } else {
+        // Deleting backward
+        charIdx--;
+        setTeaserDisplay(currentWord.slice(0, charIdx));
+
+        if (charIdx <= 0) {
+          isDeleting = false;
+          teaserIdx++;
+          timer = setTimeout(tick, TYPING_SPEED_MS * 2);
+          return;
+        }
+        timer = setTimeout(tick, DELETING_SPEED_MS);
+      }
+    };
+
+    // Start after a brief initial delay so the component has mounted
+    timer = setTimeout(tick, 800);
+
+    return () => clearTimeout(timer);
+  }, [inputActive]);
+
+  const activateInput = () => {
+    setInputActive(true);
+    setSurnameQuery("");
+  };
+
+  // ───────────────────────────────────────────────────────────────────────────
 
   const availableCountries = Array.from(new Set(FAMOUS_PERSONALITIES.map(p => p.country))).sort();
 
@@ -127,6 +196,12 @@ export default function ActivitiesPage() {
 
   const handleSurnameSearch = (e) => {
     e.preventDefault();
+    // If user hasn't activated yet, activate and clear (no search on empty)
+    if (!inputActive) {
+      activateInput();
+      return;
+    }
+
     const clean = surnameQuery.trim();
     if (!clean) return;
 
@@ -599,23 +674,31 @@ export default function ActivitiesPage() {
                   <input
                     type="text"
                     placeholder="e.g. 'Dornelles', 'Smith'..."
-                    value={surnameQuery}
-                    onChange={(e) => setSurnameQuery(e.target.value)}
+                    value={inputActive ? surnameQuery : teaserDisplay}
+                    onFocus={activateInput}
+                    onKeyDown={activateInput}
+                    onChange={(e) => {
+                      if (!inputActive) { activateInput(); return; }
+                      setSurnameQuery(e.target.value);
+                    }}
                     style={{
                       flex: 1,
                       background: "#f1f5f9",
                       border: `1px solid ${FS_COLORS.border}`,
                       borderRadius: "10px",
                       padding: "0.55rem 0.85rem",
-                      color: FS_COLORS.bodyDark,
+                      color: inputActive ? FS_COLORS.bodyDark : FS_COLORS.bodyMuted,
                       fontSize: "0.85rem",
                       fontFamily: FONT_SANS,
                       fontWeight: 300,
-                      outline: "none"
+                      outline: "none",
+                      caretColor: inputActive ? FS_COLORS.bodyDark : "transparent",
+                      transition: "color 0.2s ease"
                     }}
                   />
                   <button
                     type="submit"
+                    onClick={() => { if (!inputActive) activateInput(); }}
                     style={{
                       background: "linear-gradient(135deg, #27c4f4 0%, #0e789d 100%)",
                       color: "#ffffff",
@@ -735,7 +818,7 @@ export default function ActivitiesPage() {
               {AFRICAN_COUNTRIES.map((c) => (
                 <div
                   key={c.name}
-                  onClick={() => setQrModalItem({ title: `Explore Ancestors in ${c.name} - Oral Genealogies`, url: "https://www.familysearch.org/africa/sve/select-country?lang=en" })}
+                  onClick={() => setQrModalItem({ title: `Explore Ancestors in ${c.name} - Oral Genealogies`, url: `https://www.familysearch.org/africa/sve/search-for-ancestors/${encodeURIComponent(c.name)}?lang=en` })}
                   style={{
                     minWidth: "128px",
                     maxWidth: "128px",

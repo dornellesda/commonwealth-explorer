@@ -1,3 +1,4 @@
+import { resolve } from 'path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -10,6 +11,12 @@ export default defineConfig({
   build: {
     // Target Android 7.1.2 WebView which corresponds to Chrome ~55
     target: ['chrome55'],
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        activities: resolve(__dirname, 'activities/index.html'),
+      },
+    },
   },
 
   server: {

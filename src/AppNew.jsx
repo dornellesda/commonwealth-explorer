@@ -3652,7 +3652,7 @@ export default function App() {
     {
       key: "archEventsActivities",
       label: "Event Discovery Activities",
-      value: { title: "FamilySearch Event Activities", url: window.location.origin + window.location.pathname + "?activities=1" },
+      value: { title: "FamilySearch Event Activities", url: window.location.origin + "/activities/" },
     },
   ].filter((entry) => entry.value?.url).map((entry) => {
     if (/https?:\/\/(www\.)?familysearch\.org/i.test(entry.value.url)) {
