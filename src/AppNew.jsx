@@ -6295,10 +6295,8 @@ export default function App() {
               </div>
                 </div>
 
-                {/* Records & Research Help Region */}
-                <div style={{ flex: 1, padding: `2rem ${STORY_CARD_SIDE_PADDING}`, overflowY: "auto", overflowX: "hidden" }}>
+                <div style={{ flex: 1, padding: `2rem ${STORY_CARD_SIDE_PADDING}`, overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column" }}>
                   {/* FamilySearch Collections and Research Helps */}
-                <div style={{ padding: `1.5rem ${STORY_CARD_SIDE_PADDING} 1.4rem` }}>
                   {isFamilySearchCollectionsLoading || hasCollections ? (
                     <div
                       style={{
@@ -6403,148 +6401,6 @@ export default function App() {
                           )}
                         </div>
                       </div>
-
-                      {selectedCountry && (() => {
-                        const medals = live2026GamesData ? get2026MedalsForCountry(selectedCountry.name, live2026GamesData) : null;
-                        const activeHoverLabel = hoveredModality || (hoveredMedal ? `${hoveredMedal.count} ${hoveredMedal.type}: ${hoveredMedal.modalities.join(", ")}` : "");
-                        const activeLabelColor = hoveredMedal 
-                          ? (hoveredMedal.type === "Gold" ? "#fbbf24" : hoveredMedal.type === "Silver" ? "#cbd5e1" : "#d97706")
-                          : "#97d749";
-
-                        return (
-                          <div style={{ minWidth: 0, marginTop: "1.5rem", ...getRevealStyle(2.5) }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", whiteSpace: "nowrap" }}>
-                              <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, flexShrink: 0 }}>
-                                2026 Games Modalities
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexShrink: 0 }}>
-                                {getModalitiesForCountry(selectedCountry.name).map((modality, idx) => (
-                                  <span 
-                                    key={idx} 
-                                    onMouseEnter={() => { setHoveredModality(modality); setHoveredMedal(null); }}
-                                    onMouseLeave={() => setHoveredModality(null)}
-                                    onClick={() => { setHoveredModality(modality); setHoveredMedal(null); }}
-                                    style={{ 
-                                      display: "flex", 
-                                      alignItems: "center", 
-                                      justifyContent: "center",
-                                      cursor: "pointer",
-                                      padding: "2px",
-                                      transition: "transform 0.15s ease, opacity 0.15s ease",
-                                      transform: hoveredModality === modality ? "scale(1.2)" : "scale(1)",
-                                      opacity: (hoveredModality && hoveredModality !== modality) || hoveredMedal ? 0.45 : 1
-                                    }}
-                                  >
-                                    {MODALITY_ICONS[modality] || "🏅"}
-                                  </span>
-                                ))}
-                              </div>
-
-                              {/* 2026 Medal Count Pills - ONLY SHOWN WHEN LIVE DATA / GAMES START */}
-                              {medals && (
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexShrink: 0, marginLeft: "0.2rem" }}>
-                                  <div 
-                                    onMouseEnter={() => { setHoveredMedal({ type: "Gold", count: medals.gold, modalities: medals.goldModalities }); setHoveredModality(null); }}
-                                    onMouseLeave={() => setHoveredMedal(null)}
-                                    onClick={() => { setHoveredMedal(hoveredMedal?.type === "Gold" ? null : { type: "Gold", count: medals.gold, modalities: medals.goldModalities }); setHoveredModality(null); }}
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: "0.2rem",
-                                      padding: "0.1rem 0.45rem",
-                                      borderRadius: "999px",
-                                      background: "rgba(251, 191, 36, 0.15)",
-                                      border: "1px solid rgba(251, 191, 36, 0.4)",
-                                      color: "#fbbf24",
-                                      fontSize: "0.65rem",
-                                      fontWeight: 700,
-                                      cursor: "pointer",
-                                      transition: "transform 0.15s ease, opacity 0.15s ease",
-                                      transform: hoveredMedal?.type === "Gold" ? "scale(1.15)" : "scale(1)",
-                                      opacity: (hoveredMedal && hoveredMedal.type !== "Gold") || hoveredModality ? 0.45 : 1
-                                    }}
-                                    title={`Gold: ${medals.goldModalities.join(", ")}`}
-                                  >
-                                    <span>🥇</span>
-                                    <span>{medals.gold}</span>
-                                  </div>
-
-                                  <div 
-                                    onMouseEnter={() => { setHoveredMedal({ type: "Silver", count: medals.silver, modalities: medals.silverModalities }); setHoveredModality(null); }}
-                                    onMouseLeave={() => setHoveredMedal(null)}
-                                    onClick={() => { setHoveredMedal(hoveredMedal?.type === "Silver" ? null : { type: "Silver", count: medals.silver, modalities: medals.silverModalities }); setHoveredModality(null); }}
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: "0.2rem",
-                                      padding: "0.1rem 0.45rem",
-                                      borderRadius: "999px",
-                                      background: "rgba(203, 213, 225, 0.15)",
-                                      border: "1px solid rgba(203, 213, 225, 0.4)",
-                                      color: "#cbd5e1",
-                                      fontSize: "0.65rem",
-                                      fontWeight: 700,
-                                      cursor: "pointer",
-                                      transition: "transform 0.15s ease, opacity 0.15s ease",
-                                      transform: hoveredMedal?.type === "Silver" ? "scale(1.15)" : "scale(1)",
-                                      opacity: (hoveredMedal && hoveredMedal.type !== "Silver") || hoveredModality ? 0.45 : 1
-                                    }}
-                                    title={`Silver: ${medals.silverModalities.join(", ")}`}
-                                  >
-                                    <span>🥈</span>
-                                    <span>{medals.silver}</span>
-                                  </div>
-
-                                  <div 
-                                    onMouseEnter={() => { setHoveredMedal({ type: "Bronze", count: medals.bronze, modalities: medals.bronzeModalities }); setHoveredModality(null); }}
-                                    onMouseLeave={() => setHoveredMedal(null)}
-                                    onClick={() => { setHoveredMedal(hoveredMedal?.type === "Bronze" ? null : { type: "Bronze", count: medals.bronze, modalities: medals.bronzeModalities }); setHoveredModality(null); }}
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: "0.2rem",
-                                      padding: "0.1rem 0.45rem",
-                                      borderRadius: "999px",
-                                      background: "rgba(217, 119, 6, 0.15)",
-                                      border: "1px solid rgba(217, 119, 6, 0.4)",
-                                      color: "#d97706",
-                                      fontSize: "0.65rem",
-                                      fontWeight: 700,
-                                      cursor: "pointer",
-                                      transition: "transform 0.15s ease, opacity 0.15s ease",
-                                      transform: hoveredMedal?.type === "Bronze" ? "scale(1.15)" : "scale(1)",
-                                      opacity: (hoveredMedal && hoveredMedal.type !== "Bronze") || hoveredModality ? 0.45 : 1
-                                    }}
-                                    title={`Bronze: ${medals.bronzeModalities.join(", ")}`}
-                                  >
-                                    <span>🥉</span>
-                                    <span>{medals.bronze}</span>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Label animation to the right */}
-                              <div style={{
-                                color: activeLabelColor,
-                                fontSize: "0.68rem",
-                                fontWeight: 700,
-                                letterSpacing: "0.05em",
-                                textTransform: "uppercase",
-                                whiteSpace: "nowrap",
-                                opacity: activeHoverLabel ? 1 : 0,
-                                transform: activeHoverLabel ? "translateX(0)" : "translateX(-6px)",
-                                transition: "opacity 0.2s ease, transform 0.2s ease",
-                                pointerEvents: "none",
-                                minHeight: "1rem",
-                                display: "flex",
-                                alignItems: "center"
-                              }}>
-                                {activeHoverLabel}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
                     </div>
                   ) : (
                     <div
@@ -6605,9 +6461,153 @@ export default function App() {
                       <div style={{ minWidth: 0 }} />
                     </div>
                   )}
+
+                  {selectedCountry && (() => {
+                    const medals = live2026GamesData ? get2026MedalsForCountry(selectedCountry.name, live2026GamesData) : null;
+                    const activeHoverLabel = hoveredModality || (hoveredMedal ? `${hoveredMedal.count} ${hoveredMedal.type}: ${hoveredMedal.modalities.join(", ")}` : "");
+                    const activeLabelColor = hoveredMedal 
+                      ? (hoveredMedal.type === "Gold" ? "#fbbf24" : hoveredMedal.type === "Silver" ? "#cbd5e1" : "#d97706")
+                      : "#97d749";
+
+                    return (
+                      <div style={{ minWidth: 0, marginTop: "auto", paddingTop: "2.5rem", ...getRevealStyle(2.5) }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", whiteSpace: "nowrap" }}>
+                          <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, flexShrink: 0 }}>
+                            2026 Games Modalities
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexShrink: 0 }}>
+                            {getModalitiesForCountry(selectedCountry.name).map((modality, idx) => (
+                              <span 
+                                key={idx} 
+                                onMouseEnter={() => { setHoveredModality(modality); setHoveredMedal(null); }}
+                                onMouseLeave={() => setHoveredModality(null)}
+                                onClick={() => { setHoveredModality(modality); setHoveredMedal(null); }}
+                                style={{ 
+                                  display: "flex", 
+                                  alignItems: "center", 
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                  padding: "2px",
+                                  transition: "transform 0.15s ease, opacity 0.15s ease",
+                                  transform: hoveredModality === modality ? "scale(1.2)" : "scale(1)",
+                                  opacity: (hoveredModality && hoveredModality !== modality) || hoveredMedal ? 0.45 : 1
+                                }}
+                              >
+                                {MODALITY_ICONS[modality] || "🏅"}
+                              </span>
+                            ))}
+                          </div>
+
+                          {/* 2026 Medal Count Pills - ONLY SHOWN WHEN LIVE DATA / GAMES START */}
+                          {medals && (
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexShrink: 0, marginLeft: "0.2rem" }}>
+                              <div 
+                                onMouseEnter={() => { setHoveredMedal({ type: "Gold", count: medals.gold, modalities: medals.goldModalities }); setHoveredModality(null); }}
+                                onMouseLeave={() => setHoveredMedal(null)}
+                                onClick={() => { setHoveredMedal(hoveredMedal?.type === "Gold" ? null : { type: "Gold", count: medals.gold, modalities: medals.goldModalities }); setHoveredModality(null); }}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.2rem",
+                                  padding: "0.1rem 0.45rem",
+                                  borderRadius: "999px",
+                                  background: "rgba(251, 191, 36, 0.15)",
+                                  border: "1px solid rgba(251, 191, 36, 0.4)",
+                                  color: "#fbbf24",
+                                  fontSize: "0.65rem",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  transition: "transform 0.15s ease, opacity 0.15s ease",
+                                  transform: hoveredMedal?.type === "Gold" ? "scale(1.15)" : "scale(1)",
+                                  opacity: (hoveredMedal && hoveredMedal.type !== "Gold") || hoveredModality ? 0.45 : 1
+                                }}
+                                title={`Gold: ${medals.goldModalities.join(", ")}`}
+                              >
+                                <span>🥇</span>
+                                <span>{medals.gold}</span>
+                              </div>
+
+                              <div 
+                                onMouseEnter={() => { setHoveredMedal({ type: "Silver", count: medals.silver, modalities: medals.silverModalities }); setHoveredModality(null); }}
+                                onMouseLeave={() => setHoveredMedal(null)}
+                                onClick={() => { setHoveredMedal(hoveredMedal?.type === "Silver" ? null : { type: "Silver", count: medals.silver, modalities: medals.silverModalities }); setHoveredModality(null); }}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.2rem",
+                                  padding: "0.1rem 0.45rem",
+                                  borderRadius: "999px",
+                                  background: "rgba(203, 213, 225, 0.15)",
+                                  border: "1px solid rgba(203, 213, 225, 0.4)",
+                                  color: "#cbd5e1",
+                                  fontSize: "0.65rem",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  transition: "transform 0.15s ease, opacity 0.15s ease",
+                                  transform: hoveredMedal?.type === "Silver" ? "scale(1.15)" : "scale(1)",
+                                  opacity: (hoveredMedal && hoveredMedal.type !== "Silver") || hoveredModality ? 0.45 : 1
+                                }}
+                                title={`Silver: ${medals.silverModalities.join(", ")}`}
+                              >
+                                <span>🥈</span>
+                                <span>{medals.silver}</span>
+                              </div>
+
+                              <div 
+                                onMouseEnter={() => { setHoveredMedal({ type: "Bronze", count: medals.bronze, modalities: medals.bronzeModalities }); setHoveredModality(null); }}
+                                onMouseLeave={() => setHoveredMedal(null)}
+                                onClick={() => { setHoveredMedal(hoveredMedal?.type === "Bronze" ? null : { type: "Bronze", count: medals.bronze, modalities: medals.bronzeModalities }); setHoveredModality(null); }}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.2rem",
+                                  padding: "0.1rem 0.45rem",
+                                  borderRadius: "999px",
+                                  background: "rgba(217, 119, 6, 0.15)",
+                                  border: "1px solid rgba(217, 119, 6, 0.4)",
+                                  color: "#d97706",
+                                  fontSize: "0.65rem",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  transition: "transform 0.15s ease, opacity 0.15s ease",
+                                  transform: hoveredMedal?.type === "Bronze" ? "scale(1.15)" : "scale(1)",
+                                  opacity: (hoveredMedal && hoveredMedal.type !== "Bronze") || hoveredModality ? 0.45 : 1
+                                }}
+                                title={`Bronze: ${medals.bronzeModalities.join(", ")}`}
+                              >
+                                <span>🥉</span>
+                                <span>{medals.bronze}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Label animation to the right */}
+                          <div style={{
+                            color: activeLabelColor,
+                            fontSize: "0.68rem",
+                            fontWeight: 700,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                            whiteSpace: "nowrap",
+                            opacity: activeHoverLabel ? 1 : 0,
+                            transform: activeHoverLabel ? "translateX(0)" : "translateX(-6px)",
+                            transition: "opacity 0.2s ease, transform 0.2s ease",
+                            pointerEvents: "none",
+                            minHeight: "1rem",
+                            display: "flex",
+                            alignItems: "center"
+                          }}>
+                            {activeHoverLabel}
+                          </div>
+                        </div>
+                        <div style={{ marginTop: "0.45rem", fontSize: "0.62rem", color: "rgba(255,255,255,0.4)", fontWeight: 500, letterSpacing: "0.01em" }}>
+                          Data sourced from the Commonwealth Games Federation
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
-            </div>
 
               {/* RIGHT COLUMN (44% width when media exists, 34% width when no media) - Gallery + Overview + Stats */}
               <div style={{
