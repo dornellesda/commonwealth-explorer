@@ -205,7 +205,8 @@ const COUNTRY_MODALITIES_MAP = {
   "Eswatini": ["Athletics", "Boxing", "Swimming"],
   "Lesotho": ["Athletics", "Boxing", "Weightlifting"],
   "Sierra Leone": ["Athletics", "Boxing", "Judo", "Swimming", "Weightlifting"],
-  "The Gambia": ["Athletics", "Boxing", "Judo"],
+  "The Gambia": ["Athletics", "Judo", "Swimming", "Track Cycling"],
+  "Gambia": ["Athletics", "Judo", "Swimming", "Track Cycling"],
   "Gabon": ["Athletics", "Judo", "Boxing", "Weightlifting"],
   "Togo": ["Athletics", "Boxing", "Judo"],
   "United Republic of Tanzania": ["Athletics", "Boxing", "Judo"],
@@ -221,13 +222,33 @@ const COUNTRY_MODALITIES_MAP = {
   "Vanuatu": ["Athletics", "Weightlifting", "Boxing", "Bowls", "Judo"],
   "Solomon Islands": ["Weightlifting", "Athletics", "Boxing", "Judo"],
 
+  "Mauritius": ["Athletics", "Boxing", "Judo", "Weightlifting", "Swimming"],
+  "Seychelles": ["Athletics", "Boxing", "Swimming", "Judo"],
+
+  // Overseas Territories & Dependencies
+  "Anguilla": ["Athletics", "Boxing", "Track Cycling"],
+  "Bermuda": ["Athletics", "Swimming", "Track Cycling", "3x3 Basketball"],
+  "British Virgin Islands": ["Athletics", "3x3 Basketball"],
+  "Cayman Islands": ["Athletics", "Swimming", "3x3 Basketball", "Boxing"],
+  "Falkland Islands": ["Athletics", "Bowls"],
+  "Montserrat": ["Athletics"],
+  "Turks and Caicos Islands": ["Athletics", "Swimming"],
+  "Gibraltar": ["Athletics", "Swimming", "Weightlifting"],
+  "Guernsey": ["Athletics", "Swimming", "Bowls", "Track Cycling"],
+  "Isle of Man": ["Athletics", "Track Cycling", "Swimming", "Boxing"],
+  "Jersey": ["Athletics", "Swimming", "Bowls"],
+  "Cook Islands": ["Athletics", "Weightlifting", "Bowls"],
+  "Niue": ["Weightlifting", "Bowls", "Boxing"],
+  "Norfolk Island": ["Bowls", "Athletics"],
+
   // Asian Nations
   "Malaysia": ["Swimming", "Track Cycling", "Weightlifting", "Artistic Gymnastics", "Bowls", "Athletics", "Judo"],
-  "Singapore": ["Swimming", "Athletics", "Artistic Gymnastics", "Judo", "3x3 Basketball", "Weightlifting"],
+  "Singapore": ["Swimming", "Artistic Gymnastics", "Judo", "3x3 Basketball", "Weightlifting"],
   "Pakistan": ["Weightlifting", "Boxing", "Judo", "Athletics", "Swimming"],
   "Sri Lanka": ["Weightlifting", "Boxing", "Athletics", "Swimming", "Judo", "3x3 Basketball"],
   "Bangladesh": ["Athletics", "Boxing", "Weightlifting", "Swimming", "Judo"],
   "Brunei Darussalam": ["Bowls", "Athletics", "Swimming"],
+  "Brunei": ["Bowls", "Athletics", "Swimming"],
   "Maldives": ["Athletics", "Swimming", "3x3 Basketball"],
 
   // European Nations

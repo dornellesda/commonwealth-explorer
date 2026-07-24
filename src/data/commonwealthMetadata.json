@@ -234,5 +234,61 @@
   "Northern Ireland": {
     "joined": "1931-12-11",
     "region": "Europe"
+  },
+  "Anguilla": {
+    "memberSince": 1998,
+    "source": "Wikidata / CGF"
+  },
+  "Bermuda": {
+    "memberSince": 1930,
+    "source": "Wikidata / CGF"
+  },
+  "British Virgin Islands": {
+    "memberSince": 1990,
+    "source": "Wikidata / CGF"
+  },
+  "Cayman Islands": {
+    "memberSince": 1978,
+    "source": "Wikidata / CGF"
+  },
+  "Falkland Islands": {
+    "memberSince": 1982,
+    "source": "Wikidata / CGF"
+  },
+  "Montserrat": {
+    "memberSince": 1994,
+    "source": "Wikidata / CGF"
+  },
+  "Turks and Caicos Islands": {
+    "memberSince": 1978,
+    "source": "Wikidata / CGF"
+  },
+  "Gibraltar": {
+    "memberSince": 1958,
+    "source": "Wikidata / CGF"
+  },
+  "Guernsey": {
+    "memberSince": 1970,
+    "source": "Wikidata / CGF"
+  },
+  "Isle of Man": {
+    "memberSince": 1958,
+    "source": "Wikidata / CGF"
+  },
+  "Jersey": {
+    "memberSince": 1958,
+    "source": "Wikidata / CGF"
+  },
+  "Cook Islands": {
+    "memberSince": 1986,
+    "source": "Wikidata / CGF"
+  },
+  "Niue": {
+    "memberSince": 2002,
+    "source": "Wikidata / CGF"
+  },
+  "Norfolk Island": {
+    "memberSince": 1986,
+    "source": "Wikidata / CGF"
   }
 }

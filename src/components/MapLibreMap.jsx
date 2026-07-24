@@ -37,19 +37,18 @@ const smallCountries = [
 
 const smallCountryData = countries.filter(c => smallCountries.includes(c.name));
 
-// A fully native, image-free vintage cartographic map style
-// Base: #9c947a (warm tan parchment)
+// A fully native, image-free cartographic map style
+// Ocean: #27c4f4 (signature cyan blue), Unclickable countries: #9c947a (taupe parchment)
 const VINTAGE_MAP_STYLE = {
   version: 8,
   name: "Commonwealth Vintage",
   sources: {},
   layers: [
-    // Old paper ocean — base color with a slightly darker, more saturated tone
     {
       id: "background",
       type: "background",
       paint: {
-        "background-color": "#6b624c"
+        "background-color": "#27c4f4"
       }
     }
   ]
@@ -233,36 +232,35 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
   const selCountry = selectedCountry?.name || '';
   const actCountry = activatedCountryName || '';
 
-  // Non-commonwealth land layer — slightly lighter, warmer parchment so it lifts off the ocean
+  // Non-commonwealth land layer — unclickable countries in #9c947a (elegant taupe parchment)
   const landFillStyle = {
     id: 'land-fill',
     type: 'fill',
     filter: ['==', ['get', 'cwName'], ''],
     paint: {
-      'fill-color': '#6a624f',
-      'fill-opacity': 0.84,
+      'fill-color': '#9c947a',
+      'fill-opacity': 0.88,
     }
   };
 
-  // Ink-brown border between non-commonwealth countries
+  // Fine border between non-commonwealth countries
   const landLineStyle = {
     id: 'land-line',
     type: 'line',
     filter: ['==', ['get', 'cwName'], ''],
     paint: {
-      'line-color': '#5f503a',
-      'line-width': 1.05,
-      'line-opacity': 0.82,
+      'line-color': '#7d755e',
+      'line-width': 1.0,
+      'line-opacity': 0.75,
     }
   };
 
-  // Stronger cartographic coastline/continent read so land masses stay legible
-  // under parchment overlays.
+  // Refined cartographic coastline/continent definition
   const coastOutlineStyle = {
     id: 'coast-outline',
     type: 'line',
     paint: {
-      'line-color': '#433522',
+      'line-color': '#5a523d',
       'line-width': [
         'interpolate',
         ['linear'],
@@ -271,7 +269,7 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         3, 1.05,
         5, 1.3,
       ],
-      'line-opacity': 0.65,
+      'line-opacity': 0.6,
     }
   };
 
@@ -304,15 +302,15 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
       'fill-opacity': [
         'case',
         ['all', ['==', ['get', 'cwName'], selCountry], ['==', ['get', 'cwName'], actCountry], ['!=', actCountry, '']],
-        0.75,
+        0.90,
         
         ['all', ['==', ['get', 'cwName'], selCountry], ['!=', selCountry, '']],
-        0.75,
+        0.90,
         
         ['all', ['==', ['get', 'cwName'], effectiveHoveredCountry], ['!=', effectiveHoveredCountry, '']],
-        0.65,
+        0.85,
 
-        0.48,
+        0.78,
       ]
     }
   };
@@ -332,25 +330,25 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         isPanelOpen ? '#F16458' : '#333536',
         
         ['all', ['==', ['get', 'cwName'], selCountry], ['!=', selCountry, '']],
-        isPanelOpen ? '#F16458' : '#97d749',
+        isPanelOpen ? '#F16458' : '#a6ed47',
         
         ['all', ['==', ['get', 'cwName'], effectiveHoveredCountry], ['!=', effectiveHoveredCountry, '']],
         '#F16458',
 
-        '#97d749',
+        '#a6ed47',
       ],
       'line-width': [
         'case',
         ['all', ['==', ['get', 'cwName'], selCountry], ['==', ['get', 'cwName'], actCountry], ['!=', actCountry, '']],
-        1.8,
+        2.0,
         
         ['all', ['==', ['get', 'cwName'], selCountry], ['!=', selCountry, '']],
-        1.8,
+        2.0,
         
         ['all', ['==', ['get', 'cwName'], effectiveHoveredCountry], ['!=', effectiveHoveredCountry, '']],
-        1.5,
+        1.8,
 
-        1.25,
+        1.4,
       ],
       'line-opacity': [
         'case',
@@ -358,7 +356,7 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         1,
         ['all', ['==', ['get', 'cwName'], effectiveHoveredCountry], ['!=', effectiveHoveredCountry, '']],
         1,
-        0.86,
+        0.95,
       ]
     }
   };
@@ -372,7 +370,7 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         top: 0,
         left: 0,
         zIndex: 0,
-        background: 'radial-gradient(circle at 35% 25%, #7f7359 0%, #655c46 54%, #4d4537 100%)',
+        background: 'radial-gradient(circle at 35% 25%, #4ed2f7 0%, #27c4f4 54%, #18aedc 100%)',
         overflow: 'hidden',
         opacity: (geojson && mapLoaded) ? 1 : 0,
         transform: (geojson && mapLoaded) ? 'scale(1)' : 'scale(1.025)',
@@ -405,12 +403,12 @@ const MapLibreMap = React.forwardRef(({ selectedCountry, activatedCountryName, i
         }}
         renderWorldCopies={false}
       >
-        {/* Latitude/Longitude Grid — warm ink lines on parchment */}
+        {/* Latitude/Longitude Grid — subtle white cartographic lines on cyan ocean */}
         <Source id="grid" type="geojson" data={gridGeojson}>
           <Layer
             id="grid-line"
             type="line"
-            paint={{ 'line-color': '#7b6a4f', 'line-width': 0.7, 'line-opacity': 0.38 }}
+            paint={{ 'line-color': '#ffffff', 'line-width': 0.7, 'line-opacity': 0.22 }}
           />
         </Source>
 

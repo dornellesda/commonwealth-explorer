@@ -56,7 +56,7 @@
     "cwgGames": "9 Games"
   },
   "Cameroon": {
-    "capital": "Yaound\u00e9",
+    "capital": "Yaoundé",
     "population": 28372687,
     "cwgMedals": "40 Medals",
     "source": "Wikidata / CGF",
@@ -182,7 +182,7 @@
     "cwgGames": "14 Games"
   },
   "Maldives": {
-    "capital": "Mal\u00e9",
+    "capital": "Malé",
     "population": 436330,
     "cwgMedals": "0 Medals",
     "source": "Wikidata / CGF",
@@ -329,14 +329,14 @@
     "cwgGames": "17 Games"
   },
   "Tonga": {
-    "capital": "Nuku\u02bbalofa",
+    "capital": "Nukuʻalofa",
     "population": 105697,
     "cwgMedals": "3 Medals",
     "source": "Wikidata / CGF",
     "cwgGames": "11 Games"
   },
   "Togo": {
-    "capital": "Lom\u00e9",
+    "capital": "Lomé",
     "population": 9515240,
     "cwgMedals": "0 Medals",
     "source": "Wikidata / CGF",
@@ -404,5 +404,110 @@
     "cwgMedals": "39 Medals",
     "source": "Wikidata / CGF",
     "cwgGames": "15 Games"
+  },
+  "Anguilla": {
+    "capital": "The Valley",
+    "population": 15757,
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "7 Games"
+  },
+  "Bermuda": {
+    "capital": "Hamilton",
+    "population": 63988,
+    "cwgMedals": "6 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "19 Games"
+  },
+  "British Virgin Islands": {
+    "capital": "Road Town",
+    "population": 30033,
+    "cwgMedals": "2 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "9 Games"
+  },
+  "Cayman Islands": {
+    "capital": "George Town",
+    "population": 68136,
+    "cwgMedals": "2 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "11 Games"
+  },
+  "Falkland Islands": {
+    "capital": "Stanley",
+    "population": 3662,
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "11 Games"
+  },
+  "Montserrat": {
+    "capital": "Brades",
+    "population": 4649,
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "8 Games"
+  },
+  "Turks and Caicos Islands": {
+    "capital": "Cockburn Town",
+    "population": 44542,
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "8 Games"
+  },
+  "Gibraltar": {
+    "capital": "Gibraltar",
+    "population": 34003,
+    "cwgMedals": "0 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "17 Games"
+  },
+  "Guernsey": {
+    "capital": "St. Peter Port",
+    "population": 63124,
+    "cwgMedals": "6 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "14 Games"
+  },
+  "Isle of Man": {
+    "capital": "Douglas",
+    "population": 84069,
+    "cwgMedals": "12 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "17 Games"
+  },
+  "Jersey": {
+    "capital": "St. Helier",
+    "population": 107800,
+    "cwgMedals": "4 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "17 Games"
+  },
+  "Cook Islands": {
+    "capital": "Avarua",
+    "population": 17564,
+    "cwgMedals": "1 Medal",
+    "source": "Wikidata / CGF",
+    "cwgGames": "12 Games"
+  },
+  "Niue": {
+    "capital": "Alofi",
+    "population": 1937,
+    "cwgMedals": "1 Medal",
+    "source": "Wikidata / CGF",
+    "cwgGames": "6 Games"
+  },
+  "Norfolk Island": {
+    "capital": "Kingston",
+    "population": 2188,
+    "cwgMedals": "2 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "10 Games"
+  },
+  "Northern Ireland": {
+    "capital": "Belfast",
+    "population": 1903100,
+    "cwgMedals": "136 Medals",
+    "source": "Wikidata / CGF",
+    "cwgGames": "20 Games"
   }
 }
