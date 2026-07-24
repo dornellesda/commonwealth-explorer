@@ -1,3 +1,5 @@
+import { QRCodeSVG } from "qrcode.react";
+
 function addCidTracking(url) {
   if (!url || typeof url !== 'string') return url;
   if (!url.includes('familysearch.org')) return url;
