@@ -690,9 +690,8 @@ export default function ActivitiesPage() {
                     placeholder=""
                     value={inputActive ? surnameQuery : teaserDisplay}
                     onFocus={activateInput}
-                    onKeyDown={activateInput}
                     onChange={(e) => {
-                      if (!inputActive) { activateInput(); return; }
+                      if (!inputActive) activateInput();
                       setSurnameQuery(e.target.value);
                     }}
                     style={{
