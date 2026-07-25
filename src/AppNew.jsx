@@ -2596,14 +2596,33 @@ export default function App() {
 
   useEffect(() => {
     let intervalId = null;
+    let cycleIntervalId = null;
+    let playStopTimeoutId = null;
     const isAttractActive = isIdleAttractMode && !selectedCountry && !isMenuOpen && !lightboxItem && isSoundEnabled;
 
     if (isAttractActive) {
-      oceanAmbientSynth.play();
-      oceanAmbientSynth.unlockAudioContext();
+      const PLAY_DURATION_MS = 1 * 60 * 1000; // 1 minute
+      const PAUSE_DURATION_MS = 3 * 60 * 1000; // 3 minutes
+      const TOTAL_CYCLE_MS = PLAY_DURATION_MS + PAUSE_DURATION_MS; // 4 minutes
+
+      const startPlayCycle = () => {
+        if (playStopTimeoutId) clearTimeout(playStopTimeoutId);
+        oceanAmbientSynth.play();
+        oceanAmbientSynth.unlockAudioContext();
+
+        playStopTimeoutId = setTimeout(() => {
+          oceanAmbientSynth.stop();
+        }, PLAY_DURATION_MS);
+      };
+
+      startPlayCycle();
+
+      cycleIntervalId = setInterval(() => {
+        startPlayCycle();
+      }, TOTAL_CYCLE_MS);
 
       intervalId = setInterval(() => {
-        if (oceanAmbientSynth.ctx && oceanAmbientSynth.ctx.state === "suspended") {
+        if (oceanAmbientSynth.isPlaying && oceanAmbientSynth.ctx && oceanAmbientSynth.ctx.state === "suspended") {
           oceanAmbientSynth.unlockAudioContext();
         }
       }, 1000);
@@ -2623,7 +2642,11 @@ export default function App() {
     window.addEventListener("keydown", handleUserGesture, { passive: true });
 
     return () => {
+      if (playStopTimeoutId) clearTimeout(playStopTimeoutId);
+      if (cycleIntervalId) clearInterval(cycleIntervalId);
       if (intervalId) clearInterval(intervalId);
+      oceanAmbientSynth.stop();
+
       window.removeEventListener("pointerdown", handleUserGesture);
       window.removeEventListener("touchstart", handleUserGesture);
       window.removeEventListener("click", handleUserGesture);
