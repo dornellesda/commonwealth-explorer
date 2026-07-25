@@ -304,7 +304,7 @@ export default function ActivitiesPage() {
       </div>
 
       {/* Main Content Container */}
-      <main style={{ maxWidth: "1280px", margin: "0 auto", padding: isPortrait ? "1rem 1rem 4rem" : "1.5rem 1.5rem 6rem", position: "relative", zIndex: 1 }}>
+      <main style={{ maxWidth: "1280px", margin: "0 auto", padding: isPortrait ? "3rem 1rem 4rem" : "1.5rem 1.5rem 6rem", position: "relative", zIndex: 1 }}>
 
         {/* ULTRA-LUXURIOUS APPLE TV STYLE HERO */}
         <section style={{
