@@ -121,6 +121,42 @@ export default function ActivitiesPage() {
   const [surnameQuery, setSurnameQuery] = useState("");
   const [qrModalItem, setQrModalItem] = useState(null);
 
+  // ── Responsive State ────────────────────────────────────────────────────
+  const [windowSize, setWindowSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isPortrait = windowSize.height > windowSize.width;
+  const isIpadPortrait = windowSize.width <= 820 && isPortrait;
+  const isTablet = windowSize.width <= 1180;
+
+  // ── Camera Detection ──────────────────────────────────────────────────────
+  const [hasCamera, setHasCamera] = useState(false);
+
+  useEffect(() => {
+    async function checkCamera() {
+      if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const hasVideoInput = devices.some(device => device.kind === 'videoinput');
+          setHasCamera(hasVideoInput);
+        } catch (err) {
+          console.error("Error checking camera:", err);
+        }
+      }
+    }
+    checkCamera();
+  }, []);
+
   // ── Fake-typing teaser state ────────────────────────────────────────────
   const [teaserDisplay, setTeaserDisplay] = useState("");
   const [inputActive, setInputActive] = useState(false); // true once user interacts
@@ -268,14 +304,14 @@ export default function ActivitiesPage() {
       </div>
 
       {/* Main Content Container */}
-      <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "1.5rem 1.5rem 6rem", position: "relative", zIndex: 1 }}>
+      <main style={{ maxWidth: "1280px", margin: "0 auto", padding: isPortrait ? "1rem 1rem 4rem" : "1.5rem 1.5rem 6rem", position: "relative", zIndex: 1 }}>
 
         {/* ULTRA-LUXURIOUS APPLE TV STYLE HERO */}
         <section style={{
           width: "100%",
-          height: "540px",
+          height: isPortrait ? "400px" : "540px",
           maxHeight: "70vh",
-          borderRadius: "32px",
+          borderRadius: isPortrait ? "24px" : "32px",
           overflow: "hidden",
           position: "relative",
           marginBottom: "3.5rem",
@@ -325,7 +361,7 @@ export default function ActivitiesPage() {
           }}>
             <h1 style={{
               fontFamily: FONT_HEADING,
-              fontSize: "clamp(3.2rem, 6.8vw, 5rem)",
+              fontSize: isPortrait ? "clamp(2.5rem, 7vw, 4rem)" : "clamp(3.2rem, 6.8vw, 5rem)",
               fontWeight: 500,
               lineHeight: 1.05,
               letterSpacing: "-0.02em",
@@ -363,9 +399,9 @@ export default function ActivitiesPage() {
         {/* BRITISH PERSONALITIES SHOWCASE */}
         <section style={{
           background: "linear-gradient(135deg, #27c4f4 0%, #5cd475 25%, #87b940 65%, #7aa835 100%)",
-          borderRadius: "32px",
+          borderRadius: isPortrait ? "24px" : "32px",
           border: "1px solid rgba(255, 255, 255, 0.3)",
-          padding: "2.8rem 2.4rem",
+          padding: isPortrait ? "1.8rem 1.5rem" : "2.8rem 2.4rem",
           marginBottom: "3.5rem",
           boxShadow: "0 20px 50px rgba(135, 185, 64, 0.25)"
         }}>
@@ -623,10 +659,128 @@ export default function ActivitiesPage() {
           </div>
         </section>
 
+        {/* LOOKALIKE SECTION */}
+        {hasCamera && (
+        <section
+          onClick={() => setQrModalItem({ title: "Find Your Look-Alike", url: "https://www.familysearch.org/en/campaign/lookalike/results?CID=RE-00063181" })}
+          style={{
+            background: "linear-gradient(135deg, #4c1d95 0%, #be185d 100%)",
+            borderRadius: isPortrait ? "24px" : "32px",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            padding: isPortrait ? "1.5rem 1.5rem" : "2rem 3rem",
+            marginBottom: "3.5rem",
+            boxShadow: "0 20px 50px rgba(157, 23, 77, 0.25)",
+            cursor: "pointer",
+            position: "relative",
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "2rem"
+          }}
+        >
+          {/* Subtle Background Graphic */}
+          <div style={{
+            position: "absolute",
+            top: "-50px",
+            right: "-50px",
+            width: "300px",
+            height: "300px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)",
+            pointerEvents: "none"
+          }} />
+          
+          <div style={{ 
+            flex: "1 1 400px", 
+            position: "relative", 
+            zIndex: 1,
+            paddingRight: isPortrait ? "2rem" : "4rem"
+          }}>
+            <h2 style={{
+              fontFamily: FONT_HEADING,
+              fontSize: isPortrait ? "2rem" : "2.6rem",
+              fontWeight: 700,
+              color: "#ffffff",
+              margin: "0 0 0.8rem",
+              textShadow: "0 2px 10px rgba(0, 0, 0, 0.15)",
+              lineHeight: 1.1
+            }}>
+              See who you look most like!
+            </h2>
+            <p style={{
+              fontSize: "1.1rem",
+              lineHeight: 1.5,
+              color: "rgba(255, 255, 255, 0.95)",
+              fontWeight: 300,
+              fontFamily: FONT_SANS,
+              margin: "0 0 1.5rem"
+            }}>
+              Compare your photo with famous people and ancestors. Add a photo, let us look for a match, and explore the results!
+            </p>
+            <button
+              style={{
+                background: "linear-gradient(135deg, #06b6d4 0%, #10b981 100%)",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "999px",
+                padding: "0.85rem 1.9rem",
+                fontSize: "1.05rem",
+                fontWeight: 700,
+                fontFamily: FONT_SANS,
+                cursor: "pointer",
+                boxShadow: "0 8px 24px rgba(6, 182, 212, 0.35)",
+                transition: "all 0.2s ease"
+              }}
+            >
+              Compare a Face →
+            </button>
+          </div>
+          
+          {/* Lookalike Graphic / Mock Image */}
+          <div style={{
+            flexShrink: 0,
+            width: isPortrait ? "240px" : "320px",
+            height: isPortrait ? "240px" : "320px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",
+            zIndex: 1
+          }}>
+            {/* The Huge White Circle */}
+            <div style={{
+              position: "absolute",
+              right: isPortrait ? "-330px" : "-440px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: isPortrait ? "600px" : "800px",
+              height: isPortrait ? "600px" : "800px",
+              borderRadius: "50%",
+              backgroundColor: "#ffffff",
+              boxShadow: "-10px 0 40px rgba(0,0,0,0.15)",
+              zIndex: -1
+            }} />
+            
+            <img 
+              src="/assets/lookalike-circles.png" 
+              alt="Lookalike Examples" 
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                zIndex: 1
+              }}
+            />
+          </div>
+        </section>
+        )}
+
         {/* BENTO GRID */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
+          gridTemplateColumns: windowSize.width <= 820 ? "1fr" : "repeat(auto-fit, minmax(340px, 1fr))",
           gap: "1.8rem",
           marginBottom: "4rem"
         }}>
