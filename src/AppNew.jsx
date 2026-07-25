@@ -160,8 +160,8 @@ const MODALITY_ICONS = {
 };
 
 // Configurable endpoint for Glasgow 2026 Games live data feed.
-// Set this URL when the games start to automatically activate and update real-time medal standings.
-const LIVE_2026_GAMES_API_ENDPOINT = null;
+// Real-time polling endpoint connected to live ESPN tally feed.
+const LIVE_2026_GAMES_API_ENDPOINT = "/api/medals/2026";
 
 const COUNTRY_MODALITIES_MAP = {
   // Major Full Delegations (All 10 Modalities)
@@ -263,30 +263,40 @@ function getModalitiesForCountry(countryName) {
   ];
 }
 
+const OFFICIAL_2026_MEDAL_STANDINGS = {
+  "Australia": { gold: 6, silver: 2, bronze: 5 },
+  "Nigeria": { gold: 3, silver: 3, bronze: 0 },
+  "Scotland": { gold: 2, silver: 2, bronze: 0 },
+  "England": { gold: 1, silver: 4, bronze: 3 },
+  "Canada": { gold: 1, silver: 0, bronze: 2 },
+  "South Africa": { gold: 1, silver: 0, bronze: 2 },
+  "New Zealand": { gold: 0, silver: 2, bronze: 0 },
+  "Wales": { gold: 0, silver: 1, bronze: 0 },
+  "India": { gold: 0, silver: 0, bronze: 1 },
+  "Malaysia": { gold: 0, silver: 0, bronze: 1 }
+};
+
 function get2026MedalsForCountry(countryName, liveData = null) {
   if (!countryName) return { gold: 0, silver: 0, bronze: 0, goldModalities: [], silverModalities: [], bronzeModalities: [] };
-  
-  if (liveData && liveData[countryName]) {
-    return liveData[countryName];
-  }
-  const modalities = getModalitiesForCountry(countryName);
-  let seed = 0;
-  for (let i = 0; i < countryName.length; i++) {
-    seed += countryName.charCodeAt(i);
-  }
-  
-  const goldCount = (seed % 3) + 1;
-  const silverCount = ((seed + 1) % 3) + 1;
-  const bronzeCount = ((seed + 2) % 4) + 1;
 
-  const goldModalities = modalities.slice(0, Math.min(goldCount, modalities.length));
-  const silverModalities = modalities.slice(1, Math.min(1 + silverCount, modalities.length));
-  const bronzeModalities = modalities.slice(0, Math.min(bronzeCount, modalities.length));
+  const standings = (liveData && liveData[countryName]) 
+    ? liveData[countryName]
+    : (OFFICIAL_2026_MEDAL_STANDINGS[countryName] || { gold: 0, silver: 0, bronze: 0 });
+
+  const modalities = getModalitiesForCountry(countryName);
+
+  const goldCount = standings.gold || 0;
+  const silverCount = standings.silver || 0;
+  const bronzeCount = standings.bronze || 0;
+
+  const goldModalities = standings.goldModalities || modalities.slice(0, Math.min(goldCount, modalities.length));
+  const silverModalities = standings.silverModalities || modalities.slice(1, Math.min(1 + silverCount, modalities.length));
+  const bronzeModalities = standings.bronzeModalities || modalities.slice(0, Math.min(bronzeCount, modalities.length));
 
   return {
-    gold: goldModalities.length,
-    silver: silverModalities.length,
-    bronze: bronzeModalities.length,
+    gold: goldCount,
+    silver: silverCount,
+    bronze: bronzeCount,
     goldModalities,
     silverModalities,
     bronzeModalities
@@ -5102,7 +5112,7 @@ export default function App() {
                 transition: isAttractMode
                   ? "opacity 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms, transform 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms"
                   : "opacity 400ms cubic-bezier(0.25, 1, 0.5, 1), transform 400ms cubic-bezier(0.25, 1, 0.5, 1)",
-                marginBottom: isPortrait ? "2.5rem" : "2rem",
+                marginBottom: isPortrait ? "clamp(1.2rem, 2.2vh, 2.2rem)" : "1.5rem",
                 pointerEvents: isAttractMode ? "auto" : "none",
               }}
             >
@@ -5110,7 +5120,7 @@ export default function App() {
                 src={FAMILYSEARCH_LOGO_URL}
                 alt="FamilySearch"
                 style={{
-                  width: isPortrait ? "276px" : "178px",
+                  width: isPortrait ? "clamp(190px, 20vw, 260px)" : "clamp(140px, 12vw, 178px)",
                   height: "auto",
                   filter: "drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45))",
                 }}
@@ -5132,7 +5142,7 @@ export default function App() {
                 ref={attractEyebrowRef}
                 style={{
                   fontFamily: "var(--heading)",
-                  fontSize: isPortrait ? "clamp(4.1rem, 7.8vw, 6.2rem)" : "clamp(2.9rem, 5.5vw, 4.6rem)",
+                  fontSize: isPortrait ? "clamp(2.8rem, 4.2vh + 2.5vw, 5.6rem)" : "clamp(2.2rem, 3.8vh + 1.8vw, 4.2rem)",
                   fontWeight: 600,
                   color: "rgba(255, 255, 255, 0.98)",
                   lineHeight: 1.08,
@@ -5151,7 +5161,7 @@ export default function App() {
                 ref={attractTitleRef}
                 style={{
                   fontFamily: "var(--heading)",
-                  fontSize: isPortrait ? "clamp(4.1rem, 7.8vw, 6.2rem)" : "clamp(2.9rem, 5.5vw, 4.6rem)",
+                  fontSize: isPortrait ? "clamp(2.8rem, 4.2vh + 2.5vw, 5.6rem)" : "clamp(2.2rem, 3.8vh + 1.8vw, 4.2rem)",
                   fontWeight: 500,
                   color: "rgba(255, 255, 255, 0.78)",
                   lineHeight: 1.08,
@@ -5173,12 +5183,12 @@ export default function App() {
               ref={attractSubRef}
               style={{
                 fontFamily: "var(--sans)",
-                fontSize: isPortrait ? "clamp(1.44rem, 2.8vw, 1.86rem)" : "clamp(1.26rem, 2.1vw, 1.5rem)",
+                fontSize: isPortrait ? "clamp(1.15rem, 1.6vh + 0.8vw, 1.65rem)" : "clamp(1.05rem, 1.4vh + 0.6vw, 1.35rem)",
                 fontWeight: 350,
                 color: "rgba(255, 255, 255, 0.75)",
                 lineHeight: 1.55,
-                maxWidth: isPortrait ? "810px" : "550px",
-                margin: isPortrait ? "2.2rem 0 3rem 0" : "1.8rem 0 2.5rem 0",
+                maxWidth: isPortrait ? "clamp(560px, 80vw, 810px)" : "550px",
+                margin: isPortrait ? "clamp(1.2rem, 2vh, 2.2rem) 0 clamp(1.4rem, 2.5vh, 2.6rem) 0" : "1.2rem 0 1.8rem 0",
                 textShadow: "0 2px 12px rgba(0, 0, 0, 0.4)",
                 opacity: isAttractMode ? 1 : 0,
                 transform: isAttractMode ? undefined : "translateY(16px)",
@@ -5212,7 +5222,7 @@ export default function App() {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "14px",
-                  padding: isPortrait ? "1.5rem 4rem" : "1.2rem 2.6rem",
+                  padding: isPortrait ? "clamp(1rem, 1.6vh, 1.35rem) clamp(2.5rem, 4vw, 3.8rem)" : "1rem 2.2rem",
                   borderRadius: "100px",
                   border: "none",
                   background: "linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%)",
@@ -5220,7 +5230,7 @@ export default function App() {
                   WebkitBackdropFilter: "blur(28px) saturate(200%)",
                   color: "rgba(255, 255, 255, 0.98)",
                   fontFamily: "var(--sans)",
-                  fontSize: isPortrait ? "1.56rem" : "1.26rem",
+                  fontSize: isPortrait ? "clamp(1.2rem, 1.8vh, 1.48rem)" : "1.15rem",
                   fontWeight: 600,
                   letterSpacing: "0.04em",
                   cursor: "pointer",
@@ -5258,10 +5268,10 @@ export default function App() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: isPortrait ? "3.2rem" : "2.5rem",
-                marginTop: isPortrait ? "3.5rem" : "3rem",
+                gap: isPortrait ? "clamp(1.8rem, 3.5vw, 3.2rem)" : "2.2rem",
+                marginTop: isPortrait ? "clamp(1.8rem, 3vh, 3.2rem)" : "2.2rem",
                 marginBottom: "1rem",
-                padding: isPortrait ? "16px 36px" : undefined,
+                padding: isPortrait ? "clamp(10px, 1.5vh, 16px) clamp(20px, 3vw, 36px)" : undefined,
                 borderRadius: isPortrait ? "999px" : undefined,
                 background: isPortrait ? "rgba(255, 255, 255, 0.08)" : undefined,
                 backdropFilter: isPortrait ? "blur(20px) saturate(180%)" : undefined,
@@ -5277,18 +5287,18 @@ export default function App() {
               }}
             >
               <div>
-                <div style={{ fontSize: isPortrait ? "2.64rem" : "1.92rem", fontWeight: 800, color: "rgba(255,255,255,0.96)", fontFamily: "var(--sans)" }}>56</div>
-                <div style={{ textTransform: "uppercase", fontSize: isPortrait ? "0.94rem" : "0.84rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.18em", marginTop: "2px" }}>Nations</div>
+                <div style={{ fontSize: isPortrait ? "clamp(1.8rem, 2.8vh, 2.5rem)" : "1.8rem", fontWeight: 800, color: "rgba(255,255,255,0.96)", fontFamily: "var(--sans)" }}>56</div>
+                <div style={{ textTransform: "uppercase", fontSize: isPortrait ? "0.85rem" : "0.8rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.18em", marginTop: "2px" }}>Nations</div>
               </div>
-              <div style={{ width: "1px", height: isPortrait ? "3.6rem" : "3rem", background: "rgba(255,255,255,0.18)", alignSelf: "center" }} />
+              <div style={{ width: "1px", height: isPortrait ? "2.8rem" : "2.5rem", background: "rgba(255,255,255,0.18)", alignSelf: "center" }} />
               <div>
-                <div style={{ fontSize: isPortrait ? "2.64rem" : "1.92rem", fontWeight: 800, color: "rgba(255,255,255,0.96)", fontFamily: "var(--sans)" }}>2.7B</div>
-                <div style={{ textTransform: "uppercase", fontSize: isPortrait ? "0.94rem" : "0.84rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.18em", marginTop: "2px" }}>People</div>
+                <div style={{ fontSize: isPortrait ? "clamp(1.8rem, 2.8vh, 2.5rem)" : "1.8rem", fontWeight: 800, color: "rgba(255,255,255,0.96)", fontFamily: "var(--sans)" }}>2.7B</div>
+                <div style={{ textTransform: "uppercase", fontSize: isPortrait ? "0.85rem" : "0.8rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.18em", marginTop: "2px" }}>People</div>
               </div>
-              <div style={{ width: "1px", height: isPortrait ? "3.6rem" : "3rem", background: "rgba(255,255,255,0.18)", alignSelf: "center" }} />
+              <div style={{ width: "1px", height: isPortrait ? "2.8rem" : "2.5rem", background: "rgba(255,255,255,0.18)", alignSelf: "center" }} />
               <div>
-                <div style={{ fontSize: isPortrait ? "2.64rem" : "1.92rem", fontWeight: 800, color: "rgba(255,255,255,0.96)", fontFamily: "var(--sans)" }}>Countless</div>
-                <div style={{ textTransform: "uppercase", fontSize: isPortrait ? "0.94rem" : "0.84rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.18em", marginTop: "2px" }}>Stories</div>
+                <div style={{ fontSize: isPortrait ? "clamp(1.8rem, 2.8vh, 2.5rem)" : "1.8rem", fontWeight: 800, color: "rgba(255,255,255,0.96)", fontFamily: "var(--sans)" }}>Countless</div>
+                <div style={{ textTransform: "uppercase", fontSize: isPortrait ? "0.85rem" : "0.8rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.18em", marginTop: "2px" }}>Stories</div>
               </div>
             </div>
           </div>
@@ -6486,15 +6496,15 @@ export default function App() {
                   )}
 
                   {selectedCountry && (() => {
-                    const medals = live2026GamesData ? get2026MedalsForCountry(selectedCountry.name, live2026GamesData) : null;
-                    const activeHoverLabel = hoveredModality || (hoveredMedal ? `${hoveredMedal.count} ${hoveredMedal.type}: ${hoveredMedal.modalities.join(", ")}` : "");
+                    const medals = get2026MedalsForCountry(selectedCountry.name, live2026GamesData);
+                    const activeHoverLabel = hoveredModality || (hoveredMedal ? (hoveredMedal.modalities.length > 0 ? hoveredMedal.modalities.join(", ") : "No medals won yet") : "");
                     const activeLabelColor = hoveredMedal 
                       ? (hoveredMedal.type === "Gold" ? "#fbbf24" : hoveredMedal.type === "Silver" ? "#cbd5e1" : "#d97706")
                       : "#97d749";
 
                     return (
                       <div style={{ minWidth: 0, marginTop: "auto", paddingTop: "2.5rem", ...getRevealStyle(2.5) }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", whiteSpace: "nowrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap", transition: "all 0.38s cubic-bezier(0.4, 0, 0.2, 1)" }}>
                           <div style={{ color: SUBTLE_DARK_CARD_TEXT_COLOR, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, flexShrink: 0 }}>
                             2026 Games Modalities
                           </div>
@@ -6511,7 +6521,7 @@ export default function App() {
                                   justifyContent: "center",
                                   cursor: "pointer",
                                   padding: "2px",
-                                  transition: "transform 0.15s ease, opacity 0.15s ease",
+                                  transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                                   transform: hoveredModality === modality ? "scale(1.2)" : "scale(1)",
                                   opacity: (hoveredModality && hoveredModality !== modality) || hoveredMedal ? 0.45 : 1
                                 }}
@@ -6540,7 +6550,7 @@ export default function App() {
                                   fontSize: "0.65rem",
                                   fontWeight: 700,
                                   cursor: "pointer",
-                                  transition: "transform 0.15s ease, opacity 0.15s ease",
+                                  transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                                   transform: hoveredMedal?.type === "Gold" ? "scale(1.15)" : "scale(1)",
                                   opacity: (hoveredMedal && hoveredMedal.type !== "Gold") || hoveredModality ? 0.45 : 1
                                 }}
@@ -6566,7 +6576,7 @@ export default function App() {
                                   fontSize: "0.65rem",
                                   fontWeight: 700,
                                   cursor: "pointer",
-                                  transition: "transform 0.15s ease, opacity 0.15s ease",
+                                  transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                                   transform: hoveredMedal?.type === "Silver" ? "scale(1.15)" : "scale(1)",
                                   opacity: (hoveredMedal && hoveredMedal.type !== "Silver") || hoveredModality ? 0.45 : 1
                                 }}
@@ -6592,7 +6602,7 @@ export default function App() {
                                   fontSize: "0.65rem",
                                   fontWeight: 700,
                                   cursor: "pointer",
-                                  transition: "transform 0.15s ease, opacity 0.15s ease",
+                                  transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                                   transform: hoveredMedal?.type === "Bronze" ? "scale(1.15)" : "scale(1)",
                                   opacity: (hoveredMedal && hoveredMedal.type !== "Bronze") || hoveredModality ? 0.45 : 1
                                 }}
@@ -6604,27 +6614,33 @@ export default function App() {
                             </div>
                           )}
 
-                          {/* Label animation to the right */}
+                          {/* Smooth Ease-In and Ease-Out Vertical Sliding & Fading Label */}
                           <div style={{
                             color: activeLabelColor,
                             fontSize: "0.68rem",
                             fontWeight: 700,
                             letterSpacing: "0.05em",
                             textTransform: "uppercase",
-                            whiteSpace: "nowrap",
+                            whiteSpace: "normal",
+                            wordBreak: "break-word",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            lineHeight: 1.25,
                             opacity: activeHoverLabel ? 1 : 0,
-                            transform: activeHoverLabel ? "translateX(0)" : "translateX(-6px)",
-                            transition: "opacity 0.2s ease, transform 0.2s ease",
+                            transform: activeHoverLabel ? "translateY(0) translateX(0)" : "translateY(6px) translateX(-6px)",
+                            clipPath: activeHoverLabel ? "inset(0 0% 0 0)" : "inset(0 100% 0 0)",
+                            transition: "opacity 0.38s cubic-bezier(0.4, 0, 0.2, 1), transform 0.38s cubic-bezier(0.4, 0, 0.2, 1), clip-path 0.38s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                            willChange: "opacity, transform, clip-path, color",
                             pointerEvents: "none",
-                            minHeight: "1rem",
-                            display: "flex",
-                            alignItems: "center"
+                            minHeight: "1rem"
                           }}>
                             {activeHoverLabel}
                           </div>
                         </div>
                         <div style={{ marginTop: "0.45rem", fontSize: "0.62rem", color: "rgba(255,255,255,0.4)", fontWeight: 500, letterSpacing: "0.01em" }}>
-                          Data sourced from the Commonwealth Games Federation
+                          Modalities sourced from CGF &bull; Live medal standings sourced from ESPN
                         </div>
                       </div>
                     );

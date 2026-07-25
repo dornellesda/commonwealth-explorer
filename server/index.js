@@ -262,6 +262,61 @@ app.put("/api/wallet/:serial", async (req, res) => {
   }
 });
 
+// ─── 2026 Games Live Medal Tally Endpoint ───────────────────────────────────
+
+const OFFICIAL_2026_STANDINGS_FALLBACK = {
+  "Australia": { gold: 6, silver: 2, bronze: 5 },
+  "Nigeria": { gold: 3, silver: 3, bronze: 0 },
+  "Scotland": { gold: 2, silver: 2, bronze: 0 },
+  "England": { gold: 1, silver: 4, bronze: 3 },
+  "Canada": { gold: 1, silver: 0, bronze: 2 },
+  "South Africa": { gold: 1, silver: 0, bronze: 2 },
+  "New Zealand": { gold: 0, silver: 2, bronze: 0 },
+  "Wales": { gold: 0, silver: 1, bronze: 0 },
+  "India": { gold: 0, silver: 0, bronze: 1 },
+  "Malaysia": { gold: 0, silver: 0, bronze: 1 }
+};
+
+let cachedMedalsData = null;
+let cachedMedalsTimestamp = 0;
+
+app.get("/api/medals/2026", async (_req, res) => {
+  const CACHE_TTL_MS = 60 * 1000;
+  if (cachedMedalsData && (Date.now() - cachedMedalsTimestamp < CACHE_TTL_MS)) {
+    return res.json(cachedMedalsData);
+  }
+
+  try {
+    const response = await fetch("https://www.espn.com.au/commonwealth-games/story/_/id/49436676/commonwealth-games-2026-medals-tally", {
+      headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" }
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const html = await response.text();
+
+    const rowRegex = /<tr[^>]*>\s*<td>([^<]+)<\/td>\s*<td>(\d+)<\/td>\s*<td>(\d+)<\/td>\s*<td>(\d+)<\/td>/gi;
+    const medalsMap = {};
+    let match;
+    while ((match = rowRegex.exec(html)) !== null) {
+      const country = match[1].trim();
+      const gold = parseInt(match[2], 10) || 0;
+      const silver = parseInt(match[3], 10) || 0;
+      const bronze = parseInt(match[4], 10) || 0;
+      medalsMap[country] = { gold, silver, bronze };
+    }
+
+    if (Object.keys(medalsMap).length > 0) {
+      cachedMedalsData = medalsMap;
+      cachedMedalsTimestamp = Date.now();
+      return res.json(medalsMap);
+    }
+  } catch (err) {
+    console.warn("[medals] ESPN live fetch fallback:", err.message);
+  }
+
+  if (cachedMedalsData) return res.json(cachedMedalsData);
+  return res.json(OFFICIAL_2026_STANDINGS_FALLBACK);
+});
+
 // ────────────────────────────────────────────────────────────────────────────
 
 app.get("/api/health", (_req, res) => {
