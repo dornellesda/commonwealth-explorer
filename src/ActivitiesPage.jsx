@@ -662,7 +662,7 @@ export default function ActivitiesPage() {
         {/* LOOKALIKE SECTION */}
         {hasCamera && (
         <section
-          onClick={() => setQrModalItem({ title: "Find Your Look-Alike", url: "https://www.familysearch.org/en/campaign/lookalike/results?CID=RE-00063181" })}
+          onClick={() => setQrModalItem({ title: "Find Your Look-Alike", url: "https://www.familysearch.org/en/discovery/compareme/celebrities?RE-00063181" })}
           style={{
             background: "linear-gradient(135deg, #4c1d95 0%, #be185d 100%)",
             borderRadius: isPortrait ? "24px" : "32px",
